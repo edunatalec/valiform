@@ -11,7 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  validart: ^0.0.2
+  validart: ^0.0.4
 
 dev_dependencies:
   flutter_test:
