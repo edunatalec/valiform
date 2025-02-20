@@ -3,7 +3,7 @@ import 'package:valiform/valiform.dart';
 
 extension ValidartExtension on Validart {
   VForm form(
-    Map<String, VType> map, {
+    VMap map, {
     GlobalKey<FormState>? formKey,
     Map<String, dynamic>? defaultValues,
   }) {

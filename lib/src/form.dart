@@ -9,17 +9,15 @@ class VForm {
   final Map<String, dynamic> _defaultValues = {};
 
   VForm(
-    Map<String, VType> map, {
+    this._map, {
     GlobalKey<FormState>? formKey,
     Map<String, dynamic>? defaultValues,
-  })  : assert(map.isNotEmpty, 'Map must have at least one field.'),
-        _formKey = formKey ?? GlobalKey<FormState>(),
-        _map = VMap(map, MapMessage()) {
+  }) : _formKey = formKey ?? GlobalKey<FormState>() {
     if (defaultValues != null) {
       _defaultValues.addAll(defaultValues);
     }
 
-    for (final entry in map.entries) {
+    for (final entry in _map.object.entries) {
       if (entry.value is VString) {
         _fields[entry.key] = VField<String>(
           type: entry.value as VString,
