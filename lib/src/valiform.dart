@@ -14,3 +14,16 @@ extension ValidartExtension on Validart {
     );
   }
 }
+
+extension VMapExtension on VMap {
+  VForm form({
+    GlobalKey<FormState>? formKey,
+    Map<String, dynamic>? defaultValues,
+  }) {
+    return VForm(
+      this,
+      formKey: formKey,
+      defaultValues: defaultValues,
+    );
+  }
+}

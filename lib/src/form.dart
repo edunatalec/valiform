@@ -18,30 +18,47 @@ class VForm {
     }
 
     for (final entry in _map.object.entries) {
+      final validators = _map.validators.where((validator) {
+        return validator is RefineMapValidator && validator.path == entry.key;
+      }).map((validator) {
+        return () => validator.validate(value);
+      }).toList();
+
       if (entry.value is VString) {
         _fields[entry.key] = VField<String>(
           type: entry.value as VString,
           initialValue: defaultValues?[entry.key],
+          validators: validators,
         );
       } else if (entry.value is VInt) {
         _fields[entry.key] = VField<int>(
           type: entry.value as VInt,
           initialValue: defaultValues?[entry.key],
+          validators: validators,
         );
       } else if (entry.value is VDouble) {
         _fields[entry.key] = VField<double>(
           type: entry.value as VDouble,
           initialValue: defaultValues?[entry.key],
+          validators: validators,
         );
       } else if (entry.value is VNum) {
         _fields[entry.key] = VField<num>(
           type: entry.value as VNum,
           initialValue: defaultValues?[entry.key],
+          validators: validators,
         );
       } else if (entry.value is VBool) {
         _fields[entry.key] = VField<bool>(
           type: entry.value as VBool,
           initialValue: defaultValues?[entry.key],
+          validators: validators,
+        );
+      } else if (entry.value is VDate) {
+        _fields[entry.key] = VField<DateTime>(
+          type: entry.value as VDate,
+          initialValue: defaultValues?[entry.key],
+          validators: validators,
         );
       }
     }

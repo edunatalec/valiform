@@ -5,15 +5,18 @@ class VField<T> {
   final VType<T> _type;
   final ValueNotifier<T?> _value;
   final T? _initialValue;
+  final List<String? Function()> _validators;
 
   TextEditingController? _controller;
 
   VField({
     required VType<T> type,
+    required List<String? Function()> validators,
     T? initialValue,
   })  : _type = type,
         _initialValue = initialValue,
-        _value = ValueNotifier<T?>(initialValue);
+        _value = ValueNotifier<T?>(initialValue),
+        _validators = validators;
 
   Listenable get listenable => _value;
 
@@ -27,7 +30,7 @@ class VField<T> {
   }
 
   TextEditingController? get controller {
-    if (T is String) {
+    if (T == String && _controller == null) {
       _controller ??= TextEditingController(text: value?.toString());
     }
 
@@ -57,12 +60,24 @@ class VField<T> {
     _controller?.text = _initialValue?.toString() ?? '';
   }
 
-  String? validator(T? value) => _type.getErrorMessage(value) as String?;
+  String? validator(T? value) {
+    final error = _type.getErrorMessage(value) as String?;
+
+    if (error != null) return error;
+
+    for (final validator in _validators) {
+      final message = validator();
+
+      if (message != null) return message;
+    }
+
+    return null;
+  }
 
   bool validate() => _type.validate(value);
 
   void dispose() {
-    _value.dispose();
     _controller?.dispose();
+    _value.dispose();
   }
 }
