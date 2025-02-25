@@ -1,5 +1,5 @@
 name: valiform
-description: 'A new Flutter package project.'
+description: 'Valiform is a Flutter form validation library based on Validart. It provides efficient and reactive validations for various field types.'
 version: 0.0.1
 repository: https://github.com/edunatalec/valiform
 
@@ -11,7 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  validart: ^0.0.4
+  validart: ^0.1.1
 
 dev_dependencies:
   flutter_test:
