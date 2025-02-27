@@ -23,16 +23,76 @@ dependencies:
 ## Basic Usage
 
 ```dart
-import 'package:flutter/material.dart';
-import 'package:valiform/valiform.dart';
-
+// Use a global instance
 final v = Validart();
 
-void main() {
-  final form = v.map({
-    'name': VString(minLength: 3),
-    'age': VInt(min: 18),
-  }).form();
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  late final VForm _form;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _form = v.map({
+      'email': v.string().email(),
+      'password': v.string().password(),
+    }).form();
+  }
+
+  @override
+  void dispose() {
+    _form.dispose();
+
+    super.dispose();
+  }
+
+  VField<String> get _email => _form.field('email');
+  VField<String> get _password => _form.field('password');
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Login')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _form.key,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              TextFormField(
+                decoration: InputDecoration(hintText: 'Email'),
+                validator: _email.validator,
+                onChanged: _email.onChanged,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                decoration: InputDecoration(hintText: 'Password'),
+                validator: _password.validator,
+                onChanged: _password.onChanged,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  if (_form.validate()) {
+                    // Code
+                  }
+                },
+                child: const Text('Continue'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 ```
 
@@ -41,21 +101,49 @@ void main() {
 You can use the `listenable` property of the form or individual fields to reactively update the UI:
 
 ```dart
-class ExampleWidget extends StatelessWidget {
-  final VForm form;
-
-  const ExampleWidget({super.key, required this.form});
-
-  @override
-  Widget build(BuildContext context) {
-    return ObserverWidget(
-      listenable: form.listenable,
-      builder: (context) {
-        return Text("Current Form Value: ${form.value}");
-      },
-    );
-  }
-}
+Form(
+  key: _form.key,
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.end,
+    children: [
+      TextFormField(
+        decoration: InputDecoration(hintText: 'Email'),
+        validator: _email.validator,
+        onChanged: _email.onChanged,
+      ),
+      const SizedBox(height: 4),
+      ObserverWidget(
+        listenable: _email.listenable,
+        builder: (_) => Text(_email.value ?? ''),
+      ),
+      const SizedBox(height: 8),
+      TextFormField(
+        decoration: InputDecoration(hintText: 'Password'),
+        validator: _password.validator,
+        onChanged: _password.onChanged,
+      ),
+      const SizedBox(height: 4),
+      ObserverWidget(
+        listenable: _email.listenable,
+        builder: (_) => Text(_password.value ?? ''),
+      ),
+      // or
+      // ObserverWidget(
+      //  listenable: _form.listenable,
+      //  builder: (_) => Text(_password.value),
+      //),
+      const SizedBox(height: 16),
+      ElevatedButton(
+        onPressed: () {
+          if (_form.validate()) {
+            // Code
+          }
+        },
+        child: const Text('Continue'),
+      ),
+    ],
+  ),
+)
 
 class ObserverWidget extends StatelessWidget {
   final Listenable listenable;
@@ -71,7 +159,7 @@ class ObserverWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: listenable,
-      builder: (context, __) => builder(context),
+      builder: (context, _) => builder(context),
     );
   }
 }
