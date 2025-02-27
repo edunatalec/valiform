@@ -1,6 +1,6 @@
 name: valiform
 description: 'Valiform is a Flutter form validation library based on Validart. It provides efficient and reactive validations for various field types.'
-version: 0.0.1
+version: 0.0.2
 repository: https://github.com/edunatalec/valiform
 
 environment:
