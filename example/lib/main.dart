@@ -146,7 +146,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
     _form = v.form(
       v.map({
-        'name': v.string().email(),
+        'name': v.string().min(3),
         'email': v.string().email(),
         'password': v.string().password(),
         'confirmPassword': v.string().password(),
