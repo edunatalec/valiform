@@ -1,3 +1,13 @@
+## [0.0.3] - 2025-02-27
+
+### Fixed
+
+- Corrected an incorrect validation in the example.
+
+### Changed
+
+- Updated the README with a redirect link to the example for more details.
+
 ## [0.0.2] - 2025-02-27
 
 ## Added
