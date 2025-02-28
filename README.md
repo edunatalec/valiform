@@ -5,6 +5,8 @@
 
 **Valiform** is a package for managing and validating forms in Flutter, built on top of **validart**. It provides a simple interface for handling form states, validation, and integration with `FormState`.
 
+For more details and a complete example, visit the [official example](https://pub.dev/packages/valiform/example) on pub.dev.
+
 ## Installation
 
 Add **valiform** to your project:
