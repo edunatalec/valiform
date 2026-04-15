@@ -1,191 +1,174 @@
-import 'package:valiform/src/field.dart';
 import 'package:flutter/widgets.dart';
+import 'package:valiform/src/field.dart';
+import 'package:valiform/src/valiform.dart';
 import 'package:validart/validart.dart';
 
 /// A form manager that integrates validation, state management, and input handling.
 ///
-/// The `VForm` class represents a **validatable form** that holds multiple fields (`VField<T>`).
-/// It is built on top of `Validart` and provides utilities for:
-/// - **Field validation and error handling**.
-/// - **State management using `GlobalKey<FormState>`**.
-/// - **Automatic form reset, clear, and disposal**.
-/// - **Listening to field changes** for UI updates.
-///
-/// ### Features
-/// - **Automatic Field Validation**: Ensures that fields follow their validation rules.
-/// - **Global Form Key**: Integrates seamlessly with Flutter’s `Form` widget.
-/// - **Custom Initial Values**: Allows setting default field values.
-/// - **Typed Field Access**: Retrieves `VField<T>` safely with `field<T>()`.
-///
-/// ### Example
-/// ```dart
-/// final form = v.map({
-///   'email': v.string().email(),
-///   'password': v.string().password(),
-/// }).form();
-///
-/// final emailField = form.field<String>('email');
-///
-/// print(emailField.validate()); // Returns true if valid
-/// print(form.validate()); // Returns true if all fields are valid
-///
-/// form.reset(); // Resets to initial values
-/// form.clear(); // Clears all fields
-/// form.dispose(); // Cleans up resources
-/// ```
-class VForm {
-  /// The underlying `VMap` validation schema for the form.
-  final VMap _map;
-
-  /// The form state key, used for integrating with Flutter's `Form` widget.
+/// `VForm<T>` is generic over the value type:
+/// - `VForm<Map<String, dynamic>>` when created from a `VMap`
+/// - `VForm<YourClass>` when created from a `VObject<YourClass>`
+class VForm<T> {
   final GlobalKey<FormState> _formKey;
-
-  /// A collection of form fields, mapped by field name.
   final Map<String, VField> _fields = {};
-
-  /// Stores the initial default values for the form.
   final Map<String, dynamic> _defaultValues = {};
+  final bool Function(Map<String, dynamic>) _silentValidator;
+  final T Function(Map<String, dynamic>) _valueBuilder;
+  final List<void Function(T value)> _valueChangedListeners = [];
 
-  /// Creates a new `VForm` instance from a `VMap` schema.
-  ///
-  /// - [formKey]: *(optional)* A custom `GlobalKey<FormState>` to use.
-  /// - [defaultValues]: *(optional)* A map of initial values for form fields.
-  ///
-  /// ### Example
-  /// ```dart
-  /// final form = v.map({
-  ///   'email': v.string().email(),
-  ///   'age': v.int().min(18),
-  /// }).form(defaultValues: {'email': 'user@example.com', 'age': 25});
-  /// ```
-  VForm(
-    this._map, {
+  VForm._({
+    required Map<String, VType> schema,
+    required bool Function(Map<String, dynamic>) silentValidator,
+    required T Function(Map<String, dynamic>) valueBuilder,
     GlobalKey<FormState>? formKey,
     Map<String, dynamic>? defaultValues,
-  }) : _formKey = formKey ?? GlobalKey<FormState>() {
+    List<VFieldValidator> crossValidators = const [],
+    void Function(T value)? onValueChanged,
+  })  : _formKey = formKey ?? GlobalKey<FormState>(),
+        _silentValidator = silentValidator,
+        _valueBuilder = valueBuilder {
     if (defaultValues != null) {
       _defaultValues.addAll(defaultValues);
     }
 
-    // Initializes fields based on the validation map.
-    for (final entry in _map.object.entries) {
+    for (final entry in schema.entries) {
       final key = entry.key;
       final type = entry.value;
 
-      final validators = _map.validators
-          .where((validator) =>
-              validator is RefineMapValidator && validator.path == key)
-          .map((validator) => () => validator.validate(value))
+      final validators = crossValidators
+          .where((v) => v.path == key)
+          .map((v) => () {
+                if (!v.check(rawValue)) return v.message ?? V.t(VCode.custom);
+                return null;
+              })
           .toList();
 
-      if (type is VString) {
-        _fields[key] = VField<String>(
-          type: type,
-          initialValue: defaultValues?[key],
-          validators: validators,
-        );
-      } else if (type is VInt) {
-        _fields[key] = VField<int>(
-          type: type,
-          initialValue: defaultValues?[key],
-          validators: validators,
-        );
-      } else if (type is VDouble) {
-        _fields[key] = VField<double>(
-          type: type,
-          initialValue: defaultValues?[key],
-          validators: validators,
-        );
-      } else if (type is VNum) {
-        _fields[key] = VField<num>(
-          type: type,
-          initialValue: defaultValues?[key],
-          validators: validators,
-        );
-      } else if (type is VBool) {
-        _fields[key] = VField<bool>(
-          type: type,
-          initialValue: defaultValues?[key],
-          validators: validators,
-        );
-      } else if (type is VDate) {
-        _fields[key] = VField<DateTime>(
-          type: type,
-          initialValue: defaultValues?[key],
-          validators: validators,
-        );
-      }
+      _fields[key] = _createField(
+        type: type,
+        initialValue: defaultValues?[key],
+        validators: validators,
+      );
+    }
+
+    if (onValueChanged != null) {
+      _valueChangedListeners.add(onValueChanged);
+    }
+
+    listenable.addListener(_notifyValueChanged);
+  }
+
+  /// Creates a `VForm` from a `VMap` schema.
+  ///
+  /// The resulting form's [value] returns `Map<String, dynamic>`.
+  factory VForm.map(
+    VMap map, {
+    GlobalKey<FormState>? formKey,
+    Map<String, dynamic>? defaultValues,
+    void Function(T value)? onValueChanged,
+  }) {
+    final crossValidators = formFieldValidators[map] ?? [];
+
+    return VForm._(
+      schema: map.schema,
+      silentValidator: (raw) => map.validate(raw),
+      valueBuilder: (raw) => raw as T,
+      formKey: formKey,
+      defaultValues: defaultValues,
+      crossValidators: crossValidators,
+      onValueChanged: onValueChanged,
+    );
+  }
+
+  /// Creates a `VForm` from a `VObject<T>` schema.
+  ///
+  /// Requires a [builder] function to construct `T` from the field values.
+  /// Accepts an optional [defaultValue] of type `T` to set initial field values.
+  /// The resulting form's [value] returns an instance of `T`.
+  factory VForm.object(
+    VObject<T> object, {
+    required T Function(Map<String, dynamic> data) builder,
+    GlobalKey<FormState>? formKey,
+    T? defaultValue,
+    void Function(T value)? onValueChanged,
+  }) {
+    final defaultValues =
+        defaultValue != null ? object.extract(defaultValue) : null;
+
+    return VForm._(
+      schema: object.schema,
+      silentValidator: (raw) => object.validate(builder(raw)),
+      valueBuilder: builder,
+      formKey: formKey,
+      defaultValues: defaultValues,
+      onValueChanged: onValueChanged,
+    );
+  }
+
+  void _notifyValueChanged() {
+    final current = value;
+    for (final listener in _valueChangedListeners) {
+      listener(current);
     }
   }
 
   /// The global form key used for managing form state.
-  ///
-  /// This key can be used inside a `Form` widget:
-  /// ```dart
-  /// Form(
-  ///   key: form.key,
-  ///   child: Column(
-  ///     children: [
-  ///       TextFormField(controller: form.field<String>('email').controller),
-  ///     ],
-  ///   ),
-  /// )
-  /// ```
   GlobalKey<FormState> get key => _formKey;
 
-  /// A combined `Listenable` object for detecting changes across all fields.
-  ///
-  /// Can be used with `ValueListenableBuilder` to update UI reactively.
+  /// A combined `Listenable` for detecting changes across all fields.
   Listenable get listenable {
     return Listenable.merge(
       _fields.values.map((field) => field.listenable),
     );
   }
 
-  /// Retrieves the current values of all fields as a `Map<String, dynamic>`.
-  ///
-  /// ```dart
-  /// print(form.value); // {'email': 'user@example.com', 'age': 25}
-  /// ```
-  Map<String, dynamic> get value {
+  /// The raw field values as a `Map<String, dynamic>` (without transforms).
+  Map<String, dynamic> get rawValue {
     return _fields.map((key, field) => MapEntry(key, field.value));
   }
 
+  /// The form value with transforms applied (trim, toLowerCase, etc.).
+  ///
+  /// - For `VMap` forms: returns `Map<String, dynamic>`
+  /// - For `VObject` forms: returns an instance of `T` built by the builder
+  T get value => _valueBuilder(
+        _fields.map((key, field) => MapEntry(key, field.parsedValue)),
+      );
+
   /// Retrieves a specific form field by its key.
   ///
-  /// Ensures type safety, throwing an error if the type does not match.
-  ///
-  /// ```dart
-  /// final emailField = form.field<String>('email');
-  /// ```
-  ///
-  /// ### Throws:
-  /// - `ArgumentError` if the field does not exist.
-  /// - `ArgumentError` if the field type does not match the expected type.
-  VField<T> field<T>(String key) {
+  /// Throws [ArgumentError] if the field does not exist or the type does not match.
+  VField<F> field<F>(String key) {
     final field = _fields[key];
 
     if (field == null) {
       throw ArgumentError('The field "$key" does not exist.');
     }
 
-    if (field is! VField<T>) {
+    if (field is! VField<F>) {
       throw ArgumentError(
-        'The field "$key" is of type ${field.runtimeType}, not VField<$T>.',
+        'The field "$key" is of type ${field.runtimeType}, not VField<$F>.',
       );
     }
 
     return field;
   }
 
-  /// Calls `onSaved` on all fields, saving the current form state.
+  /// Adds a listener that is called whenever any field value changes.
+  ///
+  /// The listener receives the current form value of type `T`.
+  void addValueChangedListener(void Function(T value) listener) {
+    _valueChangedListeners.add(listener);
+  }
+
+  /// Removes a previously added value changed listener.
+  void removeValueChangedListener(void Function(T value) listener) {
+    _valueChangedListeners.remove(listener);
+  }
+
+  /// Calls `onSaved` on all fields.
   void save() => _formKey.currentState?.save();
 
   /// Resets all form fields to their initial values.
-  ///
-  /// ```dart
-  /// form.reset(); // Restores default values
-  /// ```
   void reset() {
     _formKey.currentState?.reset();
     for (final field in _fields.values) {
@@ -194,10 +177,6 @@ class VForm {
   }
 
   /// Clears all fields in the form.
-  ///
-  /// ```dart
-  /// form.clear(); // Empties all fields
-  /// ```
   void clear() {
     _formKey.currentState?.reset();
     for (final field in _fields.values) {
@@ -205,36 +184,33 @@ class VForm {
     }
   }
 
-  /// Validates all form fields and returns `true` if all fields are valid.
-  ///
-  /// ```dart
-  /// bool isValid = form.validate();
-  /// ```
+  /// Validates all form fields and returns `true` if all are valid.
   bool validate() => _formKey.currentState?.validate() ?? false;
 
-  /// Performs validation **without triggering UI error messages**.
-  ///
-  /// This is useful for checking field validity without displaying errors.
-  ///
-  /// ```dart
-  /// bool isValid = form.silentValidate();
-  /// ```
-  bool silentValidate() => _map.validate(value);
+  /// Validates without triggering UI error messages.
+  bool silentValidate() => _silentValidator(
+        _fields.map((key, field) => MapEntry(key, field.parsedValue)),
+      );
 
   /// Disposes all fields and releases resources.
-  ///
-  /// This method **must** be called when the form is no longer needed.
-  ///
-  /// ```dart
-  /// @override
-  /// void dispose() {
-  ///   form.dispose();
-  ///   super.dispose();
-  /// }
-  /// ```
   void dispose() {
+    _valueChangedListeners.clear();
     for (final field in _fields.values) {
       field.dispose();
     }
+  }
+
+  static VField _createField({
+    required VType type,
+    required dynamic initialValue,
+    required List<String? Function()> validators,
+  }) {
+    return type.mapType(<F>(VType<F> t) {
+      return VField<F>(
+        type: t,
+        initialValue: initialValue as F?,
+        validators: validators,
+      );
+    });
   }
 }
