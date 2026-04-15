@@ -596,6 +596,60 @@ void main() {
       form.dispose();
     });
   });
+
+  group('Conditional validation (when)', () {
+    late VForm<Map<String, dynamic>> form;
+
+    setUp(() {
+      form = V.map({
+        'type': V.string(),
+        'document': V.string().nullable(),
+      }).when('type', equals: 'company', then: {
+        'document': V.string().min(14),
+      }).form();
+    });
+
+    tearDown(() {
+      form.dispose();
+    });
+
+    test('No error when condition is not met', () {
+      form.field<String>('type').set('person');
+      form.field<String>('document').set(null);
+
+      expect(form.field<String>('document').validator(null), isNull);
+    });
+
+    test('Error when condition is met and value is invalid', () {
+      form.field<String>('type').set('company');
+      form.field<String>('document').set('123');
+
+      expect(form.field<String>('document').validator('123'), isNotNull);
+    });
+
+    test('No error when condition is met and value is valid', () {
+      form.field<String>('type').set('company');
+      form.field<String>('document').set('12345678901234');
+
+      expect(
+        form.field<String>('document').validator('12345678901234'),
+        isNull,
+      );
+    });
+
+    test('silentValidate respects when rules', () {
+      form.field<String>('type').set('company');
+      form.field<String>('document').set('123');
+      expect(form.silentValidate(), false);
+
+      form.field<String>('document').set('12345678901234');
+      expect(form.silentValidate(), true);
+
+      form.field<String>('type').set('person');
+      form.field<String>('document').set(null);
+      expect(form.silentValidate(), true);
+    });
+  });
 }
 
 enum _Status { active, inactive }

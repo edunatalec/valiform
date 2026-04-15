@@ -23,6 +23,8 @@ class VForm<T> {
     GlobalKey<FormState>? formKey,
     Map<String, dynamic>? defaultValues,
     List<VFieldValidator> crossValidators = const [],
+    List<({String field, Object? equals, Map<String, VType> then})> whenRules =
+        const [],
     void Function(T value)? onValueChanged,
   })  : _formKey = formKey ?? GlobalKey<FormState>(),
         _silentValidator = silentValidator,
@@ -42,6 +44,22 @@ class VForm<T> {
                 return null;
               })
           .toList();
+
+      for (final rule in whenRules) {
+        final conditionalType = rule.then[key];
+        if (conditionalType != null) {
+          validators.add(() {
+            if (rawValue[rule.field] != rule.equals) return null;
+            final fieldValue = _fields[key]?.value;
+            final processed = fieldValue is String &&
+                    fieldValue.isEmpty &&
+                    conditionalType.validate(null)
+                ? null
+                : fieldValue;
+            return conditionalType.errors(processed)?.firstOrNull?.message;
+          });
+        }
+      }
 
       _fields[key] = _createField(
         type: type,
@@ -75,6 +93,7 @@ class VForm<T> {
       formKey: formKey,
       defaultValues: defaultValues,
       crossValidators: crossValidators,
+      whenRules: map.whenRules,
       onValueChanged: onValueChanged,
     );
   }
