@@ -79,10 +79,6 @@ class _LocalePageState extends State<LocalePage> {
   @override
   void initState() {
     super.initState();
-    _buildForm();
-  }
-
-  void _buildForm() {
     _form = V.map({
       'name': V.string().min(3),
       'email': V.string().email(),
@@ -97,12 +93,8 @@ class _LocalePageState extends State<LocalePage> {
   }
 
   void _switchLocale(_Lang lang) {
-    setState(() {
-      _lang = lang;
-      V.setLocale(lang == _Lang.pt ? _ptBr : _en);
-      _form.dispose();
-      _buildForm();
-    });
+    _lang = lang;
+    V.setLocale(lang == _Lang.pt ? _ptBr : _en);
   }
 
   VField<String> get _name => _form.field('name');
@@ -124,8 +116,8 @@ class _LocalePageState extends State<LocalePage> {
                 'Validart supports custom locales via V.setLocale(). '
                 'Switch between English and Portuguese using the dropdown '
                 'below, then tap Submit to see error messages in the '
-                'selected language. The form is rebuilt when the locale '
-                'changes so validators use the new translations.',
+                'selected language. No need to rebuild the form — error '
+                'messages are resolved at validation time.',
               ),
               const SizedBox(height: 24),
               DropdownButtonFormField<_Lang>(

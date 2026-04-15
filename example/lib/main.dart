@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'pages/basic_map_form_page.dart';
+import 'pages/conditional_validation_page.dart';
 import 'pages/object_form_page.dart';
 import 'pages/password_match_page.dart';
 import 'pages/controller_sync_page.dart';
@@ -97,6 +98,11 @@ class HomePage extends StatelessWidget {
         title: 'Optional Fields',
         subtitle: 'Nullable fields that stay valid when cleared',
         page: const OptionalFieldsPage(),
+      ),
+      _Example(
+        title: 'Conditional Validation',
+        subtitle: 'Show/hide fields based on another field value with .when()',
+        page: const ConditionalValidationPage(),
       ),
       _Example(
         title: 'Multi Language',
