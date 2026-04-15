@@ -211,6 +211,63 @@ void main() {
     });
   });
 
+  group('array field', () {
+    test('VField<List<String>> stores and retrieves list', () {
+      final arrayField = VField<List<String>>(
+        type: V.array<String>(V.string().min(2)).min(1),
+        validators: [],
+      );
+
+      arrayField.set(['hello', 'world']);
+      expect(arrayField.value, ['hello', 'world']);
+
+      arrayField.dispose();
+    });
+
+    test('Validates minimum items', () {
+      final arrayField = VField<List<String>>(
+        type: V.array<String>(V.string()).min(2),
+        validators: [],
+      );
+
+      arrayField.set(['one']);
+      expect(arrayField.validate(), false);
+
+      arrayField.set(['one', 'two']);
+      expect(arrayField.validate(), true);
+
+      arrayField.dispose();
+    });
+
+    test('Validates element constraints', () {
+      final arrayField = VField<List<String>>(
+        type: V.array<String>(V.string().min(3)),
+        validators: [],
+      );
+
+      arrayField.set(['hi']);
+      expect(arrayField.validate(), false);
+
+      arrayField.set(['hello']);
+      expect(arrayField.validate(), true);
+
+      arrayField.dispose();
+    });
+
+    test('parsedValue works with arrays', () {
+      final arrayField = VField<List<String>>(
+        type: V.array<String>(V.string().trim()),
+        validators: [],
+      );
+
+      arrayField.set(['  hello  ', '  world  ']);
+      final parsed = arrayField.parsedValue;
+      expect(parsed, ['hello', 'world']);
+
+      arrayField.dispose();
+    });
+  });
+
   group('attachTextController', () {
     test('Syncs TextEditingController to field', () {
       final controller = TextEditingController();
