@@ -208,6 +208,48 @@ final country = form.field<Country>('country');   // VField<Country>
 final category = form.field<Category>('category'); // VField<Category>
 ```
 
+## Conditional Validation
+
+Apply different validation rules based on another field's value:
+
+```dart
+// Same field, different rules
+final form = V.map({
+  'contactType': V.string(),
+  'contact': V.string(),
+}).when('contactType', equals: 'email', then: {
+  'contact': V.string().email(),
+}).when('contactType', equals: 'url', then: {
+  'contact': V.string().url(),
+}).form();
+
+// Different fields based on condition
+final form = V.map({
+  'type': V.string(),
+  'cpf': V.string().nullable(),
+  'cnpj': V.string().nullable(),
+}).when('type', equals: 'person', then: {
+  'cpf': V.string().min(11),
+}).when('type', equals: 'company', then: {
+  'cnpj': V.string().min(14),
+}).form();
+```
+
+Errors from `.when()` rules appear directly on the target fields.
+
+## Array Fields
+
+Validate lists with element-level constraints:
+
+```dart
+final form = V.map({
+  'tags': V.array<String>(V.string().min(2)).min(1).max(5),
+}).form();
+
+final tags = form.field<List<String>>('tags'); // VField<List<String>>
+tags.set(['dart', 'flutter']);
+```
+
 ## Default Values
 
 ```dart
