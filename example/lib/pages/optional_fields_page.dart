@@ -4,6 +4,32 @@ import 'package:validart/validart.dart';
 
 import '../main.dart';
 
+enum Color { red, green, blue, yellow }
+
+class Address {
+  final String city;
+  final String country;
+
+  const Address({required this.city, required this.country});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Address && city == other.city && country == other.country;
+
+  @override
+  int get hashCode => city.hashCode ^ country.hashCode;
+
+  @override
+  String toString() => '$city, $country';
+}
+
+const _addresses = [
+  Address(city: 'São Paulo', country: 'Brazil'),
+  Address(city: 'New York', country: 'USA'),
+  Address(city: 'Tokyo', country: 'Japan'),
+];
+
 class OptionalFieldsPage extends StatefulWidget {
   const OptionalFieldsPage({super.key});
 
@@ -18,10 +44,22 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
   void initState() {
     super.initState();
     _form = V.map({
+      // Required
       'name': V.string().min(3),
+      // Optional strings
       'nickname': V.string().min(2).nullable(),
-      'bio': V.string().min(10).nullable(),
       'website': V.string().url().nullable(),
+      // Optional number
+      'age': V.int().min(0).max(150).nullable(),
+      'score': V.double().min(0).max(10).nullable(),
+      // Optional bool
+      'newsletter': V.bool().nullable(),
+      // Optional date
+      'birthdate': V.date().nullable(),
+      // Optional enum
+      'favoriteColor': V.enm<Color>(Color.values).nullable(),
+      // Optional custom class
+      'address': V.object<Address>().nullable(),
     }).form();
   }
 
@@ -33,8 +71,23 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
 
   VField<String> get _name => _form.field('name');
   VField<String> get _nickname => _form.field('nickname');
-  VField<String> get _bio => _form.field('bio');
   VField<String> get _website => _form.field('website');
+  VField<int> get _age => _form.field('age');
+  VField<double> get _score => _form.field('score');
+  VField<bool> get _newsletter => _form.field('newsletter');
+  VField<DateTime> get _birthdate => _form.field('birthdate');
+  VField<Color> get _favoriteColor => _form.field('favoriteColor');
+  VField<Address> get _address => _form.field('address');
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _birthdate.value ?? DateTime(2000),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) _birthdate.set(picked);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,21 +101,14 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const InfoCard(
-                'Fields marked with .nullable() are optional. They accept '
-                'empty values without error. Try typing something in an '
-                'optional field and then clearing it — it should remain '
-                'valid. Only when you type something that violates the '
-                'rule (e.g. less than 2 chars for nickname) does it show '
-                'an error.',
+                'All fields except "Name" use .nullable() and are optional. '
+                'They accept empty/null values without error. This example '
+                'covers every type: String, int, double, bool, DateTime, '
+                'enum, and a custom class. Try filling some and leaving '
+                'others empty.',
               ),
               const SizedBox(height: 24),
-              Text(
-                'Required',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
+              _sectionTitle('Required'),
               const SizedBox(height: 12),
               TextFormField(
                 decoration: const InputDecoration(
@@ -73,18 +119,12 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
                 validator: _name.validator,
               ),
               const SizedBox(height: 24),
-              Text(
-                'Optional',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
+              _sectionTitle('Optional Strings'),
               const SizedBox(height: 12),
               TextFormField(
                 decoration: const InputDecoration(
                   labelText: 'Nickname',
-                  hintText: 'Optional, at least 2 characters if provided',
+                  hintText: 'At least 2 chars if provided',
                 ),
                 onChanged: _nickname.onChanged,
                 validator: _nickname.validator,
@@ -92,61 +132,176 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
               const SizedBox(height: 16),
               TextFormField(
                 decoration: const InputDecoration(
-                  labelText: 'Bio',
-                  hintText: 'Optional, at least 10 characters if provided',
-                ),
-                maxLines: 3,
-                onChanged: _bio.onChanged,
-                validator: _bio.validator,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                decoration: const InputDecoration(
                   labelText: 'Website',
-                  hintText: 'Optional, must be a valid URL if provided',
+                  hintText: 'Valid URL if provided',
                 ),
                 keyboardType: TextInputType.url,
                 onChanged: _website.onChanged,
                 validator: _website.validator,
               ),
               const SizedBox(height: 24),
+              _sectionTitle('Optional Numbers'),
+              const SizedBox(height: 12),
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: 'Age',
+                  hintText: '0-150 if provided',
+                ),
+                keyboardType: TextInputType.number,
+                onChanged: (value) {
+                  if (value.isEmpty) {
+                    _age.set(null);
+                  } else {
+                    final parsed = int.tryParse(value);
+                    if (parsed != null) _age.set(parsed);
+                  }
+                },
+                validator: (_) => _age.validator(_age.value),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: 'Score',
+                  hintText: '0.0-10.0 if provided',
+                ),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (value) {
+                  if (value.isEmpty) {
+                    _score.set(null);
+                  } else {
+                    final parsed = double.tryParse(value);
+                    if (parsed != null) _score.set(parsed);
+                  }
+                },
+                validator: (_) => _score.validator(_score.value),
+              ),
+              const SizedBox(height: 24),
+              _sectionTitle('Optional Bool'),
+              const SizedBox(height: 12),
               ListenableBuilder(
-                listenable: _form.listenable,
+                listenable: _newsletter.listenable,
                 builder: (context, _) {
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      color:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                  return CheckboxListTile(
+                    title: const Text('Subscribe to newsletter'),
+                    subtitle: Text(
+                      _newsletter.value == null
+                          ? 'Not selected (null)'
+                          : _newsletter.value!
+                              ? 'Yes'
+                              : 'No',
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    value: _newsletter.value,
+                    tristate: true,
+                    onChanged: (val) => _newsletter.set(val),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+              _sectionTitle('Optional DateTime'),
+              const SizedBox(height: 12),
+              ListenableBuilder(
+                listenable: _birthdate.listenable,
+                builder: (context, _) {
+                  final date = _birthdate.value;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Birthdate'),
+                    subtitle: Text(
+                      date != null
+                          ? '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}'
+                          : 'Not selected (null)',
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          'Current values:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
+                        if (date != null)
+                          IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () => _birthdate.set(null),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'name: ${_name.value ?? "null"}\n'
-                          'nickname: ${_nickname.value ?? "null"}\n'
-                          'bio: ${_bio.value ?? "null"}\n'
-                          'website: ${_website.value ?? "null"}',
-                          style: TextStyle(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                        IconButton(
+                          icon: const Icon(Icons.calendar_today),
+                          onPressed: _pickDate,
                         ),
                       ],
                     ),
                   );
                 },
               ),
+              const SizedBox(height: 24),
+              _sectionTitle('Optional Enum'),
+              const SizedBox(height: 12),
+              ListenableBuilder(
+                listenable: _favoriteColor.listenable,
+                builder: (context, _) {
+                  return DropdownButtonFormField<Color?>(
+                    decoration:
+                        const InputDecoration(labelText: 'Favorite Color'),
+                    initialValue: _favoriteColor.value,
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('None'),
+                      ),
+                      ...Color.values.map(
+                        (c) => DropdownMenuItem(
+                          value: c,
+                          child: Text(
+                              c.name[0].toUpperCase() + c.name.substring(1)),
+                        ),
+                      ),
+                    ],
+                    onChanged: (val) => _favoriteColor.set(val),
+                    validator: (_) =>
+                        _favoriteColor.validator(_favoriteColor.value),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+              _sectionTitle('Optional Custom Class'),
+              const SizedBox(height: 12),
+              ListenableBuilder(
+                listenable: _address.listenable,
+                builder: (context, _) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          ChoiceChip(
+                            label: const Text('None'),
+                            selected: _address.value == null,
+                            onSelected: (_) => _address.set(null),
+                          ),
+                          ..._addresses.map(
+                            (a) => ChoiceChip(
+                              label: Text(a.toString()),
+                              selected: _address.value == a,
+                              onSelected: (selected) =>
+                                  _address.set(selected ? a : null),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Selected: ${_address.value?.toString() ?? "null"}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+              _buildValuePreview(),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {
@@ -155,12 +310,7 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
                       context: context,
                       builder: (context) => AlertDialog(
                         title: const Text('Form Submitted'),
-                        content: Text(
-                          'name: ${_name.value}\n'
-                          'nickname: ${_nickname.value ?? "(not provided)"}\n'
-                          'bio: ${_bio.value ?? "(not provided)"}\n'
-                          'website: ${_website.value ?? "(not provided)"}',
-                        ),
+                        content: Text(_formatValues()),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
@@ -178,5 +328,66 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
         ),
       ),
     );
+  }
+
+  Widget _sectionTitle(String text) {
+    return Text(
+      text,
+      style: Theme.of(context)
+          .textTheme
+          .titleMedium
+          ?.copyWith(fontWeight: FontWeight.bold),
+    );
+  }
+
+  Widget _buildValuePreview() {
+    return ListenableBuilder(
+      listenable: _form.listenable,
+      builder: (context, _) {
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Current values:',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _formatValues(),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _formatValues() {
+    final date = _birthdate.value;
+    final dateStr = date != null
+        ? '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}'
+        : 'null';
+
+    return 'name: ${_name.value ?? "null"}\n'
+        'nickname: ${_nickname.value ?? "null"}\n'
+        'website: ${_website.value ?? "null"}\n'
+        'age: ${_age.value ?? "null"}\n'
+        'score: ${_score.value ?? "null"}\n'
+        'newsletter: ${_newsletter.value ?? "null"}\n'
+        'birthdate: $dateStr\n'
+        'favoriteColor: ${_favoriteColor.value?.name ?? "null"}\n'
+        'address: ${_address.value?.toString() ?? "null"}';
   }
 }
