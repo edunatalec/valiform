@@ -3,55 +3,42 @@
 
 # Valiform
 
-**Valiform** is a package for managing and validating forms in Flutter, built on top of **validart**. It provides a simple interface for handling form states, validation, and integration with `FormState`.
-
-For more details and a complete example, visit the [official example](https://pub.dev/packages/valiform/example) on pub.dev.
+**Valiform** is a Flutter form validation library built on top of [Validart](https://pub.dev/packages/validart). It provides reactive form state management, typed field validation, and seamless integration with Flutter's `Form` widget.
 
 ## Installation
 
-Add **valiform** to your project:
-
 ```sh
-flutter pub add valiform
+flutter pub add valiform validart
 ```
 
-This will add a line like this to your project's `pubspec.yaml`:
+> **Note:** Import both packages — valiform handles forms, validart handles schemas.
 
-```yaml
-dependencies:
-  valiform: <version>
-```
-
-## Basic Usage
+## Quick Start
 
 ```dart
-// Use a global instance
-final v = Validart();
+import 'package:valiform/valiform.dart';
+import 'package:validart/validart.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
-
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-  late final VForm _form;
+  late final VForm<Map<String, dynamic>> _form;
 
   @override
   void initState() {
     super.initState();
-
-    _form = v.map({
-      'email': v.string().email(),
-      'password': v.string().password(),
+    _form = V.map({
+      'email': V.string().email(),
+      'password': V.string().password(),
     }).form();
   }
 
   @override
   void dispose() {
     _form.dispose();
-
     super.dispose();
   }
 
@@ -60,135 +47,221 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _form.key,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              TextFormField(
-                decoration: InputDecoration(hintText: 'Email'),
-                validator: _email.validator,
-                onChanged: _email.onChanged,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                decoration: InputDecoration(hintText: 'Password'),
-                validator: _password.validator,
-                onChanged: _password.onChanged,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  if (_form.validate()) {
-                    // Code
-                  }
-                },
-                child: const Text('Continue'),
-              ),
-            ],
+    return Form(
+      key: _form.key,
+      child: Column(
+        children: [
+          TextFormField(
+            decoration: InputDecoration(labelText: 'Email'),
+            validator: _email.validator,
+            onChanged: _email.onChanged,
           ),
-        ),
+          TextFormField(
+            decoration: InputDecoration(labelText: 'Password'),
+            obscureText: true,
+            validator: _password.validator,
+            onChanged: _password.onChanged,
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (_form.validate()) {
+                print(_form.value); // {email: '...', password: '...'}
+              }
+            },
+            child: Text('Sign In'),
+          ),
+        ],
       ),
     );
   }
 }
 ```
 
-### Using the Form's Listenable for Reactivity
+## Typed Forms with VObject
 
-You can use the `listenable` property of the form or individual fields to reactively update the UI:
+Return a typed object instead of a `Map`:
 
 ```dart
-Form(
-  key: _form.key,
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.end,
-    children: [
-      TextFormField(
-        decoration: InputDecoration(hintText: 'Email'),
-        validator: _email.validator,
-        onChanged: _email.onChanged,
-      ),
-      const SizedBox(height: 4),
-      ObserverWidget(
-        listenable: _email.listenable,
-        builder: (_) => Text(_email.value ?? ''),
-      ),
-      const SizedBox(height: 8),
-      TextFormField(
-        decoration: InputDecoration(hintText: 'Password'),
-        validator: _password.validator,
-        onChanged: _password.onChanged,
-      ),
-      const SizedBox(height: 4),
-      ObserverWidget(
-        listenable: _email.listenable,
-        builder: (_) => Text(_password.value ?? ''),
-      ),
-      // or
-      // ObserverWidget(
-      //  listenable: _form.listenable,
-      //  builder: (_) => Text(_password.value),
-      //),
-      const SizedBox(height: 16),
-      ElevatedButton(
-        onPressed: () {
-          if (_form.validate()) {
-            // Code
-          }
-        },
-        child: const Text('Continue'),
-      ),
-    ],
-  ),
-)
+class User {
+  final String name;
+  final String email;
+  const User({required this.name, required this.email});
+}
 
-class ObserverWidget extends StatelessWidget {
-  final Listenable listenable;
-  final WidgetBuilder builder;
+final form = V.object<User>(
+  configure: (o) => o
+    .field('name', (u) => u.name, V.string().min(3))
+    .field('email', (u) => u.email, V.string().email()),
+).form(
+  builder: (data) => User(name: data['name'], email: data['email']),
+  defaultValue: User(name: 'John', email: 'john@example.com'),
+);
 
-  const ObserverWidget({
-    super.key,
-    required this.listenable,
-    required this.builder,
-  });
+final user = form.value; // User instance
+```
 
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: listenable,
-      builder: (context, _) => builder(context),
-    );
-  }
+## Controller Sync
+
+Attach a `TextEditingController` for bidirectional synchronization:
+
+```dart
+final controller = TextEditingController();
+final email = form.field<String>('email');
+
+email.attachTextController(controller);
+// Now: controller.text ↔ email.value stay in sync
+// set(), clear(), reset() update the text field
+// Typing updates the VField value
+
+// For non-text fields, use ValueNotifier:
+final notifier = ValueNotifier<int?>(null);
+form.field<int>('age').attachController(notifier);
+```
+
+> The caller is responsible for disposing the controller.
+
+## Cross-Field Validation
+
+### refineFormField
+
+Shows errors directly on the target field:
+
+```dart
+final form = V.map({
+  'password': V.string().password(),
+  'confirmPassword': V.string().password(),
+}).refineFormField(
+  (data) => data['password'] == data['confirmPassword'],
+  path: 'confirmPassword',
+  message: 'Passwords must match',
+).form();
+```
+
+### equalFields
+
+Validates at the VMap pipeline level (use with `silentValidate`):
+
+```dart
+final form = V.map({
+  'password': V.string().password(),
+  'confirmPassword': V.string().password(),
+}).equalFields('password', 'confirmPassword').form();
+
+if (!form.silentValidate()) {
+  // Handle error
 }
 ```
 
-### Using Default Values
+## Reactive Features
 
-You can provide default values to the form and access them in `initialValue` for `TextFormField` or by using a controller:
+### onValueChanged
 
 ```dart
-final form = v.map({
-  'email': v.string().email()
-}).form(defaultValues: {'email': 'example@email.com'});
+// Via form()
+final form = V.map({...}).form(
+  onValueChanged: (value) => print(value),
+);
+
+// Or add/remove later
+form.addValueChangedListener((value) => print(value));
+form.removeValueChangedListener(listener);
 ```
 
-Using `initialValue` in a `TextFormField`:
+### ListenableBuilder
 
 ```dart
-TextFormField(
-  initialValue: form.field('email').value,
+ListenableBuilder(
+  listenable: _email.listenable,
+  builder: (context, _) {
+    return Text('${_email.value?.length ?? 0} characters');
+  },
 )
 ```
 
-Or using the field's controller:
+## Transforms
+
+Pipeline transforms (trim, toLowerCase, etc.) are applied to `form.value` and `parsedValue`:
 
 ```dart
-TextFormField(
-  controller: form.field('email').controller,
-)
+final form = V.map({
+  'name': V.string().trim().min(3),
+}).form();
+
+form.field<String>('name').set('  hello  ');
+
+form.rawValue['name'];   // '  hello  ' (raw)
+form.value['name'];      // 'hello' (transformed)
 ```
+
+## Custom Types
+
+Enums and custom classes are fully typed:
+
+```dart
+final form = V.map({
+  'name': V.string().min(3),
+  'country': V.enm<Country>(Country.values),
+  'category': V.object<Category>(),
+}).form();
+
+final country = form.field<Country>('country');   // VField<Country>
+final category = form.field<Category>('category'); // VField<Category>
+```
+
+## Default Values
+
+```dart
+// VMap form
+final form = V.map({
+  'email': V.string().email(),
+}).form(defaultValues: {'email': 'user@example.com'});
+
+// VObject form — pass a typed instance
+final form = V.object<User>(...).form(
+  builder: (data) => User(...),
+  defaultValue: User(name: 'John', email: 'john@example.com'),
+);
+```
+
+## API Reference
+
+### VField\<T\>
+
+| Member | Description |
+|--------|-------------|
+| `value` | Current raw value |
+| `parsedValue` | Value after pipeline transforms |
+| `set(T?)` | Update value programmatically |
+| `onChanged(T)` | Handle widget change events |
+| `onSaved(T?)` | Handle form save callbacks |
+| `validator(T?)` | Returns error message or null |
+| `validate()` | Returns true if current value is valid |
+| `clear()` | Set value to null |
+| `reset()` | Restore initial value |
+| `listenable` | Listenable for reactive UI |
+| `attachController(ValueNotifier<T?>)` | Bidirectional sync |
+| `attachTextController(TextEditingController)` | Text field sync |
+| `detachController()` | Remove sync listeners |
+| `dispose()` | Clean up resources |
+
+### VForm\<T\>
+
+| Member | Description |
+|--------|-------------|
+| `key` | GlobalKey\<FormState\> for Form widget |
+| `value` | Parsed form value (T) |
+| `rawValue` | Raw field values as Map |
+| `field<F>(key)` | Type-safe field access |
+| `validate()` | Validate with UI errors |
+| `silentValidate()` | Validate without UI |
+| `save()` | Trigger FormState save |
+| `reset()` | Restore initial values |
+| `clear()` | Clear all fields |
+| `listenable` | Combined listenable |
+| `addValueChangedListener(fn)` | Listen to changes |
+| `removeValueChangedListener(fn)` | Remove listener |
+| `dispose()` | Clean up all fields |
+
+## Examples
+
+For complete examples covering all features, see the [example app](https://github.com/edunatalec/valiform/tree/master/example).

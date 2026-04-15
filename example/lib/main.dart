@@ -1,255 +1,177 @@
 import 'dart:convert';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:valiform/valiform.dart';
-
-final v = Validart();
+import 'pages/basic_map_form_page.dart';
+import 'pages/object_form_page.dart';
+import 'pages/password_match_page.dart';
+import 'pages/controller_sync_page.dart';
+import 'pages/reactive_form_page.dart';
+import 'pages/checkbox_form_page.dart';
+import 'pages/dropdown_enum_page.dart';
+import 'pages/custom_class_field_page.dart';
+import 'pages/locale_page.dart';
+import 'pages/multi_type_form_page.dart';
+import 'pages/optional_fields_page.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const ValiformExampleApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class ValiformExampleApp extends StatelessWidget {
+  const ValiformExampleApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Valiform Examples',
       debugShowCheckedModeBanner: false,
-      home: LoginPage(),
       theme: ThemeData(
-        useMaterial3: false,
         colorSchemeSeed: Colors.indigo,
-        scaffoldBackgroundColor: Colors.grey[50],
-        inputDecorationTheme: InputDecorationTheme(
+        useMaterial3: true,
+        brightness: Brightness.light,
+        inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(),
         ),
-        appBarTheme: AppBarTheme(elevation: 0),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ButtonStyle(
-            elevation: WidgetStatePropertyAll(0),
-            fixedSize: WidgetStatePropertyAll(Size(double.maxFinite, 56)),
+            elevation: const WidgetStatePropertyAll(0),
+            fixedSize: const WidgetStatePropertyAll(Size(double.maxFinite, 56)),
             shape: WidgetStatePropertyAll(
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
         ),
       ),
+      home: const HomePage(),
     );
   }
 }
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
-
-  @override
-  State<LoginPage> createState() => _LoginPageState();
-}
-
-class _LoginPageState extends State<LoginPage> {
-  late final VForm _form;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _form = v.map({
-      'email': v.string().email(),
-      'password': v.string().password(),
-    }).form();
-  }
-
-  @override
-  void dispose() {
-    _form.dispose();
-
-    super.dispose();
-  }
-
-  VField<String> get _email => _form.field('email');
-  VField<String> get _password => _form.field('password');
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final examples = <_Example>[
+      _Example(
+        title: 'Basic Map Form',
+        subtitle: 'Simple login form using VMap and .form()',
+        page: const BasicMapFormPage(),
+      ),
+      _Example(
+        title: 'Object Form',
+        subtitle: 'Typed form with VObject returning a User instance',
+        page: const ObjectFormPage(),
+      ),
+      _Example(
+        title: 'Password Match',
+        subtitle: 'Cross-field validation with refineFormField',
+        page: const PasswordMatchPage(),
+      ),
+      _Example(
+        title: 'Controller Sync',
+        subtitle: 'TextEditingController integration with attachTextController',
+        page: const ControllerSyncPage(),
+      ),
+      _Example(
+        title: 'Reactive Form',
+        subtitle: 'Live preview updated via value change listeners',
+        page: const ReactiveFormPage(),
+      ),
+      _Example(
+        title: 'Checkbox Form',
+        subtitle: 'Boolean validation with checkbox fields',
+        page: const CheckboxFormPage(),
+      ),
+      _Example(
+        title: 'Dropdown Enum',
+        subtitle: 'Enum fields with dropdown selection',
+        page: const DropdownEnumPage(),
+      ),
+      _Example(
+        title: 'Custom Class Field',
+        subtitle: 'Custom type fields beyond primitives',
+        page: const CustomClassFieldPage(),
+      ),
+      _Example(
+        title: 'Optional Fields',
+        subtitle: 'Nullable fields that stay valid when cleared',
+        page: const OptionalFieldsPage(),
+      ),
+      _Example(
+        title: 'Multi Language',
+        subtitle: 'Switch locale to change error messages',
+        page: const LocalePage(),
+      ),
+      _Example(
+        title: 'Multi Type Form',
+        subtitle: 'All field types combined in a single form',
+        page: const MultiTypeFormPage(),
+      ),
+    ];
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _form.key,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              ExampleWidget(
-                'In this example, we use .form() on v.map, defining two fields: email and password, both of type String. To simplify form field handling, we created a reusable TextFormFieldWidget, which only requires the corresponding VField<String>. At the end, we call .dispose() on the form to ensure proper resource cleanup.',
-              ),
-              const SizedBox(height: 16),
-              TextFormFieldWidget(hint: 'Email', field: _email),
-              const SizedBox(height: 8),
-              TextFormFieldWidget(hint: 'Password', field: _password),
-              const SizedBox(height: 8),
-              Text.rich(
-                TextSpan(
-                  text: 'Don\'t have an account? ',
-                  children: [
-                    TextSpan(
-                      text: 'Create one',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        decoration: TextDecoration.underline,
-                        color: Colors.indigo,
-                        decorationColor: Colors.indigo,
-                      ),
-                      recognizer: TapGestureRecognizer()
-                        ..onTap = () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => SignUpPage(),
-                            ),
-                          );
-                        },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  if (_form.validate()) {
-                    printJson(_form.value);
-                  }
-                },
-                child: const Text('Sign In'),
-              ),
-            ],
-          ),
-        ),
+      appBar: AppBar(
+        title: const Text('Valiform Examples'),
+        centerTitle: true,
+      ),
+      body: ListView.separated(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: examples.length,
+        separatorBuilder: (_, __) =>
+            const Divider(height: 1, indent: 16, endIndent: 16),
+        itemBuilder: (context, index) {
+          final example = examples[index];
+          return ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            title: Text(example.title),
+            subtitle: Text(example.subtitle),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => example.page),
+              );
+            },
+          );
+        },
       ),
     );
   }
 }
 
-class SignUpPage extends StatefulWidget {
-  const SignUpPage({super.key});
+class _Example {
+  final String title;
+  final String subtitle;
+  final Widget page;
 
-  @override
-  State<SignUpPage> createState() => _SignUpPageState();
-}
-
-class _SignUpPageState extends State<SignUpPage> {
-  late final VForm _form;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _form = v.form(
-      v.map({
-        'name': v.string().min(3),
-        'email': v.string().email(),
-        'password': v.string().password(),
-        'confirmPassword': v.string().password(),
-      }).refine(
-        (data) => data['password'] == data['confirmPassword'],
-        path: 'confirmPassword',
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _form.dispose();
-
-    super.dispose();
-  }
-
-  VField<String> get _name => _form.field('name');
-  VField<String> get _email => _form.field('email');
-  VField<String> get _password => _form.field('password');
-  VField<String> get _confirmPassword => _form.field('confirmPassword');
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Sign Up')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _form.key,
-          child: Column(
-            children: [
-              ExampleWidget(
-                'In this example, we use .form() on v.map to create a VForm with four fields: name, email, password, and confirmPassword, all of type String. This form ensures that users provide valid credentials before signing up.\n\n'
-                'Additionally, we use .refine() to validate that the password and confirmPassword fields match. If they do not, a custom error message is assigned to the confirmPassword field, guiding users to enter the correct confirmation password.\n\n'
-                'To simplify the form field handling, we reuse the TextFormFieldWidget, which only requires the corresponding VField<String>. At the end, we call .dispose() on the form to ensure proper resource cleanup.',
-              ),
-              const SizedBox(height: 16),
-              TextFormFieldWidget(hint: 'Name', field: _name),
-              const SizedBox(height: 8),
-              TextFormFieldWidget(hint: 'Email', field: _email),
-              const SizedBox(height: 8),
-              TextFormFieldWidget(hint: 'Password', field: _password),
-              const SizedBox(height: 8),
-              TextFormFieldWidget(
-                hint: 'Confirm password',
-                field: _confirmPassword,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  if (_form.validate()) {
-                    printJson(_form.value);
-                  }
-                },
-                child: const Text('Confirm'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class TextFormFieldWidget extends StatelessWidget {
-  final VField<String> field;
-  final String hint;
-
-  const TextFormFieldWidget({
-    super.key,
-    required this.field,
-    required this.hint,
+  const _Example({
+    required this.title,
+    required this.subtitle,
+    required this.page,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      decoration: InputDecoration(hintText: hint),
-      validator: field.validator,
-      onChanged: field.onChanged,
-    );
-  }
 }
 
-class ExampleWidget extends StatelessWidget {
+class InfoCard extends StatelessWidget {
   final String text;
 
-  const ExampleWidget(this.text, {super.key});
+  const InfoCard(this.text, {super.key});
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: EdgeInsets.all(8),
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        color: Colors.grey[200],
+        color: colorScheme.surfaceContainerHighest,
       ),
       child: Text(
         text,
         style: TextStyle(
-          letterSpacing: 1.5,
-          color: Colors.grey[800],
+          color: colorScheme.onSurfaceVariant,
+          height: 1.5,
         ),
       ),
     );
@@ -260,6 +182,5 @@ const JsonEncoder _encoder = JsonEncoder.withIndent('  ');
 
 void printJson(Object? value) {
   if (value == null) return;
-
   debugPrint(_encoder.convert(value));
 }

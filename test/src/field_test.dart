@@ -1,14 +1,14 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:valiform/valiform.dart';
-
-final v = Validart();
+import 'package:validart/validart.dart';
 
 void main() {
   late VField<String> field;
 
   setUp(() {
     field = VField<String>(
-      type: v.string().email(),
+      type: V.string().email(),
       validators: [],
       initialValue: 'Initial',
     );
@@ -27,32 +27,20 @@ void main() {
     expect(field.value, 'New Value');
   });
 
-  test('TextEditingController initializes correctly', () {
-    expect(field.controller, isNotNull);
-    expect(field.controller!.text, 'Initial');
-  });
-
-  test('Setting value updates controller', () {
-    field.set('Updated Value');
-    expect(field.controller!.text, 'Updated Value');
-  });
-
   test('Clear resets value to null', () {
     field.clear();
     expect(field.value, isNull);
-    expect(field.controller!.text, '');
   });
 
   test('Reset restores initial value', () {
     field.set('Temporary');
     field.reset();
     expect(field.value, 'Initial');
-    expect(field.controller!.text, 'Initial');
   });
 
   test('Validator returns error when value is empty', () {
     field.set('');
-    expect(field.validator(field.value), 'Required');
+    expect(field.validator(field.value), isNotNull);
   });
 
   test('Validator returns null for valid input', () {
@@ -102,11 +90,156 @@ void main() {
 
   test('Custom error message', () {
     final customField = VField<String>(
-      type: v.string().email(),
+      type: V.string().email(),
       validators: [() => 'Error message'],
       initialValue: 'Initial',
     );
 
     expect(customField.validator('example@email.com'), 'Error message');
+  });
+
+  group('attachController', () {
+    test('Syncs ValueNotifier controller to field', () {
+      final controller = ValueNotifier<String?>('test');
+      field.attachController(controller);
+
+      controller.value = 'updated';
+      expect(field.value, 'updated');
+
+      controller.dispose();
+    });
+
+    test('Syncs field set to controller', () {
+      final controller = ValueNotifier<String?>(null);
+      field.attachController(controller);
+
+      field.set('hello');
+      expect(controller.value, 'hello');
+
+      controller.dispose();
+    });
+
+    test('Syncs field clear to controller', () {
+      final controller = ValueNotifier<String?>('value');
+      field.attachController(controller);
+
+      field.clear();
+      expect(controller.value, isNull);
+
+      controller.dispose();
+    });
+
+    test('Syncs field reset to controller', () {
+      final controller = ValueNotifier<String?>(null);
+      field.attachController(controller);
+
+      field.set('changed');
+      field.reset();
+      expect(controller.value, 'Initial');
+
+      controller.dispose();
+    });
+
+    test('detachController stops syncing', () {
+      final controller = ValueNotifier<String?>(null);
+      field.attachController(controller);
+
+      field.detachController();
+
+      field.set('after detach');
+      expect(controller.value, isNull);
+
+      controller.dispose();
+    });
+  });
+
+  group('parsedValue', () {
+    test('Returns transformed value after pipeline', () {
+      final trimField = VField<String>(
+        type: V.string().trim().min(3),
+        validators: [],
+      );
+
+      trimField.set('  hello  ');
+      expect(trimField.value, '  hello  ');
+      expect(trimField.parsedValue, 'hello');
+
+      trimField.dispose();
+    });
+
+    test('Returns raw value when parsing fails', () {
+      final trimField = VField<String>(
+        type: V.string().trim().min(10),
+        validators: [],
+      );
+
+      trimField.set('  hi  ');
+      expect(trimField.parsedValue, '  hi  ');
+
+      trimField.dispose();
+    });
+
+    test('Returns null when value is null', () {
+      field.clear();
+      expect(field.parsedValue, isNull);
+    });
+  });
+
+  group('value edge cases', () {
+    test('Empty string returns null for nullable field', () {
+      final optionalField = VField<String>(
+        type: V.string().nullable(),
+        validators: [],
+      );
+
+      optionalField.set('');
+      expect(optionalField.value, isNull);
+
+      optionalField.dispose();
+    });
+
+    test('Empty string returns empty for required field', () {
+      final requiredField = VField<String>(
+        type: V.string(),
+        validators: [],
+      );
+
+      requiredField.set('');
+      expect(requiredField.value, '');
+
+      requiredField.dispose();
+    });
+  });
+
+  group('attachTextController', () {
+    test('Syncs TextEditingController to field', () {
+      final controller = TextEditingController();
+      field.attachTextController(controller);
+
+      controller.text = 'typed';
+      expect(field.value, 'typed');
+
+      controller.dispose();
+    });
+
+    test('Syncs field set to TextEditingController', () {
+      final controller = TextEditingController();
+      field.attachTextController(controller);
+
+      field.set('programmatic');
+      expect(controller.text, 'programmatic');
+
+      controller.dispose();
+    });
+
+    test('Syncs field clear to TextEditingController', () {
+      final controller = TextEditingController(text: 'initial');
+      field.attachTextController(controller);
+
+      field.clear();
+      expect(controller.text, '');
+
+      controller.dispose();
+    });
   });
 }
