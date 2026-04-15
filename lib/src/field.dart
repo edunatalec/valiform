@@ -160,8 +160,7 @@ class VField<T> {
   ///
   /// Returns `null` if valid, or an error message if invalid.
   String? validator(T? value) {
-    final processed =
-        value is String && value.isEmpty && _type.validate(null) ? null : value;
+    final processed = value is String && value.isEmpty ? null : value;
     final error = _type.errors(processed)?.firstOrNull?.message;
 
     if (error != null) return error;
