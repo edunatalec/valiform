@@ -42,7 +42,7 @@ class _MultiTypeFormPageState extends State<MultiTypeFormPage> {
   VField<double> get _rating => _form.field('rating');
   VField<bool> get _isPublic => _form.field('isPublic');
   VField<DateTime> get _eventDate => _form.field('eventDate');
-  VField<dynamic> get _priority => _form.field('priority');
+  VField<Priority> get _priority => _form.field('priority');
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -173,7 +173,7 @@ class _MultiTypeFormPageState extends State<MultiTypeFormPage> {
                 builder: (context, _) {
                   return DropdownButtonFormField<Priority>(
                     decoration: const InputDecoration(labelText: 'Priority'),
-                    initialValue: _priority.value as Priority?,
+                    initialValue: _priority.value,
                     items: Priority.values
                         .map(
                           (p) => DropdownMenuItem(
@@ -201,7 +201,7 @@ class _MultiTypeFormPageState extends State<MultiTypeFormPage> {
                       'rating': values['rating'],
                       'isPublic': values['isPublic'],
                       'eventDate': values['eventDate']?.toString(),
-                      'priority': (values['priority'] as Priority?)?.name,
+                      'priority': _priority.value?.name,
                     });
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Event created!')),
