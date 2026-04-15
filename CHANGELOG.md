@@ -21,6 +21,8 @@
 - **Typed `defaultValue` for VObject forms** — Pass a `T` instance instead of a map.
 - **`mapType` on VType** — Preserves generic types, enabling `VField<Country>` for enums and custom types.
 - **Fallback-free field creation** — All VType generics are preserved via `mapType` (no more `VField<dynamic>` fallback).
+- **Conditional validation (`when`)** — VMap's `.when()` rules are automatically plumbed to individual field validators.
+- **Nullable field support** — Empty strings are treated as `null` for nullable fields in validators.
 
 ### Changed
 
