@@ -4,6 +4,8 @@ import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late VField<String> field;
 
   setUp(() {
@@ -265,6 +267,121 @@ void main() {
       expect(parsed, ['hello', 'world']);
 
       arrayField.dispose();
+    });
+  });
+
+  group('setError / clearError', () {
+    test('setError stores the message and exposes it via manualError', () {
+      field.set('valid@email.com');
+      field.setError('Email already taken');
+      expect(field.manualError, 'Email already taken');
+    });
+
+    test('clearError removes the manual error', () {
+      field.set('valid@email.com');
+      field.setError('Email already taken');
+      field.clearError();
+      expect(field.manualError, isNull);
+    });
+
+    test('clearError is a no-op when no error is set', () {
+      expect(() => field.clearError(), returnsNormally);
+      expect(field.manualError, isNull);
+    });
+
+    test('validator returns manual error when no standard error exists', () {
+      field.set('valid@email.com');
+      field.setError('Email already taken');
+      expect(field.validator(field.value), 'Email already taken');
+    });
+
+    test('standard validators take precedence over manual error', () {
+      field.set('not-an-email');
+      field.setError('Email already taken');
+      final result = field.validator(field.value);
+      expect(result, isNotNull);
+      expect(result, isNot('Email already taken'));
+    });
+
+    test(
+        'one-shot manual error is consumed even when a standard error wins '
+        '(prevents ghost errors on later valid input)', () {
+      field.set('not-an-email');
+      field.setError('Email already taken');
+      field.validator(field.value); // std error wins, but manual is consumed
+      expect(field.manualError, isNull);
+
+      field.set('valid@email.com');
+      expect(field.validator(field.value), isNull);
+    });
+
+    test(
+        'persist: manual error survives when standard error wins and resurfaces'
+        ' once the field becomes valid', () {
+      field.set('not-an-email');
+      field.setError('Email already taken', persist: true);
+      final first = field.validator(field.value);
+      expect(first, isNotNull);
+      expect(first, isNot('Email already taken'));
+      expect(field.manualError, 'Email already taken');
+
+      field.set('valid@email.com');
+      expect(field.validator(field.value), 'Email already taken');
+    });
+
+    test('default mode is one-shot: consumed on next validator call', () {
+      field.set('valid@email.com');
+      field.setError('Email already taken');
+
+      expect(field.validator(field.value), 'Email already taken');
+      expect(field.manualError, isNull);
+      expect(field.validator(field.value), isNull);
+    });
+
+    test('persist: true keeps the error across multiple validator calls', () {
+      field.set('valid@email.com');
+      field.setError('Email already taken', persist: true);
+
+      expect(field.validator(field.value), 'Email already taken');
+      expect(field.validator(field.value), 'Email already taken');
+      expect(field.manualError, 'Email already taken');
+
+      field.clearError();
+      expect(field.validator(field.value), isNull);
+    });
+
+    test('force: true makes manual error win over standard validators', () {
+      field.set('not-an-email');
+      field.setError('Server rejected this value', force: true);
+      expect(field.validator(field.value), 'Server rejected this value');
+    });
+
+    test('force is one-shot when persist is false', () {
+      field.set('not-an-email');
+      field.setError('Forced error', force: true);
+
+      expect(field.validator(field.value), 'Forced error');
+      final second = field.validator(field.value);
+      expect(second, isNotNull);
+      expect(second, isNot('Forced error'));
+    });
+
+    test('force + persist: manual error wins on every call until clearError',
+        () {
+      field.set('not-an-email');
+      field.setError('Sticky forced', persist: true, force: true);
+
+      expect(field.validator(field.value), 'Sticky forced');
+      expect(field.validator(field.value), 'Sticky forced');
+
+      field.clearError();
+      expect(field.validator(field.value), isNotNull);
+      expect(field.validator(field.value), isNot('Sticky forced'));
+    });
+
+    test('formFieldKey is available for attachment', () {
+      expect(field.formFieldKey, isNotNull);
+      expect(field.formFieldKey, isA<GlobalKey<FormFieldState<String>>>());
     });
   });
 

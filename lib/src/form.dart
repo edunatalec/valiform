@@ -203,6 +203,56 @@ class VForm<T> {
     }
   }
 
+  /// Sets an imperative error on [field].
+  ///
+  /// Delegates to [VField.setError]. See that method for semantics.
+  void setError(
+    String field,
+    String message, {
+    bool persist = false,
+    bool force = false,
+  }) {
+    _requireField(field).setError(message, persist: persist, force: force);
+  }
+
+  /// Sets imperative errors on multiple fields at once. Throws [ArgumentError]
+  /// listing any keys not present in the schema.
+  void setErrors(
+    Map<String, String> errors, {
+    bool persist = false,
+    bool force = false,
+  }) {
+    final unknown = errors.keys.where((k) => !_fields.containsKey(k)).toList();
+    if (unknown.isNotEmpty) {
+      throw ArgumentError(
+        'Unknown field${unknown.length == 1 ? '' : 's'}: ${unknown.join(', ')}.',
+      );
+    }
+    for (final entry in errors.entries) {
+      _fields[entry.key]!.setError(entry.value, persist: persist, force: force);
+    }
+  }
+
+  /// Clears the imperative error on [field].
+  void clearError(String field) {
+    _requireField(field).clearError();
+  }
+
+  /// Clears all imperative errors across every field.
+  void clearErrors() {
+    for (final field in _fields.values) {
+      field.clearError();
+    }
+  }
+
+  VField _requireField(String key) {
+    final field = _fields[key];
+    if (field == null) {
+      throw ArgumentError('The field "$key" does not exist.');
+    }
+    return field;
+  }
+
   /// Validates all form fields and returns `true` if all are valid.
   bool validate() => _formKey.currentState?.validate() ?? false;
 

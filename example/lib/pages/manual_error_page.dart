@@ -1,0 +1,173 @@
+import 'package:flutter/material.dart';
+import 'package:valiform/valiform.dart';
+import 'package:validart/validart.dart';
+
+import '../main.dart';
+
+class ManualErrorPage extends StatefulWidget {
+  const ManualErrorPage({super.key});
+
+  @override
+  State<ManualErrorPage> createState() => _ManualErrorPageState();
+}
+
+class _ManualErrorPageState extends State<ManualErrorPage> {
+  late final VForm<Map<String, dynamic>> _form;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _form = V.map({
+      'email': V.string().email(),
+      'username': V.string().min(3),
+      'phone': V.string().min(8),
+    }).form(
+      defaultValues: {
+        'email': 'user@example.com',
+        'username': 'johndoe',
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _form.dispose();
+    super.dispose();
+  }
+
+  VField<String> get _email => _form.field('email');
+  VField<String> get _username => _form.field('username');
+  VField<String> get _phone => _form.field('phone');
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Manual Error')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _form.key,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const InfoCard(
+                'Imperative errors via form.setError / field.setError — useful '
+                'for backend validation ("email already taken"), async checks, '
+                'or business rules.\n\n'
+                'Precedence: by default, standard validators win — the manual '
+                'error only surfaces when the field is otherwise valid. '
+                'Setting a manual error on an invalid field silently consumes '
+                'it (no ghost errors on later valid input).\n\n'
+                'Pass force: true to override this and show the manual error '
+                'even when standard rules would fail.\n\n'
+                'Email and username start pre-filled (valid). Phone is empty '
+                '(invalid) — use it to see both behaviours.',
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                key: _email.formFieldKey,
+                decoration: const InputDecoration(
+                  labelText: 'Email (pre-filled, valid)',
+                ),
+                keyboardType: TextInputType.emailAddress,
+                initialValue: _email.value,
+                onChanged: _email.onChanged,
+                validator: _email.validator,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                key: _username.formFieldKey,
+                decoration: const InputDecoration(
+                  labelText: 'Username (pre-filled, valid)',
+                ),
+                initialValue: _username.value,
+                onChanged: _username.onChanged,
+                validator: _username.validator,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                key: _phone.formFieldKey,
+                decoration: const InputDecoration(
+                  labelText: 'Phone (empty, invalid)',
+                ),
+                keyboardType: TextInputType.phone,
+                onChanged: _phone.onChanged,
+                validator: _phone.validator,
+              ),
+              const SizedBox(height: 24),
+              FilledButton.tonal(
+                onPressed: () => _email.setError('This email is already taken'),
+                child: const Text('setError on email (valid → error shows)'),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.tonal(
+                onPressed: () =>
+                    _username.setError('Username is reserved', persist: true),
+                child: const Text(
+                  'setError on username (persist: true)',
+                ),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.tonal(
+                onPressed: () => _phone.setError('Phone is blocked'),
+                child: const Text(
+                  'setError on phone (invalid → no ghost error)',
+                ),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.tonal(
+                onPressed: () =>
+                    _phone.setError('Phone blocked by server', force: true),
+                child: const Text(
+                  'setError on phone with force: true (appears anyway)',
+                ),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.tonal(
+                onPressed: () => _form.setErrors({
+                  'email': 'Email conflict from API',
+                  'username': 'Username conflict from API',
+                  'phone': 'Phone conflict from API',
+                }),
+                child: const Text(
+                  'Batch setErrors on all 3 (phone silently consumed)',
+                ),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.tonal(
+                onPressed: () => _form.setErrors(
+                  {
+                    'email': 'Email conflict from API',
+                    'username': 'Username conflict from API',
+                    'phone': 'Phone conflict from API',
+                  },
+                  force: true,
+                ),
+                child: const Text(
+                  'Batch setErrors with force: true (all 3 appear)',
+                ),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: () => _form.clearErrors(),
+                child: const Text('Clear all manual errors'),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  if (_form.validate()) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Submitted: ${_form.value}')),
+                    );
+                  }
+                },
+                child: const Text('Submit'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

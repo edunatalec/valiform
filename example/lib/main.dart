@@ -13,6 +13,7 @@ import 'pages/dropdown_enum_page.dart';
 import 'pages/custom_class_field_page.dart';
 import 'pages/locale_page.dart';
 import 'pages/multi_type_form_page.dart';
+import 'pages/manual_error_page.dart';
 import 'pages/optional_fields_page.dart';
 
 void main() {
@@ -119,6 +120,12 @@ class HomePage extends StatelessWidget {
         title: 'Multi Type Form',
         subtitle: 'All field types combined in a single form',
         page: const MultiTypeFormPage(),
+      ),
+      _Example(
+        title: 'Manual Error',
+        subtitle:
+            'Imperative setError/clearError for backend and business rule errors',
+        page: const ManualErrorPage(),
       ),
     ];
 

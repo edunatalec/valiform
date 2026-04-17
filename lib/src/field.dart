@@ -15,9 +15,20 @@ class VField<T> {
   final T? _initialValue;
   final List<String? Function()> _validators;
 
+  /// Attach this key to the corresponding `TextFormField` (or any
+  /// `FormField`) to enable single-field revalidation via [setError].
+  /// Without it, errors set imperatively only surface on the next full
+  /// `VForm.validate()` call.
+  final GlobalKey<FormFieldState<T>> formFieldKey =
+      GlobalKey<FormFieldState<T>>();
+
   ValueNotifier<T?>? _attachedController;
   TextEditingController? _attachedTextController;
   bool _syncing = false;
+
+  String? _manualError;
+  bool _persistManualError = false;
+  bool _forceManualError = false;
 
   /// Creates a new [VField] with the given [type], [validators], and optional [initialValue].
   VField({
@@ -156,22 +167,65 @@ class VField<T> {
     _value.value = _initialValue;
   }
 
+  /// The imperatively-set error message currently attached to this field,
+  /// or `null` if none.
+  String? get manualError => _manualError;
+
+  /// Sets an imperative error message on this field.
+  ///
+  /// - `persist: false` (default) — one-shot: surfaces on the next [validator]
+  ///   call and is cleared on it, even when a standard validator takes
+  ///   precedence (prevents ghost errors).
+  /// - `persist: true` — the error stays until [clearError] is called.
+  /// - `force: false` (default) — standard validators win precedence; the
+  ///   manual error only appears when the field is otherwise valid.
+  /// - `force: true` — the manual error takes precedence over standard
+  ///   validators for this setError, so you can flag a field even while it
+  ///   would otherwise fail its own rules.
+  ///
+  /// If [formFieldKey] is attached to a `TextFormField`, this triggers
+  /// revalidation of that single field only — other fields are untouched.
+  void setError(String message, {bool persist = false, bool force = false}) {
+    _manualError = message;
+    _persistManualError = persist;
+    _forceManualError = force;
+    formFieldKey.currentState?.validate();
+  }
+
+  /// Clears the imperative error (if any) and refreshes the attached
+  /// `TextFormField` so any cached error text disappears from the UI.
+  void clearError() {
+    _manualError = null;
+    _persistManualError = false;
+    _forceManualError = false;
+    formFieldKey.currentState?.validate();
+  }
+
   /// Validates the given value using all registered validators.
   ///
   /// Returns `null` if valid, or an error message if invalid.
   String? validator(T? value) {
     final processed = value is String && value.isEmpty ? null : value;
-    final error = _type.errors(processed)?.firstOrNull?.message;
+    final stdError = _type.errors(processed)?.firstOrNull?.message;
 
-    if (error != null) return error;
-
-    for (final validator in _validators) {
-      final message = validator();
-
-      if (message != null) return message;
+    String? extraError;
+    for (final fn in _validators) {
+      final message = fn();
+      if (message != null) {
+        extraError = message;
+        break;
+      }
     }
 
-    return null;
+    final manual = _manualError;
+    final forced = _forceManualError;
+    if (manual != null && !_persistManualError) {
+      _manualError = null;
+      _forceManualError = false;
+    }
+
+    if (forced && manual != null) return manual;
+    return stdError ?? extraError ?? manual;
   }
 
   /// Returns `true` if the current value passes validation.

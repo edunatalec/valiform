@@ -650,6 +650,136 @@ void main() {
       expect(form.silentValidate(), true);
     });
   });
+
+  group('Manual errors', () {
+    late VForm<Map<String, dynamic>> form;
+
+    setUp(() {
+      form = V.map({
+        'email': V.string().email(),
+        'cpf': V.string().min(11),
+      }).form();
+    });
+
+    tearDown(() {
+      form.dispose();
+    });
+
+    test('form.setError propagates to the underlying VField', () {
+      form.setError('email', 'Email already taken');
+      expect(form.field<String>('email').manualError, 'Email already taken');
+    });
+
+    test('form.setError throws ArgumentError for unknown field', () {
+      expect(
+        () => form.setError('unknown', 'x'),
+        throwsArgumentError,
+      );
+    });
+
+    test('field.setError direct call matches form.setError behaviour', () {
+      final email = form.field<String>('email');
+      email.setError('Direct error');
+      expect(email.manualError, 'Direct error');
+      expect(form.field<String>('email').manualError, 'Direct error');
+    });
+
+    test('form.setErrors sets multiple fields at once', () {
+      form.setErrors({'email': 'taken', 'cpf': 'invalid'});
+      expect(form.field<String>('email').manualError, 'taken');
+      expect(form.field<String>('cpf').manualError, 'invalid');
+    });
+
+    test('form.setErrors throws for unknown keys and lists them', () {
+      expect(
+        () => form.setErrors({'email': 'x', 'phone': 'y', 'zip': 'z'}),
+        throwsA(
+          isA<ArgumentError>().having(
+            (e) => e.message,
+            'message',
+            contains('phone'),
+          ),
+        ),
+      );
+    });
+
+    test('form.clearError clears a single field', () {
+      form.setErrors({'email': 'e', 'cpf': 'c'});
+      form.clearError('email');
+      expect(form.field<String>('email').manualError, isNull);
+      expect(form.field<String>('cpf').manualError, 'c');
+    });
+
+    test('form.clearErrors clears every field', () {
+      form.setErrors({'email': 'e', 'cpf': 'c'});
+      form.clearErrors();
+      expect(form.field<String>('email').manualError, isNull);
+      expect(form.field<String>('cpf').manualError, isNull);
+    });
+
+    test('manual error surfaces through VField.validator', () {
+      final email = form.field<String>('email');
+      email.set('valid@email.com');
+      form.setError('email', 'Email already taken');
+      expect(email.validator(email.value), 'Email already taken');
+    });
+
+    test('form.setError propagates force flag to the field', () {
+      final email = form.field<String>('email');
+      email.set('not-an-email');
+      form.setError('email', 'Backend rejected', force: true);
+      expect(email.validator(email.value), 'Backend rejected');
+    });
+
+    test('form.setErrors propagates force flag to every field', () {
+      final email = form.field<String>('email');
+      final cpf = form.field<String>('cpf');
+      email.set('not-an-email');
+      cpf.set('123');
+      form.setErrors({'email': 'E', 'cpf': 'C'}, force: true);
+      expect(email.validator(email.value), 'E');
+      expect(cpf.validator(cpf.value), 'C');
+    });
+
+    test('form.setError propagates persist flag to the field', () {
+      final email = form.field<String>('email');
+      email.set('valid@email.com');
+      form.setError('email', 'Sticky', persist: true);
+      expect(email.validator(email.value), 'Sticky');
+      expect(email.validator(email.value), 'Sticky');
+    });
+
+    testWidgets(
+        'clearError wipes the cached error from the UI after one-shot consumption',
+        (tester) async {
+      final email = form.field<String>('email');
+      email.set('valid@email.com');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Form(
+              key: form.key,
+              child: TextFormField(
+                key: email.formFieldKey,
+                initialValue: email.value,
+                validator: email.validator,
+                onChanged: email.onChanged,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      form.setError('email', 'Email already taken');
+      await tester.pump();
+      expect(find.text('Email already taken'), findsOneWidget);
+
+      form.clearErrors();
+      await tester.pump();
+      expect(find.text('Email already taken'), findsNothing);
+    });
+  });
 }
 
 enum _Status { active, inactive }
