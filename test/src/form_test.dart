@@ -123,16 +123,6 @@ void main() {
       expect(password.value, isNull);
     });
 
-    test('clear() sets all fields to null', () {
-      email.set('temp@example.com');
-      password.set('TempPass');
-
-      form.clear();
-
-      expect(email.value, isNull);
-      expect(password.value, isNull);
-    });
-
     test('Listenable notifies listeners', () {
       int notificationCount = 0;
       form.listenable.addListener(() {
@@ -182,7 +172,7 @@ void main() {
     setUp(() {
       form = V.map({
         'email': V.string().email(),
-      }).form(defaultValues: {'email': 'default@example.com'});
+      }).form(initialValues: {'email': 'default@example.com'});
 
       email = form.field<String>('email');
     });
@@ -310,7 +300,7 @@ void main() {
         'boolean': V.bool(),
         'date': V.date(),
       }).form(
-        defaultValues: {
+        initialValues: {
           'integer': 42,
           'decimal': 3.14,
           'boolean': true,
@@ -419,7 +409,7 @@ void main() {
       expect(form.silentValidate(), false);
     });
 
-    test('default values work with typed defaultValue', () {
+    test('initial values work with typed initialValue', () {
       final formWithDefaults = V
           .object<_User>(
             configure: (o) => o
@@ -429,7 +419,7 @@ void main() {
           .form(
             builder: (data) =>
                 _User(name: data['name'] ?? '', email: data['email'] ?? ''),
-            defaultValue:
+            initialValue:
                 const _User(name: 'Default', email: 'default@test.com'),
           );
 
@@ -761,7 +751,7 @@ void main() {
             body: Form(
               key: form.key,
               child: TextFormField(
-                key: email.formFieldKey,
+                key: email.key,
                 initialValue: email.value,
                 validator: email.validator,
                 onChanged: email.onChanged,

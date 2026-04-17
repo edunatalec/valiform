@@ -30,7 +30,7 @@ class _ConditionalValidationPageState extends State<ConditionalValidationPage> {
       'cnpj': V.string().min(14),
     }).when('type', equals: 'person', then: {
       'cpf': V.string().min(11),
-    }).form(defaultValues: {'type': 'person'});
+    }).form(initialValues: {'type': 'person'});
 
     // Example B: Same field, different validation
     _formB = V.map({
@@ -42,7 +42,7 @@ class _ConditionalValidationPageState extends State<ConditionalValidationPage> {
       'contact': V.string().url(),
     }).when('contactType', equals: 'phone', then: {
       'contact': V.string().phone(),
-    }).form(defaultValues: {'contactType': 'email'});
+    }).form(initialValues: {'contactType': 'email'});
   }
 
   @override

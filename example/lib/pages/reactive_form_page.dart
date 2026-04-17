@@ -119,17 +119,7 @@ class _ReactiveFormPageState extends State<ReactiveFormPage> {
                         child: const Text('Validate'),
                       ),
                       ElevatedButton(
-                        onPressed: () {
-                          _name.clear();
-                          _email.clear();
-                        },
-                        child: const Text('Clear'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          _name.reset();
-                          _email.reset();
-                        },
+                        onPressed: _form.reset,
                         child: const Text('Reset'),
                       ),
                     ],

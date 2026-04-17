@@ -37,7 +37,7 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
     _noSyncForm = V.map({'name': V.string().min(2)}).form();
 
     _syncInitForm = V.map({'name': V.string().min(2)}).form(
-      defaultValues: {'name': 'John'},
+      initialValues: {'name': 'John'},
     );
     _syncInitController = TextEditingController(text: 'John');
     _syncInitForm
@@ -45,7 +45,7 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
         .attachTextController(_syncInitController);
 
     _noSyncInitForm = V.map({'name': V.string().min(2)}).form(
-      defaultValues: {'name': 'Jane'},
+      initialValues: {'name': 'Jane'},
     );
   }
 
@@ -72,7 +72,7 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
             _SyncSection(
               title: 'With Controller',
               description: 'attachTextController creates bidirectional sync. '
-                  'Calling set(), clear(), or reset() updates the text field. '
+                  'Calling set() or reset() updates the text field. '
                   'Typing updates the VField value.',
               form: _syncForm,
               field: _syncForm.field('name'),
@@ -81,8 +81,7 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
             const Divider(height: 48),
             _SyncSection(
               title: 'Without Controller',
-              description:
-                  'Without a controller, set()/clear()/reset() update the '
+              description: 'Without a controller, set()/reset() update the '
                   'VField value but NOT the widget text. The ListenableBuilder '
                   'below shows the real VField value.',
               form: _noSyncForm,
@@ -91,7 +90,7 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
             const Divider(height: 48),
             _SyncSection(
               title: 'With Controller + Initial Value',
-              description: 'defaultValues sets the initial VField value. The '
+              description: 'initialValues sets the initial VField value. The '
                   'TextEditingController is created with the same text. '
                   'Reset restores to the initial value in both.',
               form: _syncInitForm,
@@ -101,7 +100,7 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
             const Divider(height: 48),
             _SyncSection(
               title: 'Without Controller + Initial Value',
-              description: 'defaultValues sets the VField value to "Jane". '
+              description: 'initialValues sets the VField value to "Jane". '
                   'initialValue on TextFormField shows it in the widget. '
                   'But without a controller, set()/reset() only update the '
                   'VField — the widget text stays unchanged.',
@@ -174,8 +173,8 @@ class _SyncSection extends StatelessWidget {
                 child: const Text('Set "Hello"'),
               ),
               FilledButton.tonal(
-                onPressed: () => field.clear(),
-                child: const Text('Clear'),
+                onPressed: () => field.set(null),
+                child: const Text('Set null'),
               ),
               FilledButton.tonal(
                 onPressed: () => field.reset(),

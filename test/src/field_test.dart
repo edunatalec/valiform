@@ -29,8 +29,8 @@ void main() {
     expect(field.value, 'New Value');
   });
 
-  test('Clear resets value to null', () {
-    field.clear();
+  test('set(null) resets value to null', () {
+    field.set(null);
     expect(field.value, isNull);
   });
 
@@ -90,6 +90,17 @@ void main() {
     expect(field.value, 'Saved Value');
   });
 
+  test('onChanged accepts null (e.g. DropdownButtonFormField)', () {
+    final dropdownField = VField<String>(
+      type: V.string().nullable(),
+      validators: [],
+      initialValue: 'start',
+    );
+    dropdownField.onChanged(null);
+    expect(dropdownField.value, isNull);
+    dropdownField.dispose();
+  });
+
   test('Custom error message', () {
     final customField = VField<String>(
       type: V.string().email(),
@@ -121,11 +132,11 @@ void main() {
       controller.dispose();
     });
 
-    test('Syncs field clear to controller', () {
+    test('Syncs field set(null) to controller', () {
       final controller = ValueNotifier<String?>('value');
       field.attachController(controller);
 
-      field.clear();
+      field.set(null);
       expect(controller.value, isNull);
 
       controller.dispose();
@@ -182,7 +193,7 @@ void main() {
     });
 
     test('Returns null when value is null', () {
-      field.clear();
+      field.set(null);
       expect(field.parsedValue, isNull);
     });
   });
@@ -379,9 +390,28 @@ void main() {
       expect(field.validator(field.value), isNot('Sticky forced'));
     });
 
-    test('formFieldKey is available for attachment', () {
-      expect(field.formFieldKey, isNotNull);
-      expect(field.formFieldKey, isA<GlobalKey<FormFieldState<String>>>());
+    test('key is available for attachment', () {
+      expect(field.key, isNotNull);
+      expect(field.key, isA<GlobalKey<FormFieldState<String>>>());
+    });
+
+    test('validate() reflects manual error without consuming it', () {
+      field.set('valid@email.com');
+      field.setError('Manual issue');
+
+      expect(field.validate(), false);
+      expect(field.validate(), false);
+      expect(field.manualError, 'Manual issue');
+
+      expect(field.validator(field.value), 'Manual issue');
+      expect(field.manualError, isNull);
+      expect(field.validate(), true);
+    });
+
+    test('validate() respects force flag', () {
+      field.set('not-an-email');
+      field.setError('Forced', force: true, persist: true);
+      expect(field.validate(), false);
     });
   });
 
@@ -406,11 +436,11 @@ void main() {
       controller.dispose();
     });
 
-    test('Syncs field clear to TextEditingController', () {
+    test('Syncs field set(null) to TextEditingController', () {
       final controller = TextEditingController(text: 'initial');
       field.attachTextController(controller);
 
-      field.clear();
+      field.set(null);
       expect(controller.text, '');
 
       controller.dispose();

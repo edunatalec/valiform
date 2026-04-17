@@ -11,7 +11,6 @@ import 'package:validart/validart.dart';
 class VForm<T> {
   final GlobalKey<FormState> _formKey;
   final Map<String, VField> _fields = {};
-  final Map<String, dynamic> _defaultValues = {};
   final bool Function(Map<String, dynamic>) _silentValidator;
   final T Function(Map<String, dynamic>) _valueBuilder;
   final List<void Function(T value)> _valueChangedListeners = [];
@@ -21,7 +20,7 @@ class VForm<T> {
     required bool Function(Map<String, dynamic>) silentValidator,
     required T Function(Map<String, dynamic>) valueBuilder,
     GlobalKey<FormState>? formKey,
-    Map<String, dynamic>? defaultValues,
+    Map<String, dynamic>? initialValues,
     List<VFieldValidator> crossValidators = const [],
     List<({String field, Object? equals, Map<String, VType> then})> whenRules =
         const [],
@@ -29,10 +28,6 @@ class VForm<T> {
   })  : _formKey = formKey ?? GlobalKey<FormState>(),
         _silentValidator = silentValidator,
         _valueBuilder = valueBuilder {
-    if (defaultValues != null) {
-      _defaultValues.addAll(defaultValues);
-    }
-
     for (final entry in schema.entries) {
       final key = entry.key;
       final type = entry.value;
@@ -63,7 +58,7 @@ class VForm<T> {
 
       _fields[key] = _createField(
         type: type,
-        initialValue: defaultValues?[key],
+        initialValue: initialValues?[key],
         validators: validators,
       );
     }
@@ -81,7 +76,7 @@ class VForm<T> {
   factory VForm.map(
     VMap map, {
     GlobalKey<FormState>? formKey,
-    Map<String, dynamic>? defaultValues,
+    Map<String, dynamic>? initialValues,
     void Function(T value)? onValueChanged,
   }) {
     final crossValidators = formFieldValidators[map] ?? [];
@@ -91,7 +86,7 @@ class VForm<T> {
       silentValidator: (raw) => map.validate(raw),
       valueBuilder: (raw) => raw as T,
       formKey: formKey,
-      defaultValues: defaultValues,
+      initialValues: initialValues,
       crossValidators: crossValidators,
       whenRules: map.whenRules,
       onValueChanged: onValueChanged,
@@ -101,24 +96,24 @@ class VForm<T> {
   /// Creates a `VForm` from a `VObject<T>` schema.
   ///
   /// Requires a [builder] function to construct `T` from the field values.
-  /// Accepts an optional [defaultValue] of type `T` to set initial field values.
+  /// Accepts an optional [initialValue] of type `T` to set initial field values.
   /// The resulting form's [value] returns an instance of `T`.
   factory VForm.object(
     VObject<T> object, {
     required T Function(Map<String, dynamic> data) builder,
     GlobalKey<FormState>? formKey,
-    T? defaultValue,
+    T? initialValue,
     void Function(T value)? onValueChanged,
   }) {
-    final defaultValues =
-        defaultValue != null ? object.extract(defaultValue) : null;
+    final initialValues =
+        initialValue != null ? object.extract(initialValue) : null;
 
     return VForm._(
       schema: object.schema,
       silentValidator: (raw) => object.validate(builder(raw)),
       valueBuilder: builder,
       formKey: formKey,
-      defaultValues: defaultValues,
+      initialValues: initialValues,
       onValueChanged: onValueChanged,
     );
   }
@@ -195,14 +190,6 @@ class VForm<T> {
     }
   }
 
-  /// Clears all fields in the form.
-  void clear() {
-    _formKey.currentState?.reset();
-    for (final field in _fields.values) {
-      field.clear();
-    }
-  }
-
   /// Sets an imperative error on [field].
   ///
   /// Delegates to [VField.setError]. See that method for semantics.
@@ -257,6 +244,12 @@ class VForm<T> {
   bool validate() => _formKey.currentState?.validate() ?? false;
 
   /// Validates without triggering UI error messages.
+  ///
+  /// Runs only the underlying validart schema against the current parsed
+  /// values — imperative errors set via [setError] are NOT considered here.
+  /// `silentValidate` reflects whether the data model is valid, not whether
+  /// any transient UI errors exist. To check for manual errors, inspect
+  /// `field.manualError` directly.
   bool silentValidate() => _silentValidator(
         _fields.map((key, field) => MapEntry(key, field.parsedValue)),
       );

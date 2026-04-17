@@ -57,7 +57,7 @@ class _ObjectFormPageState extends State<ObjectFormPage> {
 
     _defaultForm = _userSchema().form(
       builder: _buildUser,
-      defaultValue:
+      initialValue:
           const User(name: 'John', email: 'john@example.com', age: 25),
     );
   }
@@ -172,7 +172,7 @@ class _ObjectFormPageState extends State<ObjectFormPage> {
           ),
           const SizedBox(height: 8),
           const InfoCard(
-            'Pass a typed defaultValue to .form(). The User instance is '
+            'Pass a typed initialValue to .form(). The User instance is '
             'decomposed into field values using VObject\'s extract method. '
             'Calling form.reset() restores the original User values.',
           ),

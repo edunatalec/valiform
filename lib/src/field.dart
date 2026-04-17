@@ -19,7 +19,7 @@ class VField<T> {
   /// `FormField`) to enable single-field revalidation via [setError].
   /// Without it, errors set imperatively only surface on the next full
   /// `VForm.validate()` call.
-  final GlobalKey<FormFieldState<T>> formFieldKey =
+  final GlobalKey<FormFieldState<T>> key =
       GlobalKey<FormFieldState<T>>();
 
   ValueNotifier<T?>? _attachedController;
@@ -61,7 +61,7 @@ class VField<T> {
   T? get parsedValue {
     final result = _type.safeParse(value);
 
-    if (result case VSuccess<T?>(:final value)) return value;
+    if (result case VSuccess<T?>(value: final parsed)) return parsed;
 
     return value;
   }
@@ -86,6 +86,11 @@ class VField<T> {
   ///
   /// The caller is responsible for disposing the controller.
   void attachTextController(TextEditingController controller) {
+    assert(
+      T == String,
+      'attachTextController requires VField<String>; got VField<$T>. '
+      'Use attachController(ValueNotifier<$T?>) for non-String fields.',
+    );
     detachController();
     _attachedTextController = controller;
     controller.addListener(_onTextControllerChanged);
@@ -148,18 +153,17 @@ class VField<T> {
   }
 
   /// Handles value changes from UI components.
-  void onChanged(T value) {
+  ///
+  /// Accepts `T?` so it can be wired directly to widgets whose `onChanged`
+  /// passes a nullable value (e.g. `DropdownButtonFormField`), not just
+  /// `TextFormField`.
+  void onChanged(T? value) {
     _value.value = value;
   }
 
   /// Handles `onSaved` callback in form fields.
   void onSaved(T? value) {
     _value.value = value;
-  }
-
-  /// Clears the field value to `null`.
-  void clear() {
-    _value.value = null;
   }
 
   /// Resets the field to its initial value.
@@ -183,13 +187,13 @@ class VField<T> {
   ///   validators for this setError, so you can flag a field even while it
   ///   would otherwise fail its own rules.
   ///
-  /// If [formFieldKey] is attached to a `TextFormField`, this triggers
+  /// If [key] is attached to a `TextFormField`, this triggers
   /// revalidation of that single field only — other fields are untouched.
   void setError(String message, {bool persist = false, bool force = false}) {
     _manualError = message;
     _persistManualError = persist;
     _forceManualError = force;
-    formFieldKey.currentState?.validate();
+    key.currentState?.validate();
   }
 
   /// Clears the imperative error (if any) and refreshes the attached
@@ -198,13 +202,23 @@ class VField<T> {
     _manualError = null;
     _persistManualError = false;
     _forceManualError = false;
-    formFieldKey.currentState?.validate();
+    key.currentState?.validate();
   }
 
   /// Validates the given value using all registered validators.
   ///
   /// Returns `null` if valid, or an error message if invalid.
-  String? validator(T? value) {
+  /// Called by Flutter's `FormField` pipeline — consumes one-shot manual
+  /// errors as a side effect.
+  String? validator(T? value) => _runValidators(value, consume: true);
+
+  /// Returns `true` if the current value passes all validators.
+  ///
+  /// Read-only: unlike [validator], this does NOT consume one-shot manual
+  /// errors. Call it as many times as you like without affecting state.
+  bool validate() => _runValidators(value, consume: false) == null;
+
+  String? _runValidators(T? value, {required bool consume}) {
     final processed = value is String && value.isEmpty ? null : value;
     final stdError = _type.errors(processed)?.firstOrNull?.message;
 
@@ -219,7 +233,7 @@ class VField<T> {
 
     final manual = _manualError;
     final forced = _forceManualError;
-    if (manual != null && !_persistManualError) {
+    if (consume && manual != null && !_persistManualError) {
       _manualError = null;
       _forceManualError = false;
     }
@@ -227,9 +241,6 @@ class VField<T> {
     if (forced && manual != null) return manual;
     return stdError ?? extraError ?? manual;
   }
-
-  /// Returns `true` if the current value passes validation.
-  bool validate() => _type.validate(value);
 
   /// Disposes of the field, freeing resources.
   ///

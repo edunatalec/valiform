@@ -13,6 +13,9 @@ class ManualErrorPage extends StatefulWidget {
 
 class _ManualErrorPageState extends State<ManualErrorPage> {
   late final VForm<Map<String, dynamic>> _form;
+  late final TextEditingController _emailController;
+  late final TextEditingController _usernameController;
+  late final TextEditingController _phoneController;
 
   @override
   void initState() {
@@ -23,15 +26,28 @@ class _ManualErrorPageState extends State<ManualErrorPage> {
       'username': V.string().min(3),
       'phone': V.string().min(8),
     }).form(
-      defaultValues: {
+      initialValues: {
         'email': 'user@example.com',
         'username': 'johndoe',
       },
     );
+
+    _emailController =
+        TextEditingController(text: _form.field<String>('email').value);
+    _usernameController =
+        TextEditingController(text: _form.field<String>('username').value);
+    _phoneController = TextEditingController();
+
+    _form.field<String>('email').attachTextController(_emailController);
+    _form.field<String>('username').attachTextController(_usernameController);
+    _form.field<String>('phone').attachTextController(_phoneController);
   }
 
   @override
   void dispose() {
+    _emailController.dispose();
+    _usernameController.dispose();
+    _phoneController.dispose();
     _form.dispose();
     super.dispose();
   }
@@ -66,33 +82,31 @@ class _ManualErrorPageState extends State<ManualErrorPage> {
               ),
               const SizedBox(height: 16),
               TextFormField(
-                key: _email.formFieldKey,
+                key: _email.key,
+                controller: _emailController,
                 decoration: const InputDecoration(
                   labelText: 'Email (pre-filled, valid)',
                 ),
                 keyboardType: TextInputType.emailAddress,
-                initialValue: _email.value,
-                onChanged: _email.onChanged,
                 validator: _email.validator,
               ),
               const SizedBox(height: 16),
               TextFormField(
-                key: _username.formFieldKey,
+                key: _username.key,
+                controller: _usernameController,
                 decoration: const InputDecoration(
                   labelText: 'Username (pre-filled, valid)',
                 ),
-                initialValue: _username.value,
-                onChanged: _username.onChanged,
                 validator: _username.validator,
               ),
               const SizedBox(height: 16),
               TextFormField(
-                key: _phone.formFieldKey,
+                key: _phone.key,
+                controller: _phoneController,
                 decoration: const InputDecoration(
                   labelText: 'Phone (empty, invalid)',
                 ),
                 keyboardType: TextInputType.phone,
-                onChanged: _phone.onChanged,
                 validator: _phone.validator,
               ),
               const SizedBox(height: 24),

@@ -28,7 +28,7 @@ class _BasicMapFormPageState extends State<BasicMapFormPage> {
       'email': V.string().email(),
       'password': V.string().password(),
     }).form(
-      defaultValues: {'email': 'user@example.com', 'password': 'Aa1@aaaa'},
+      initialValues: {'email': 'user@example.com', 'password': 'Aa1@aaaa'},
     );
   }
 
@@ -127,7 +127,7 @@ class _BasicMapFormPageState extends State<BasicMapFormPage> {
           ),
           const SizedBox(height: 8),
           const InfoCard(
-            'Pass defaultValues to .form() to set initial field values. '
+            'Pass initialValues to .form() to set initial field values. '
             'Fields start pre-filled. Calling form.reset() restores them '
             'to the default values.',
           ),
