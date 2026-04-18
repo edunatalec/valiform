@@ -8,9 +8,19 @@
 - **Replaced `Validart()` instance** — Use `V` class with static methods (`V.string()`, `V.map()`, etc.).
 - **Replaced `.refine(check, path:)`** — Use `.refineFormField(check, path:)` for cross-field validation.
 - **Removed `VNum` support** — Use `VInt` or `VDouble` directly.
+- **Renamed `defaultValues` → `initialValues`** — on `VMap.form()` / `VForm.map()`. Matches Flutter's `TextFormField.initialValue` naming and better reflects semantics (seed values, not fallbacks).
+- **Renamed `defaultValue` → `initialValue`** — on `VObject.form()` / `VForm.object()`.
+- **`VField.onChanged` now accepts `T?`** — so it can be wired directly to widgets like `DropdownButtonFormField` whose `onChanged` passes a nullable value.
+- **`VField.validate()` now runs all validators (including cross-field and manual errors) without side-effects** — previously only ran the schema check. Behaviour of the Flutter-facing `validator(value)` is unchanged.
 
 ### Added
 
+- **Imperative error setting** — `VField.setError(message, {persist, force})` / `VField.clearError()` and their `VForm` counterparts (`setError`, `setErrors`, `clearError`, `clearErrors`). Useful for backend validation errors, async checks, and external-state business rules.
+  - **Default (one-shot)** — the error surfaces on the next `validator()` call and is cleared on it, even when a standard validator wins precedence. This prevents "ghost" errors from lingering until the field happens to pass its own rules later.
+  - **`persist: true`** — keeps the error across multiple validations until `clearError()` is called explicitly.
+  - **`force: true`** — overrides standard-validator precedence so the manual error is shown even on a field that would otherwise fail its own rules.
+  - **`persist: true, force: true`** — combined: always shows the manual error on every validation until `clearError()`, regardless of field state (useful for server-side blocks like "Account suspended").
+- **`VField.key`** — Optional `GlobalKey<FormFieldState<T>>` that, when attached to a `TextFormField`, lets `setError` revalidate only that field without triggering error display on others.
 - **VObject support** — Create typed forms with `V.object<T>().form(builder:)` that return `T` instead of `Map`.
 - **`attachController(ValueNotifier<T?>)`** — Bidirectional sync with any `ValueNotifier`.
 - **`attachTextController(TextEditingController)`** — Bidirectional sync for text fields.
@@ -18,7 +28,7 @@
 - **`parsedValue` getter** — Returns the value after pipeline transforms (trim, toLowerCase, etc.).
 - **`onValueChanged` callback** — Pass in `.form()` or use `addValueChangedListener()` / `removeValueChangedListener()`.
 - **`rawValue` getter on VForm** — Returns field values without transforms.
-- **Typed `defaultValue` for VObject forms** — Pass a `T` instance instead of a map.
+- **Typed `initialValue` for VObject forms** — Pass a `T` instance instead of a map.
 - **`mapType` on VType** — Preserves generic types, enabling `VField<Country>` for enums and custom types.
 - **Fallback-free field creation** — All VType generics are preserved via `mapType` (no more `VField<dynamic>` fallback).
 - **Conditional validation (`when`)** — VMap's `.when()` rules are automatically plumbed to individual field validators.
