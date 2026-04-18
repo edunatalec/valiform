@@ -277,6 +277,46 @@ class VField<T> {
   /// inspect the state without mutating it.
   String? get error => _runValidators(value, consume: false);
 
+  /// Returns the full list of [VError]s for this field's current value,
+  /// preserving each error's `code`, `path`, and `message` — or `null` if
+  /// valid. Useful for array fields where the path contains the failing
+  /// element's index.
+  ///
+  /// Cross-field and imperative errors are wrapped as `VError(code:
+  /// VCode.custom, message: ...)` since they're produced outside validart.
+  ///
+  /// Read-only: does NOT consume one-shot manual errors.
+  List<VError>? get vError {
+    final value = this.value;
+    final processed = value is String && value.isEmpty ? null : value;
+
+    final stdErrors = _type.errors(processed);
+
+    String? extraError;
+    for (final fn in _validators) {
+      final message = fn();
+      if (message != null) {
+        extraError = message;
+        break;
+      }
+    }
+
+    final manual = _manualError;
+    final forced = _forceManualError;
+
+    if (forced && manual != null) {
+      return [VError(code: VCode.custom, message: manual)];
+    }
+    if (stdErrors != null && stdErrors.isNotEmpty) return stdErrors;
+    if (extraError != null) {
+      return [VError(code: VCode.custom, message: extraError)];
+    }
+    if (manual != null) {
+      return [VError(code: VCode.custom, message: manual)];
+    }
+    return null;
+  }
+
   String? _runValidators(T? value, {required bool consume}) {
     final processed = value is String && value.isEmpty ? null : value;
     final stdError = _type.errors(processed)?.firstOrNull?.message;

@@ -516,6 +516,38 @@ void main() {
 
       arrayField.dispose();
     });
+
+    test('vError preserves VError path for invalid array elements', () {
+      final arrayField = VField<List<String>>(
+        type: V.array<String>(V.string().email()).min(1),
+        validators: [],
+      );
+
+      arrayField.set(['a@b.com', 'bad', 'also-bad']);
+
+      final errs = arrayField.vError;
+      expect(errs, isNotNull);
+      expect(errs, isNotEmpty);
+
+      // At least one error should reference a non-root path (the index)
+      expect(
+        errs!.any((e) => e.path.isNotEmpty),
+        true,
+        reason: 'Expected a VError with a non-empty path (element index)',
+      );
+
+      arrayField.dispose();
+    });
+
+    test('vError returns null when array is valid', () {
+      final arrayField = VField<List<String>>(
+        type: V.array<String>(V.string().email()).min(1),
+        validators: [],
+      );
+      arrayField.set(['a@b.com', 'c@d.com']);
+      expect(arrayField.vError, isNull);
+      arrayField.dispose();
+    });
   });
 
   group('setError / clearError', () {

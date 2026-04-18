@@ -243,6 +243,24 @@ class VForm<T> {
     return result.isEmpty ? null : result;
   }
 
+  /// Returns a map of field name → list of [VError]s for every field that
+  /// currently fails validation, or `null` if all fields are valid.
+  ///
+  /// Unlike [errors], this preserves the full error detail (`code`, `path`,
+  /// `message`) — useful for array fields where the path contains the
+  /// failing element's index.
+  ///
+  /// Read-only: does NOT consume one-shot manual errors, does NOT touch
+  /// the UI.
+  Map<String, List<VError>>? vErrors() {
+    final result = <String, List<VError>>{};
+    for (final entry in _fields.entries) {
+      final errs = entry.value.vError;
+      if (errs != null) result[entry.key] = errs;
+    }
+    return result.isEmpty ? null : result;
+  }
+
   /// Clears the imperative error on [field].
   void clearError(String field) {
     _requireField(field).clearError();

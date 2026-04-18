@@ -680,6 +680,34 @@ void main() {
       expect(form.field<String>('cpf').manualError, 'invalid');
     });
 
+    test('form.vErrors returns detailed VErrors per field', () {
+      final detailedForm = V.map({
+        'emails': V.array<String>(V.string().email()).min(1),
+        'age': V.int().min(18),
+      }).form();
+
+      detailedForm.field<List<String>>('emails').set(['a@b.com', 'bad']);
+      detailedForm.field<int>('age').set(10);
+
+      final errs = detailedForm.vErrors();
+      expect(errs, isNotNull);
+      expect(errs!.keys, containsAll(['emails', 'age']));
+
+      // 'emails' should have at least one VError with a non-empty path
+      expect(errs['emails']!.any((e) => e.path.isNotEmpty), true);
+
+      detailedForm.dispose();
+    });
+
+    test('form.vErrors returns null when all fields valid', () {
+      final validForm = V.map({
+        'emails': V.array<String>(V.string().email()).min(1),
+      }).form();
+      validForm.field<List<String>>('emails').set(['a@b.com']);
+      expect(validForm.vErrors(), isNull);
+      validForm.dispose();
+    });
+
     test('form.setErrors with empty map fails the assert', () {
       expect(
         () => form.setErrors({}),
