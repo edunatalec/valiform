@@ -873,6 +873,135 @@ void main() {
       expect(find.text('Email already taken'), findsNothing);
     });
   });
+
+  group('Cursor position', () {
+    Future<void> pumpField({
+      required WidgetTester tester,
+      required GlobalKey<FormState> formKey,
+      required TextEditingController controller,
+      required VField<String> field,
+    }) =>
+        tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Form(
+                key: formKey,
+                child: TextFormField(
+                  controller: controller,
+                  onChanged: field.onChanged,
+                ),
+              ),
+            ),
+          ),
+        );
+
+    testWidgets(
+        'user typing (atomic text+selection update) preserves cursor position',
+        (tester) async {
+      final testForm = V.map({'email': V.string()}).form(
+        initialValues: {'email': 'helo'},
+      );
+      final email = testForm.field<String>('email');
+      final controller = TextEditingController(text: 'helo');
+      email.attachTextController(controller, owns: false);
+
+      await pumpField(
+        tester: tester,
+        formKey: testForm.key,
+        controller: controller,
+        field: email,
+      );
+
+      // Simulate what Flutter's EditableText does on a keystroke: atomically
+      // update text AND selection. User inserted 'x' at position 3.
+      controller.value = const TextEditingValue(
+        text: 'helxo',
+        selection: TextSelection.collapsed(offset: 3),
+      );
+      await tester.pump();
+
+      expect(controller.text, 'helxo');
+      expect(
+        controller.selection.baseOffset,
+        3,
+        reason: 'valiform must not reset the cursor when reading from the '
+            'controller',
+      );
+      expect(email.value, 'helxo');
+
+      controller.dispose();
+      testForm.dispose();
+    });
+
+    testWidgets(
+        'selection-only change does NOT trigger a VField value notification',
+        (tester) async {
+      final testForm = V.map({'email': V.string()}).form(
+        initialValues: {'email': 'hello'},
+      );
+      final email = testForm.field<String>('email');
+      final controller = TextEditingController(text: 'hello');
+      email.attachTextController(controller, owns: false);
+
+      await pumpField(
+        tester: tester,
+        formKey: testForm.key,
+        controller: controller,
+        field: email,
+      );
+
+      int valueChanges = 0;
+      email.listenable.addListener(() => valueChanges++);
+
+      controller.selection = const TextSelection.collapsed(offset: 2);
+      await tester.pump();
+
+      expect(controller.selection.baseOffset, 2);
+      expect(valueChanges, 0, reason: 'No text change → no value notification');
+      expect(email.value, 'hello');
+
+      controller.dispose();
+      testForm.dispose();
+    });
+
+    testWidgets(
+        'field.set() with different text moves the cursor away from its prior position',
+        (tester) async {
+      final testForm = V.map({'email': V.string()}).form(
+        initialValues: {'email': 'hello'},
+      );
+      final email = testForm.field<String>('email');
+      final controller = TextEditingController(text: 'hello');
+      email.attachTextController(controller, owns: false);
+
+      await pumpField(
+        tester: tester,
+        formKey: testForm.key,
+        controller: controller,
+        field: email,
+      );
+
+      controller.selection = const TextSelection.collapsed(offset: 2);
+      await tester.pump();
+      expect(controller.selection.baseOffset, 2);
+
+      // Programmatic set with DIFFERENT text. Flutter's TextEditingController
+      // .text setter internally does value.copyWith(selection:
+      // TextSelection.collapsed(offset: -1)), so the cursor is no longer at 2.
+      email.set('world');
+      await tester.pump();
+
+      expect(controller.text, 'world');
+      expect(
+        controller.selection.baseOffset,
+        isNot(2),
+        reason: 'Programmatic field.set resets the cursor (Flutter default)',
+      );
+
+      controller.dispose();
+      testForm.dispose();
+    });
+  });
 }
 
 enum _Status { active, inactive }
