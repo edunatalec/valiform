@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
+import '../widgets/widgets.dart';
+
 const JsonEncoder _encoder = JsonEncoder.withIndent('  ');
 
 class ReactiveFormPage extends StatefulWidget {
@@ -51,23 +53,12 @@ class _ReactiveFormPageState extends State<ReactiveFormPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: Colors.grey[200],
-              ),
-              child: Text(
-                'This page demonstrates reactive features of VForm. The '
-                'onValueChanged callback fires whenever any field value changes, '
-                'providing a live JSON preview below the form. ListenableBuilder '
-                'with a field\'s listenable tracks individual field changes, '
-                'such as the character count for the name field.',
-                style: TextStyle(
-                  letterSpacing: 1.5,
-                  color: Colors.grey[800],
-                ),
-              ),
+            const InfoCard(
+              'Reactive features of VForm. The onValueChanged callback fires '
+              'whenever any field value changes, providing a live JSON '
+              'preview below the form. ListenableBuilder with a field\'s '
+              'listenable tracks individual field changes, such as the '
+              'character count for the name field.',
             ),
             const SizedBox(height: 16),
             Form(
@@ -75,10 +66,9 @@ class _ReactiveFormPageState extends State<ReactiveFormPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextFormField(
-                    decoration: const InputDecoration(hintText: 'Name'),
-                    validator: _name.validator,
-                    onChanged: _name.onChanged,
+                  VTextField(
+                    field: _name,
+                    hint: 'Name',
                   ),
                   const SizedBox(height: 4),
                   ListenableBuilder(
@@ -98,10 +88,9 @@ class _ReactiveFormPageState extends State<ReactiveFormPage> {
                     },
                   ),
                   const SizedBox(height: 8),
-                  TextFormField(
-                    decoration: const InputDecoration(hintText: 'Email'),
-                    validator: _email.validator,
-                    onChanged: _email.onChanged,
+                  VTextField(
+                    field: _email,
+                    hint: 'Email',
                   ),
                   const SizedBox(height: 16),
                   Wrap(
@@ -128,12 +117,7 @@ class _ReactiveFormPageState extends State<ReactiveFormPage> {
               ),
             ),
             const SizedBox(height: 24),
-            Text(
-              'Live JSON Preview',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
+            const SectionTitle('Live JSON Preview'),
             const SizedBox(height: 8),
             Container(
               width: double.infinity,

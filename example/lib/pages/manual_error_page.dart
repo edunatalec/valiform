@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
-import '../main.dart';
+import '../widgets/widgets.dart';
 
 class ManualErrorPage extends StatefulWidget {
   const ManualErrorPage({super.key});
@@ -43,6 +43,7 @@ class _ManualErrorPageState extends State<ManualErrorPage> {
   @override
   void dispose() {
     _form.dispose();
+
     super.dispose();
   }
 
@@ -75,33 +76,21 @@ class _ManualErrorPageState extends State<ManualErrorPage> {
                 '(invalid) — use it to see both behaviours.',
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                key: _email.key,
-                controller: _email.textController,
-                decoration: const InputDecoration(
-                  labelText: 'Email (pre-filled, valid)',
-                ),
+              VTextField(
+                field: _email,
+                label: 'Email (pre-filled, valid)',
                 keyboardType: TextInputType.emailAddress,
-                validator: _email.validator,
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                key: _username.key,
-                controller: _username.textController,
-                decoration: const InputDecoration(
-                  labelText: 'Username (pre-filled, valid)',
-                ),
-                validator: _username.validator,
+              VTextField(
+                field: _username,
+                label: 'Username (pre-filled, valid)',
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                key: _phone.key,
-                controller: _phone.textController,
-                decoration: const InputDecoration(
-                  labelText: 'Phone (empty, invalid)',
-                ),
+              VTextField(
+                field: _phone,
+                label: 'Phone (empty, invalid)',
                 keyboardType: TextInputType.phone,
-                validator: _phone.validator,
               ),
               const SizedBox(height: 24),
               FilledButton.tonal(

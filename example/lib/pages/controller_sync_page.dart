@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
-import '../main.dart';
+import '../widgets/widgets.dart';
 
 class ControllerSyncPage extends StatefulWidget {
   const ControllerSyncPage({super.key});

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
-import '../main.dart';
+import '../widgets/widgets.dart';
 
 enum Color { red, green, blue, yellow }
 
@@ -108,39 +108,30 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
                 'others empty.',
               ),
               const SizedBox(height: 24),
-              _sectionTitle('Required'),
+              const SectionTitle('Required'),
               const SizedBox(height: 12),
-              TextFormField(
-                decoration: const InputDecoration(
-                  labelText: 'Name *',
-                  hintText: 'At least 3 characters',
-                ),
-                onChanged: _name.onChanged,
-                validator: _name.validator,
+              VTextField(
+                field: _name,
+                label: 'Name *',
+                hint: 'At least 3 characters',
               ),
               const SizedBox(height: 24),
-              _sectionTitle('Optional Strings'),
+              const SectionTitle('Optional Strings'),
               const SizedBox(height: 12),
-              TextFormField(
-                decoration: const InputDecoration(
-                  labelText: 'Nickname',
-                  hintText: 'At least 2 chars if provided',
-                ),
-                onChanged: _nickname.onChanged,
-                validator: _nickname.validator,
+              VTextField(
+                field: _nickname,
+                label: 'Nickname',
+                hint: 'At least 2 chars if provided',
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                decoration: const InputDecoration(
-                  labelText: 'Website',
-                  hintText: 'Valid URL if provided',
-                ),
+              VTextField(
+                field: _website,
+                label: 'Website',
+                hint: 'Valid URL if provided',
                 keyboardType: TextInputType.url,
-                onChanged: _website.onChanged,
-                validator: _website.validator,
               ),
               const SizedBox(height: 24),
-              _sectionTitle('Optional Numbers'),
+              const SectionTitle('Optional Numbers'),
               const SizedBox(height: 12),
               TextFormField(
                 decoration: const InputDecoration(
@@ -177,7 +168,7 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
                 validator: (_) => _score.validator(_score.value),
               ),
               const SizedBox(height: 24),
-              _sectionTitle('Optional Bool'),
+              const SectionTitle('Optional Bool'),
               const SizedBox(height: 12),
               ListenableBuilder(
                 listenable: _newsletter.listenable,
@@ -200,7 +191,7 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
                 },
               ),
               const SizedBox(height: 24),
-              _sectionTitle('Optional DateTime'),
+              const SectionTitle('Optional DateTime'),
               const SizedBox(height: 12),
               ListenableBuilder(
                 listenable: _birthdate.listenable,
@@ -232,7 +223,7 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
                 },
               ),
               const SizedBox(height: 24),
-              _sectionTitle('Optional Enum'),
+              const SectionTitle('Optional Enum'),
               const SizedBox(height: 12),
               ListenableBuilder(
                 listenable: _favoriteColor.listenable,
@@ -261,7 +252,7 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
                 },
               ),
               const SizedBox(height: 24),
-              _sectionTitle('Optional Custom Class'),
+              const SectionTitle('Optional Custom Class'),
               const SizedBox(height: 12),
               ListenableBuilder(
                 listenable: _address.listenable,
@@ -327,16 +318,6 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _sectionTitle(String text) {
-    return Text(
-      text,
-      style: Theme.of(context)
-          .textTheme
-          .titleMedium
-          ?.copyWith(fontWeight: FontWeight.bold),
     );
   }
 

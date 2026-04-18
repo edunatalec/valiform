@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
-import '../main.dart';
+import '../widgets/widgets.dart';
 
 class CheckboxFormPage extends StatefulWidget {
   const CheckboxFormPage({super.key});
@@ -75,17 +75,15 @@ class _CheckboxFormPageState extends State<CheckboxFormPage> {
                 'pattern with proper validation error display.',
               ),
               const SizedBox(height: 24),
-              TextFormField(
-                decoration: const InputDecoration(labelText: 'Name'),
-                onChanged: _name.onChanged,
-                validator: _name.validator,
+              VTextField(
+                field: _name,
+                label: 'Name',
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                decoration: const InputDecoration(labelText: 'Email'),
+              VTextField(
+                field: _email,
+                label: 'Email',
                 keyboardType: TextInputType.emailAddress,
-                onChanged: _email.onChanged,
-                validator: _email.validator,
               ),
               const SizedBox(height: 16),
               FormField<bool>(

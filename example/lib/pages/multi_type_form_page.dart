@@ -3,6 +3,7 @@ import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
 import '../main.dart';
+import '../widgets/widgets.dart';
 
 enum Priority { low, medium, high, critical }
 
@@ -75,17 +76,15 @@ class _MultiTypeFormPageState extends State<MultiTypeFormPage> {
                 'directly with TextFormField.',
               ),
               const SizedBox(height: 24),
-              TextFormField(
-                decoration: const InputDecoration(labelText: 'Title'),
-                onChanged: _title.onChanged,
-                validator: _title.validator,
+              VTextField(
+                field: _title,
+                label: 'Title',
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                decoration: const InputDecoration(labelText: 'Description'),
+              VTextField(
+                field: _description,
+                label: 'Description',
                 maxLines: 3,
-                onChanged: _description.onChanged,
-                validator: _description.validator,
               ),
               const SizedBox(height: 16),
               TextFormField(

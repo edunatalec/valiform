@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
-import '../main.dart';
+import '../widgets/widgets.dart';
 
 class ConditionalValidationPage extends StatefulWidget {
   const ConditionalValidationPage({super.key});
@@ -86,13 +86,7 @@ class _ConditionalValidationPageState extends State<ConditionalValidationPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Different Fields',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.bold),
-          ),
+          const SectionTitle('Different Fields'),
           const SizedBox(height: 8),
           const InfoCard(
             'The .when() method shows/hides fields based on a condition. '
@@ -125,31 +119,21 @@ class _ConditionalValidationPageState extends State<ConditionalValidationPage> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    decoration: const InputDecoration(labelText: 'Name'),
-                    onChanged: _name.onChanged,
-                    validator: _name.validator,
-                  ),
+                  VTextField(field: _name, label: 'Name'),
                   const SizedBox(height: 16),
                   if (_type.value == 'person')
-                    TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: 'CPF',
-                        hintText: 'Required for person (11 chars)',
-                      ),
+                    VTextField(
+                      field: _cpf,
+                      label: 'CPF',
+                      hint: 'Required for person (11 chars)',
                       keyboardType: TextInputType.number,
-                      onChanged: _cpf.onChanged,
-                      validator: _cpf.validator,
                     ),
                   if (_type.value == 'company')
-                    TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: 'CNPJ',
-                        hintText: 'Required for company (14 chars)',
-                      ),
+                    VTextField(
+                      field: _cnpj,
+                      label: 'CNPJ',
+                      hint: 'Required for company (14 chars)',
                       keyboardType: TextInputType.number,
-                      onChanged: _cnpj.onChanged,
-                      validator: _cnpj.validator,
                     ),
                 ],
               );
@@ -192,13 +176,7 @@ class _ConditionalValidationPageState extends State<ConditionalValidationPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Same Field, Different Rules',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.bold),
-          ),
+          const SectionTitle('Same Field, Different Rules'),
           const SizedBox(height: 8),
           const InfoCard(
             'The same "contact" field changes its validation based on the '
@@ -240,13 +218,10 @@ class _ConditionalValidationPageState extends State<ConditionalValidationPage> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    decoration: InputDecoration(
-                      labelText: 'Contact',
-                      hintText: hints[type],
-                    ),
-                    onChanged: _contact.onChanged,
-                    validator: _contact.validator,
+                  VTextField(
+                    field: _contact,
+                    label: 'Contact',
+                    hint: hints[type],
                   ),
                 ],
               );

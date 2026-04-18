@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
+import '../widgets/widgets.dart';
+
 class PasswordMatchPage extends StatefulWidget {
   const PasswordMatchPage({super.key});
 
@@ -17,7 +19,6 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
   void initState() {
     super.initState();
 
-    // Section 1: Using refineFormField
     _refineForm = V
         .map({
           'password': V.string().password(),
@@ -30,7 +31,6 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
         )
         .form();
 
-    // Section 2: Using equalFields
     _equalFieldsForm = V
         .map({
           'password': V.string().password(),
@@ -51,11 +51,8 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
     super.dispose();
   }
 
-  // Section 1 fields
   VField<String> get _refinePassword => _refineForm.field('password');
   VField<String> get _refineConfirm => _refineForm.field('confirmPassword');
-
-  // Section 2 fields
   VField<String> get _equalPassword => _equalFieldsForm.field('password');
   VField<String> get _equalConfirm => _equalFieldsForm.field('confirmPassword');
 
@@ -68,141 +65,97 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildRefineFormFieldSection(),
+            Form(
+              key: _refineForm.key,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SectionTitle('Section 1: Using refineFormField'),
+                  const SizedBox(height: 8),
+                  const InfoCard(
+                    'refineFormField adds validation to both the VMap pipeline '
+                    'AND individual fields. The error message appears directly '
+                    'on the target field.',
+                  ),
+                  const SizedBox(height: 16),
+                  VTextField(
+                    field: _refinePassword,
+                    hint: 'Password',
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 8),
+                  VTextField(
+                    field: _refineConfirm,
+                    hint: 'Confirm Password',
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (_refineForm.validate()) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Passwords match!')),
+                        );
+                      }
+                    },
+                    child: const Text('Submit (refineFormField)'),
+                  ),
+                ],
+              ),
+            ),
             const Divider(height: 48),
-            _buildEqualFieldsSection(),
+            Form(
+              key: _equalFieldsForm.key,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SectionTitle('Section 2: Using equalFields'),
+                  const SizedBox(height: 8),
+                  const InfoCard(
+                    'equalFields adds validation only to the VMap pipeline. '
+                    'Use silentValidate() to check. Errors don\'t appear on '
+                    'individual fields — handle them yourself.',
+                  ),
+                  const SizedBox(height: 16),
+                  VTextField(
+                    field: _equalPassword,
+                    hint: 'Password',
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 8),
+                  VTextField(
+                    field: _equalConfirm,
+                    hint: 'Confirm Password',
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      final fieldsValid = _equalFieldsForm.validate();
+
+                      if (fieldsValid && !_equalFieldsForm.silentValidate()) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Passwords must match'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      if (fieldsValid && _equalFieldsForm.silentValidate()) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Passwords match!')),
+                        );
+                      }
+                    },
+                    child: const Text('Submit (equalFields)'),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildRefineFormFieldSection() {
-    return Form(
-      key: _refineForm.key,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Section 1: Using refineFormField',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.grey[200],
-            ),
-            child: Text(
-              'refineFormField adds validation to both the VMap pipeline AND '
-              'individual fields. The error message appears directly on the '
-              'target field.',
-              style: TextStyle(
-                letterSpacing: 1.5,
-                color: Colors.grey[800],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            decoration: const InputDecoration(hintText: 'Password'),
-            obscureText: true,
-            validator: _refinePassword.validator,
-            onChanged: _refinePassword.onChanged,
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            decoration: const InputDecoration(hintText: 'Confirm Password'),
-            obscureText: true,
-            validator: _refineConfirm.validator,
-            onChanged: _refineConfirm.onChanged,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              if (_refineForm.validate()) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Passwords match!')),
-                );
-              }
-            },
-            child: const Text('Submit (refineFormField)'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEqualFieldsSection() {
-    return Form(
-      key: _equalFieldsForm.key,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Section 2: Using equalFields',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.grey[200],
-            ),
-            child: Text(
-              'equalFields adds validation only to the VMap pipeline. Use '
-              'silentValidate() to check. Errors don\'t appear on individual '
-              'fields - handle them yourself.',
-              style: TextStyle(
-                letterSpacing: 1.5,
-                color: Colors.grey[800],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            decoration: const InputDecoration(hintText: 'Password'),
-            obscureText: true,
-            validator: _equalPassword.validator,
-            onChanged: _equalPassword.onChanged,
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            decoration: const InputDecoration(hintText: 'Confirm Password'),
-            obscureText: true,
-            validator: _equalConfirm.validator,
-            onChanged: _equalConfirm.onChanged,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              final fieldsValid = _equalFieldsForm.validate();
-
-              if (fieldsValid && !_equalFieldsForm.silentValidate()) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Passwords must match'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-
-              if (fieldsValid && _equalFieldsForm.silentValidate()) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Passwords match!')),
-                );
-              }
-            },
-            child: const Text('Submit (equalFields)'),
-          ),
-        ],
       ),
     );
   }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
-import '../main.dart';
+import '../widgets/widgets.dart';
 
 class ArrayFieldPage extends StatefulWidget {
   const ArrayFieldPage({super.key});
@@ -66,10 +66,9 @@ class _ArrayFieldPageState extends State<ArrayFieldPage> {
                 'submit to see validation in action.',
               ),
               const SizedBox(height: 24),
-              TextFormField(
-                decoration: const InputDecoration(labelText: 'Title'),
-                onChanged: _title.onChanged,
-                validator: _title.validator,
+              VTextField(
+                field: _title,
+                label: 'Title',
               ),
               const SizedBox(height: 24),
               const Text(
