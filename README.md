@@ -102,23 +102,49 @@ final user = form.value; // User instance
 
 ## Controller Sync
 
-Attach a `TextEditingController` for bidirectional synchronization:
+Two bidirectional-sync paths, each returning the controller typed (no cast):
+
+- **`attachController(ValueNotifier<T?>)`** — for custom controllers that extend `ValueNotifier<T?>`, or plain `ValueNotifier<T?>` itself. Retrieve via `field.controller`.
+- **`attachTextController(TextEditingController)`** — extension on `VField<String>` specifically for text inputs. Retrieve via `field.textController`.
+
+Both take **ownership by default** — the controller is disposed together with the field.
 
 ```dart
-final controller = TextEditingController();
-final email = form.field<String>('email');
+// VField<String> + TextEditingController
+form.field<String>('email').attachTextController(TextEditingController());
+TextFormField(controller: form.field<String>('email').textController, ...);
 
-email.attachTextController(controller);
-// Now: controller.text ↔ email.value stay in sync
-// set(), clear(), reset() update the text field
-// Typing updates the VField value
-
-// For non-text fields, use ValueNotifier:
-final notifier = ValueNotifier<int?>(null);
-form.field<int>('age').attachController(notifier);
+// VField<Country> + custom ValueNotifier
+form.field<Country>('country').attachController(LuneSelectFieldController<Country>());
+LuneSelectFormField<Country>(
+  controller: form.field<Country>('country').controller as LuneSelectFieldController<Country>?,
+  ...,
+);
 ```
 
-> The caller is responsible for disposing the controller.
+Pass `owns: false` when the controller's lifecycle is managed externally:
+
+```dart
+final shared = TextEditingController(); // you dispose
+form.field<String>('email').attachTextController(shared, owns: false);
+```
+
+### Complex bridge — `onValueChanged`
+
+When the external state isn't a `ValueNotifier<T?>` (or you need custom logic),
+register a callback that fires on every value change. Returns a dispose function:
+
+```dart
+final dispose = form.field<String>('email').onValueChanged((value) {
+  analytics.log('email', value);
+  someController.text = value ?? '';
+});
+// later: dispose();
+```
+
+After attach (for any of the above):
+- Controller/widget changes update `field.value`
+- `set()` and `reset()` update the attached controller
 
 ## Cross-Field Validation
 
@@ -335,9 +361,12 @@ final form = V.object<User>(...).form(
 | `manualError` | Current imperative error message (or null) |
 | `key` | Key to attach to the TextFormField for single-field refresh |
 | `listenable` | Listenable for reactive UI |
-| `attachController(ValueNotifier<T?>)` | Bidirectional sync |
-| `attachTextController(TextEditingController)` | Text field sync |
-| `detachController()` | Remove sync listeners |
+| `attachController(ValueNotifier<T?>, {owns})` | Bidirectional sync with a `ValueNotifier<T?>`. Takes ownership by default. |
+| `controller` | Attached `ValueNotifier<T?>?` |
+| `onValueChanged(callback)` | Bridge for custom external state; returns a dispose function |
+| `detachController()` | Remove sync listeners (does not dispose) |
+| `attachTextController(TextEditingController, {owns})` | (extension on `VField<String>`) Bidirectional sync with a text controller |
+| `textController` | (extension on `VField<String>`) Attached `TextEditingController?` |
 | `dispose()` | Clean up resources |
 
 ### VForm\<T\>
