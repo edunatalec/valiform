@@ -13,8 +13,10 @@ import 'pages/dropdown_enum_page.dart';
 import 'pages/custom_class_field_page.dart';
 import 'pages/locale_page.dart';
 import 'pages/multi_type_form_page.dart';
+import 'pages/errors_preview_page.dart';
 import 'pages/manual_error_page.dart';
 import 'pages/optional_fields_page.dart';
+import 'pages/transforms_page.dart';
 
 void main() {
   runApp(const ValiformExampleApp());
@@ -126,6 +128,16 @@ class HomePage extends StatelessWidget {
         subtitle:
             'Imperative setError/clearError for backend and business rule errors',
         page: const ManualErrorPage(),
+      ),
+      _Example(
+        title: 'Transforms',
+        subtitle: 'Pipeline transforms (trim, toLowerCase) — rawValue vs value',
+        page: const TransformsPage(),
+      ),
+      _Example(
+        title: 'Errors Preview',
+        subtitle: 'form.errors() and field.error for live previews',
+        page: const ErrorsPreviewPage(),
       ),
     ];
 

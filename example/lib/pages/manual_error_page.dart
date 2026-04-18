@@ -150,6 +150,20 @@ class _ManualErrorPageState extends State<ManualErrorPage> {
                 onPressed: () => _form.clearErrors(),
                 child: const Text('Clear all manual errors'),
               ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: () {
+                  final ok = _form.silentValidate();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(ok
+                          ? 'silentValidate: true (valid, no manual errors)'
+                          : 'silentValidate: false (schema issue OR pending manual error — one-shot now consumed)'),
+                    ),
+                  );
+                },
+                child: const Text('silentValidate (no UI)'),
+              ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {

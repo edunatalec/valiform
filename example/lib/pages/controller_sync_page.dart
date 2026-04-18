@@ -26,6 +26,10 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
   // Section 4: Without controller + initial value
   late final VForm<Map<String, dynamic>> _noSyncInitForm;
 
+  // Section 5: ValueNotifier<int?> for a non-text field
+  late final VForm<Map<String, dynamic>> _counterForm;
+  late final ValueNotifier<int?> _counterNotifier;
+
   @override
   void initState() {
     super.initState();
@@ -49,6 +53,14 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
     _noSyncInitForm = V.map({'name': V.string().min(2)}).form(
       initialValues: {'name': 'Jane'},
     );
+
+    _counterForm = V.map({'count': V.int().min(0).max(10)}).form(
+      initialValues: {'count': 0},
+    );
+    _counterNotifier = ValueNotifier<int?>(0);
+    _counterForm
+        .field<int>('count')
+        .attachController(_counterNotifier, owns: false);
   }
 
   @override
@@ -59,6 +71,8 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
     _syncInitController.dispose();
     _syncInitForm.dispose();
     _noSyncInitForm.dispose();
+    _counterNotifier.dispose();
+    _counterForm.dispose();
     super.dispose();
   }
 
@@ -110,9 +124,124 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
               field: _noSyncInitForm.field('name'),
               initialValue: 'Jane',
             ),
+            const Divider(height: 48),
+            _CounterSection(
+              form: _counterForm,
+              field: _counterForm.field<int>('count'),
+              notifier: _counterNotifier,
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CounterSection extends StatelessWidget {
+  final VForm<Map<String, dynamic>> form;
+  final VField<int> field;
+  final ValueNotifier<int?> notifier;
+
+  const _CounterSection({
+    required this.form,
+    required this.field,
+    required this.notifier,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionTitle('With ValueNotifier (non-text field)'),
+        const SizedBox(height: 8),
+        const InfoCard(
+          'attachController works with any ValueNotifier<T?>, not just '
+          'TextEditingController. Here a ValueNotifier<int?> drives a '
+          'counter field. Typing into the notifier (via the +/− buttons '
+          'mutating notifier.value) flows into the VField — and VField.set '
+          'flows back into the notifier.',
+        ),
+        const SizedBox(height: 16),
+        ListenableBuilder(
+          listenable: notifier,
+          builder: (context, _) {
+            final colorScheme = Theme.of(context).colorScheme;
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: colorScheme.surfaceContainerHighest,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton.filledTonal(
+                    icon: const Icon(Icons.remove),
+                    onPressed: () {
+                      notifier.value = (notifier.value ?? 0) - 1;
+                    },
+                  ),
+                  Text(
+                    '${notifier.value ?? "—"}',
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                  IconButton.filledTonal(
+                    icon: const Icon(Icons.add),
+                    onPressed: () {
+                      notifier.value = (notifier.value ?? 0) + 1;
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.tonal(
+              onPressed: () => field.set(5),
+              child: const Text('field.set(5)'),
+            ),
+            FilledButton.tonal(
+              onPressed: () => field.reset(),
+              child: const Text('field.reset()'),
+            ),
+            FilledButton.tonal(
+              onPressed: () {
+                // No FormField widget wraps this counter — inspect errors
+                // directly via form.errors() (headless, no UI).
+                final errs = form.errors();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(errs == null
+                        ? 'Valid: ${field.value}'
+                        : 'Errors: $errs'),
+                  ),
+                );
+              },
+              child: const Text('Validate'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ListenableBuilder(
+          listenable: field.listenable,
+          builder: (context, _) {
+            return Text(
+              'VField value: ${field.value ?? "null"}  ·  '
+              'notifier.value: ${notifier.value ?? "null"}',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
