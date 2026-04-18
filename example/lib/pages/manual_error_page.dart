@@ -13,9 +13,6 @@ class ManualErrorPage extends StatefulWidget {
 
 class _ManualErrorPageState extends State<ManualErrorPage> {
   late final VForm<Map<String, dynamic>> _form;
-  late final TextEditingController _emailController;
-  late final TextEditingController _usernameController;
-  late final TextEditingController _phoneController;
 
   @override
   void initState() {
@@ -32,22 +29,19 @@ class _ManualErrorPageState extends State<ManualErrorPage> {
       },
     );
 
-    _emailController =
-        TextEditingController(text: _form.field<String>('email').value);
-    _usernameController =
-        TextEditingController(text: _form.field<String>('username').value);
-    _phoneController = TextEditingController();
-
-    _form.field<String>('email').attachTextController(_emailController);
-    _form.field<String>('username').attachTextController(_usernameController);
-    _form.field<String>('phone').attachTextController(_phoneController);
+    // Inline controllers — VField takes ownership and disposes them when
+    // _form.dispose() is called.
+    _email.attachTextController(
+      TextEditingController(text: _email.value),
+    );
+    _username.attachTextController(
+      TextEditingController(text: _username.value),
+    );
+    _phone.attachTextController(TextEditingController());
   }
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _usernameController.dispose();
-    _phoneController.dispose();
     _form.dispose();
     super.dispose();
   }
@@ -83,7 +77,7 @@ class _ManualErrorPageState extends State<ManualErrorPage> {
               const SizedBox(height: 16),
               TextFormField(
                 key: _email.key,
-                controller: _emailController,
+                controller: _email.textController,
                 decoration: const InputDecoration(
                   labelText: 'Email (pre-filled, valid)',
                 ),
@@ -93,7 +87,7 @@ class _ManualErrorPageState extends State<ManualErrorPage> {
               const SizedBox(height: 16),
               TextFormField(
                 key: _username.key,
-                controller: _usernameController,
+                controller: _username.textController,
                 decoration: const InputDecoration(
                   labelText: 'Username (pre-filled, valid)',
                 ),
@@ -102,7 +96,7 @@ class _ManualErrorPageState extends State<ManualErrorPage> {
               const SizedBox(height: 16),
               TextFormField(
                 key: _phone.key,
-                controller: _phoneController,
+                controller: _phone.textController,
                 decoration: const InputDecoration(
                   labelText: 'Phone (empty, invalid)',
                 ),

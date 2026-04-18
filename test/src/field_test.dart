@@ -114,7 +114,7 @@ void main() {
   group('attachController', () {
     test('Syncs ValueNotifier controller to field', () {
       final controller = ValueNotifier<String?>('test');
-      field.attachController(controller);
+      field.attachController(controller, owns: false);
 
       controller.value = 'updated';
       expect(field.value, 'updated');
@@ -124,7 +124,7 @@ void main() {
 
     test('Syncs field set to controller', () {
       final controller = ValueNotifier<String?>(null);
-      field.attachController(controller);
+      field.attachController(controller, owns: false);
 
       field.set('hello');
       expect(controller.value, 'hello');
@@ -134,7 +134,7 @@ void main() {
 
     test('Syncs field set(null) to controller', () {
       final controller = ValueNotifier<String?>('value');
-      field.attachController(controller);
+      field.attachController(controller, owns: false);
 
       field.set(null);
       expect(controller.value, isNull);
@@ -144,7 +144,7 @@ void main() {
 
     test('Syncs field reset to controller', () {
       final controller = ValueNotifier<String?>(null);
-      field.attachController(controller);
+      field.attachController(controller, owns: false);
 
       field.set('changed');
       field.reset();
@@ -155,7 +155,7 @@ void main() {
 
     test('detachController stops syncing', () {
       final controller = ValueNotifier<String?>(null);
-      field.attachController(controller);
+      field.attachController(controller, owns: false);
 
       field.detachController();
 
@@ -163,6 +163,105 @@ void main() {
       expect(controller.value, isNull);
 
       controller.dispose();
+    });
+
+    test('controller returns the attached ValueNotifier, textController null',
+        () {
+      final ownedField = VField<String>(
+        type: V.string(),
+        validators: [],
+      );
+      expect(ownedField.controller, isNull);
+      expect(ownedField.textController, isNull);
+
+      final vn = ValueNotifier<String?>(null);
+      ownedField.attachController(vn);
+      expect(ownedField.controller, same(vn));
+      expect(ownedField.textController, isNull);
+
+      ownedField.dispose();
+    });
+
+    test('textController returns the attached TextEditingController', () {
+      final ownedField = VField<String>(
+        type: V.string(),
+        validators: [],
+      );
+      expect(ownedField.textController, isNull);
+
+      final controller = TextEditingController();
+      ownedField.attachTextController(controller);
+      expect(ownedField.textController, same(controller));
+      expect(ownedField.controller, isNull);
+
+      ownedField.dispose();
+    });
+
+    test('dispose disposes owned ValueNotifier', () {
+      final ownedField = VField<String>(
+        type: V.string(),
+        validators: [],
+      );
+      final controller = ValueNotifier<String?>('hi');
+      ownedField.attachController(controller); // owns: true default
+
+      ownedField.dispose();
+
+      expect(
+        () => controller.addListener(() {}),
+        throwsFlutterError,
+      );
+    });
+
+    test('dispose disposes owned TextEditingController', () {
+      final ownedField = VField<String>(
+        type: V.string(),
+        validators: [],
+      );
+      final controller = TextEditingController(text: 'hi');
+      ownedField.attachTextController(controller);
+
+      ownedField.dispose();
+
+      expect(
+        () => controller.addListener(() {}),
+        throwsFlutterError,
+      );
+    });
+
+    test('dispose does NOT dispose controller when owns: false', () {
+      final ownedField = VField<String>(
+        type: V.string(),
+        validators: [],
+      );
+      final controller = TextEditingController(text: 'hi');
+      ownedField.attachTextController(controller, owns: false);
+
+      ownedField.dispose();
+
+      // Controller must still be usable
+      expect(() => controller.text = 'still alive', returnsNormally);
+      controller.dispose();
+    });
+
+    test('onValueChanged fires callback on value changes and returns dispose',
+        () {
+      final ownedField = VField<String>(
+        type: V.string().nullable(),
+        validators: [],
+      );
+      final received = <String?>[];
+      final dispose = ownedField.onValueChanged(received.add);
+
+      ownedField.set('a');
+      ownedField.set('b');
+      expect(received, ['a', 'b']);
+
+      dispose();
+      ownedField.set('c');
+      expect(received, ['a', 'b']);
+
+      ownedField.dispose();
     });
   });
 
@@ -418,7 +517,7 @@ void main() {
   group('attachTextController', () {
     test('Syncs TextEditingController to field', () {
       final controller = TextEditingController();
-      field.attachTextController(controller);
+      field.attachTextController(controller, owns: false);
 
       controller.text = 'typed';
       expect(field.value, 'typed');
@@ -428,7 +527,7 @@ void main() {
 
     test('Syncs field set to TextEditingController', () {
       final controller = TextEditingController();
-      field.attachTextController(controller);
+      field.attachTextController(controller, owns: false);
 
       field.set('programmatic');
       expect(controller.text, 'programmatic');
@@ -438,7 +537,7 @@ void main() {
 
     test('Syncs field set(null) to TextEditingController', () {
       final controller = TextEditingController(text: 'initial');
-      field.attachTextController(controller);
+      field.attachTextController(controller, owns: false);
 
       field.set(null);
       expect(controller.text, '');

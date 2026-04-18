@@ -6,9 +6,13 @@ import 'package:validart/validart.dart';
 /// The `VField<T>` class represents a single form field inside a validation schema.
 /// It provides **automatic validation** and **state management** via `ValueNotifier`.
 ///
-/// Controllers can be attached optionally for bidirectional synchronization:
-/// - [attachController] for any `ValueNotifier<T?>`
-/// - [attachTextController] for `TextEditingController` (String fields only)
+/// A controller can be attached optionally for bidirectional synchronization:
+/// - [attachController] accepts a `ValueNotifier<T?>` (or any subclass, like
+///   `LuneSelectFieldController<T>`).
+/// - `attachTextController` (via extension on `VField<String>`) accepts a
+///   `TextEditingController`.
+/// - [onValueChanged] takes a callback and invokes it on every value change —
+///   useful for bridging to external state that isn't a `ValueNotifier<T?>`.
 class VField<T> {
   final VType<T> _type;
   final ValueNotifier<T?> _value;
@@ -19,11 +23,11 @@ class VField<T> {
   /// `FormField`) to enable single-field revalidation via [setError].
   /// Without it, errors set imperatively only surface on the next full
   /// `VForm.validate()` call.
-  final GlobalKey<FormFieldState<T>> key =
-      GlobalKey<FormFieldState<T>>();
+  final GlobalKey<FormFieldState<T>> key = GlobalKey<FormFieldState<T>>();
 
   ValueNotifier<T?>? _attachedController;
   TextEditingController? _attachedTextController;
+  bool _ownsAttachedController = false;
   bool _syncing = false;
 
   String? _manualError;
@@ -68,36 +72,58 @@ class VField<T> {
 
   /// Attaches a `ValueNotifier<T?>` for bidirectional synchronization.
   ///
-  /// When the controller value changes, the field value updates.
-  /// When `set`, `clear`, or `reset` are called, the controller updates.
+  /// When the controller's value changes, the field value updates. When [set]
+  /// or [reset] are called, the controller updates.
   ///
-  /// The caller is responsible for disposing the controller.
-  void attachController(ValueNotifier<T?> controller) {
+  /// By default (`owns: true`), the field takes ownership and disposes the
+  /// controller when [dispose] is called — enabling the inline pattern:
+  ///
+  /// ```dart
+  /// field.attachController(ValueNotifier<int?>(null));
+  /// // or for custom controllers that extend ValueNotifier<T?>:
+  /// field.attachController(LuneSelectFieldController<Country>());
+  /// ```
+  ///
+  /// Pass `owns: false` when the controller's lifecycle is managed externally.
+  ///
+  /// For `TextEditingController`, use `attachTextController` (extension on
+  /// `VField<String>`) since its value type is `TextEditingValue`, not `T?`.
+  void attachController(ValueNotifier<T?> controller, {bool owns = true}) {
     detachController();
+    _ownsAttachedController = owns;
     _attachedController = controller;
     controller.addListener(_onControllerChanged);
     _value.addListener(_onValueChanged);
   }
 
-  /// Attaches a `TextEditingController` for bidirectional synchronization.
+  /// The `ValueNotifier<T?>` currently attached via [attachController], or
+  /// `null` if none. For `TextEditingController` on `VField<String>`, use
+  /// `textController` (from the string extension).
+  ValueNotifier<T?>? get controller => _attachedController;
+
+  /// Registers a callback invoked whenever the field value changes, receiving
+  /// the typed value. Use this to bridge to external state that isn't a
+  /// `ValueNotifier<T?>` — for instance, pushing the value into a
+  /// `TextEditingController` manually or forwarding it to analytics.
   ///
-  /// Only works when `T` is `String`. Converts between `String` and the
-  /// controller's text property automatically.
+  /// Does NOT fire immediately with the current value — only on subsequent
+  /// changes. Returns a dispose function that removes the listener.
   ///
-  /// The caller is responsible for disposing the controller.
-  void attachTextController(TextEditingController controller) {
-    assert(
-      T == String,
-      'attachTextController requires VField<String>; got VField<$T>. '
-      'Use attachController(ValueNotifier<$T?>) for non-String fields.',
-    );
-    detachController();
-    _attachedTextController = controller;
-    controller.addListener(_onTextControllerChanged);
-    _value.addListener(_onValueChangedForText);
+  /// ```dart
+  /// final dispose = field.onValueChanged((value) {
+  ///   myController.text = value ?? '';
+  /// });
+  /// // later: dispose();
+  /// ```
+  VoidCallback onValueChanged(void Function(T? value) callback) {
+    void wrapper() => callback(value);
+    _value.addListener(wrapper);
+    return () => _value.removeListener(wrapper);
   }
 
-  /// Detaches any attached controller, removing all listeners.
+  /// Detaches any attached controller, removing all listeners. Does NOT
+  /// dispose the controller (even if the field owns it); that happens in
+  /// [dispose].
   void detachController() {
     if (_attachedController != null) {
       _attachedController!.removeListener(_onControllerChanged);
@@ -110,6 +136,8 @@ class VField<T> {
       _value.removeListener(_onValueChangedForText);
       _attachedTextController = null;
     }
+
+    _ownsAttachedController = false;
   }
 
   void _onControllerChanged() {
@@ -244,10 +272,38 @@ class VField<T> {
 
   /// Disposes of the field, freeing resources.
   ///
-  /// Detaches any attached controller (without disposing it)
-  /// and disposes the internal `ValueNotifier`.
+  /// Detaches any attached controller. If the field owns the controller
+  /// (default when attached via [attachController] or `attachTextController`),
+  /// it's disposed too. Always disposes the internal `ValueNotifier`.
   void dispose() {
+    final ownedText = _ownsAttachedController ? _attachedTextController : null;
+    final ownedValue = _ownsAttachedController ? _attachedController : null;
     detachController();
+    ownedText?.dispose();
+    ownedValue?.dispose();
     _value.dispose();
   }
+}
+
+/// `TextEditingController` integration for `VField<String>`. Adds a
+/// specialized attach method and a typed getter, since `TextEditingController`
+/// exposes its value as `TextEditingValue` rather than `String`.
+extension VFieldStringController on VField<String> {
+  /// Attaches a `TextEditingController` for bidirectional sync with this
+  /// `VField<String>`. Same ownership semantics as [attachController] —
+  /// defaults to `owns: true`, so the controller is disposed together with
+  /// the field.
+  void attachTextController(
+    TextEditingController controller, {
+    bool owns = true,
+  }) {
+    detachController();
+    _ownsAttachedController = owns;
+    _attachedTextController = controller;
+    controller.addListener(_onTextControllerChanged);
+    _value.addListener(_onValueChangedForText);
+  }
+
+  /// The attached `TextEditingController`, or `null` if none.
+  TextEditingController? get textController => _attachedTextController;
 }

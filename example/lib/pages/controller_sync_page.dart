@@ -32,7 +32,9 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
 
     _syncForm = V.map({'name': V.string().min(2)}).form();
     _syncController = TextEditingController();
-    _syncForm.field<String>('name').attachTextController(_syncController);
+    _syncForm
+        .field<String>('name')
+        .attachTextController(_syncController, owns: false);
 
     _noSyncForm = V.map({'name': V.string().min(2)}).form();
 
@@ -42,7 +44,7 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
     _syncInitController = TextEditingController(text: 'John');
     _syncInitForm
         .field<String>('name')
-        .attachTextController(_syncInitController);
+        .attachTextController(_syncInitController, owns: false);
 
     _noSyncInitForm = V.map({'name': V.string().min(2)}).form(
       initialValues: {'name': 'Jane'},
@@ -71,7 +73,7 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
           children: [
             _SyncSection(
               title: 'With Controller',
-              description: 'attachTextController creates bidirectional sync. '
+              description: 'attachController creates bidirectional sync. '
                   'Calling set() or reset() updates the text field. '
                   'Typing updates the VField value.',
               form: _syncForm,

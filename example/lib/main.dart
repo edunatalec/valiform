@@ -73,7 +73,7 @@ class HomePage extends StatelessWidget {
       ),
       _Example(
         title: 'Controller Sync',
-        subtitle: 'TextEditingController integration with attachTextController',
+        subtitle: 'TextEditingController integration with attachController',
         page: const ControllerSyncPage(),
       ),
       _Example(
