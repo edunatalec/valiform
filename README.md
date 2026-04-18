@@ -319,6 +319,12 @@ final shared = TextEditingController(); // you dispose
 email.attachTextController(shared, owns: false);
 ```
 
+### Cursor behavior
+
+When the user types, the cursor stays where they placed it — valiform only reads `controller.text` in the sync listener and never writes back during user input (the internal `_syncing` flag + equality check prevent cascading updates).
+
+When you call `field.set('new value')` programmatically, Flutter's `TextEditingController.text` setter resets the cursor to the end of the text (`offset: -1`). That's Flutter's default behavior for the text setter — use `controller.value = TextEditingValue(text: ..., selection: ...)` directly if you need to preserve a custom cursor position on a programmatic update.
+
 ### `onValueChanged` — bridge for non-ValueNotifier state
 
 When the external state isn't a `ValueNotifier<T?>` (analytics, a custom data store, anything):
