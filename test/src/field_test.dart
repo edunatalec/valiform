@@ -244,6 +244,119 @@ void main() {
       controller.dispose();
     });
 
+    test('re-attach owned controller disposes the previous one', () {
+      final ownedField = VField<String>(type: V.string(), validators: []);
+      final first = ValueNotifier<String?>('a');
+      ownedField.attachController(first); // owns: true
+
+      final second = ValueNotifier<String?>('b');
+      ownedField.attachController(second); // should dispose first
+
+      // first is disposed — any use throws
+      expect(() => first.addListener(() {}), throwsFlutterError);
+      // second is fine
+      expect(() => second.addListener(() {}), returnsNormally);
+
+      ownedField.dispose();
+    });
+
+    test(
+        're-attach does NOT dispose previous when it was not owned (owns: false)',
+        () {
+      final ownedField = VField<String>(type: V.string(), validators: []);
+      final first = ValueNotifier<String?>('a');
+      ownedField.attachController(first, owns: false); // user owns
+
+      final second = ValueNotifier<String?>('b');
+      ownedField.attachController(second);
+
+      // first must still be usable — user manages its lifecycle
+      expect(() => first.addListener(() {}), returnsNormally);
+
+      first.dispose();
+      ownedField.dispose();
+    });
+
+    test('swapping ValueNotifier for TextEditingController cleans up correctly',
+        () {
+      final stringField = VField<String>(type: V.string(), validators: []);
+      final valueNotifier = ValueNotifier<String?>('from-vn');
+      stringField.attachController(valueNotifier); // owned
+
+      final textController = TextEditingController(text: 'from-text');
+      stringField
+          .attachTextController(textController); // replaces + disposes vn
+
+      expect(stringField.controller, isNull);
+      expect(stringField.textController, same(textController));
+      expect(() => valueNotifier.addListener(() {}), throwsFlutterError);
+
+      stringField.dispose();
+    });
+
+    test('reset propagates to attached TextEditingController', () {
+      final stringField = VField<String>(
+        type: V.string(),
+        validators: [],
+        initialValue: 'Initial',
+      );
+      final controller = TextEditingController();
+      stringField.attachTextController(controller, owns: false);
+
+      stringField.set('typed');
+      expect(controller.text, 'typed');
+
+      stringField.reset();
+      expect(controller.text, 'Initial');
+      expect(stringField.value, 'Initial');
+
+      controller.dispose();
+      stringField.dispose();
+    });
+
+    test('reset propagates to attached ValueNotifier', () {
+      final intField = VField<int>(
+        type: V.int(),
+        validators: [],
+        initialValue: 42,
+      );
+      final controller = ValueNotifier<int?>(null);
+      intField.attachController(controller, owns: false);
+
+      intField.set(100);
+      expect(controller.value, 100);
+
+      intField.reset();
+      expect(controller.value, 42);
+      expect(intField.value, 42);
+
+      controller.dispose();
+      intField.dispose();
+    });
+
+    test('reset does not trigger a double listener notification', () {
+      final stringField = VField<String>(
+        type: V.string(),
+        validators: [],
+        initialValue: 'Initial',
+      );
+      final controller = TextEditingController();
+      stringField.attachTextController(controller, owns: false);
+
+      int fieldChanges = 0;
+      stringField.listenable.addListener(() => fieldChanges++);
+
+      stringField.set('typed');
+      final afterSet = fieldChanges;
+
+      stringField.reset();
+      // Exactly one extra notification (typed → Initial), no cascade double-fire
+      expect(fieldChanges, afterSet + 1);
+
+      controller.dispose();
+      stringField.dispose();
+    });
+
     test('onValueChanged fires callback on value changes and returns dispose',
         () {
       final ownedField = VField<String>(

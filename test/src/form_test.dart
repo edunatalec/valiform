@@ -680,6 +680,13 @@ void main() {
       expect(form.field<String>('cpf').manualError, 'invalid');
     });
 
+    test('form.setErrors with empty map fails the assert', () {
+      expect(
+        () => form.setErrors({}),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
     test('form.setErrors throws for unknown keys and lists them', () {
       expect(
         () => form.setErrors({'email': 'x', 'phone': 'y', 'zip': 'z'}),
@@ -691,6 +698,74 @@ void main() {
           ),
         ),
       );
+    });
+
+    test('silentValidate returns false when a manual error is present', () {
+      form.field<String>('email').set('valid@example.com');
+      form.field<String>('cpf').set('12345678901');
+      expect(form.silentValidate(), true); // baseline
+
+      form.setError('email', 'taken');
+      expect(form.silentValidate(), false);
+    });
+
+    test('silentValidate consumes one-shot manual errors', () {
+      form.field<String>('email').set('valid@example.com');
+      form.field<String>('cpf').set('12345678901');
+      form.setError('email', 'taken');
+
+      // First call sees and consumes the manual error
+      expect(form.silentValidate(), false);
+      expect(form.field<String>('email').manualError, isNull);
+
+      // Subsequent call: manual is gone, data is still valid
+      expect(form.silentValidate(), true);
+    });
+
+    test('silentValidate respects persist: true (does not consume)', () {
+      form.field<String>('email').set('valid@example.com');
+      form.field<String>('cpf').set('12345678901');
+      form.setError('email', 'sticky', persist: true);
+
+      expect(form.silentValidate(), false);
+      expect(form.silentValidate(), false);
+      expect(form.field<String>('email').manualError, 'sticky');
+    });
+
+    testWidgets('silentValidate does NOT trigger UI error display',
+        (tester) async {
+      final silentForm = V.map({'email': V.string().email()}).form();
+      final email = silentForm.field<String>('email');
+      email.set('valid@example.com');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Form(
+              key: silentForm.key,
+              child: TextFormField(
+                // VField.key intentionally NOT attached — isolates this test
+                // from setError's single-field refresh path.
+                initialValue: email.value,
+                validator: email.validator,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      silentForm.setError('email', 'invisible in UI', persist: true);
+      silentForm.silentValidate();
+      await tester.pump();
+
+      expect(find.text('invisible in UI'), findsNothing);
+
+      // validate() renders the error
+      silentForm.validate();
+      await tester.pump();
+      expect(find.text('invisible in UI'), findsOneWidget);
+
+      silentForm.dispose();
     });
 
     test('form.clearError clears a single field', () {

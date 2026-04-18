@@ -29,6 +29,7 @@ class VField<T> {
   TextEditingController? _attachedTextController;
   bool _ownsAttachedController = false;
   bool _syncing = false;
+  final List<VoidCallback> _onValueChangedListeners = [];
 
   String? _manualError;
   bool _persistManualError = false;
@@ -89,7 +90,12 @@ class VField<T> {
   /// For `TextEditingController`, use `attachTextController` (extension on
   /// `VField<String>`) since its value type is `TextEditingValue`, not `T?`.
   void attachController(ValueNotifier<T?> controller, {bool owns = true}) {
+    final previouslyOwned = _ownsAttachedController
+        ? (_attachedTextController ?? _attachedController)
+        : null;
+
     detachController();
+    previouslyOwned?.dispose();
     _ownsAttachedController = owns;
     _attachedController = controller;
     controller.addListener(_onControllerChanged);
@@ -117,8 +123,15 @@ class VField<T> {
   /// ```
   VoidCallback onValueChanged(void Function(T? value) callback) {
     void wrapper() => callback(value);
+
     _value.addListener(wrapper);
-    return () => _value.removeListener(wrapper);
+    _onValueChangedListeners.add(wrapper);
+
+    return () {
+      if (_onValueChangedListeners.remove(wrapper)) {
+        _value.removeListener(wrapper);
+      }
+    };
   }
 
   /// Detaches any attached controller, removing all listeners. Does NOT
@@ -142,8 +155,10 @@ class VField<T> {
 
   void _onControllerChanged() {
     if (_syncing) return;
-    final newValue = _attachedController!.value;
+
+    final T? newValue = _attachedController!.value;
     if (_value.value == newValue) return;
+
     _syncing = true;
     _value.value = newValue;
     _syncing = false;
@@ -152,6 +167,7 @@ class VField<T> {
   void _onValueChanged() {
     if (_syncing) return;
     if (_attachedController!.value == _value.value) return;
+
     _syncing = true;
     _attachedController!.value = _value.value;
     _syncing = false;
@@ -159,8 +175,10 @@ class VField<T> {
 
   void _onTextControllerChanged() {
     if (_syncing) return;
-    final newValue = _attachedTextController!.text as T?;
+
+    final newValue = _attachedTextController!.text as T;
     if (_value.value == newValue) return;
+
     _syncing = true;
     _value.value = newValue;
     _syncing = false;
@@ -168,8 +186,10 @@ class VField<T> {
 
   void _onValueChangedForText() {
     if (_syncing) return;
-    final newText = _value.value?.toString() ?? '';
+
+    final String newText = _value.value?.toString() ?? '';
     if (_attachedTextController!.text == newText) return;
+
     _syncing = true;
     _attachedTextController!.text = newText;
     _syncing = false;
@@ -221,6 +241,7 @@ class VField<T> {
     _manualError = message;
     _persistManualError = persist;
     _forceManualError = force;
+
     key.currentState?.validate();
   }
 
@@ -230,6 +251,7 @@ class VField<T> {
     _manualError = null;
     _persistManualError = false;
     _forceManualError = false;
+
     key.currentState?.validate();
   }
 
@@ -245,6 +267,13 @@ class VField<T> {
   /// Read-only: unlike [validator], this does NOT consume one-shot manual
   /// errors. Call it as many times as you like without affecting state.
   bool validate() => _runValidators(value, consume: false) == null;
+
+  /// The current error message for this field (from standard validators,
+  /// cross-field validators, or imperative errors) — or `null` if valid.
+  ///
+  /// Read-only: does NOT consume one-shot manual errors. Use this to
+  /// inspect the state without mutating it.
+  String? get error => _runValidators(value, consume: false);
 
   String? _runValidators(T? value, {required bool consume}) {
     final processed = value is String && value.isEmpty ? null : value;
@@ -274,8 +303,15 @@ class VField<T> {
   ///
   /// Detaches any attached controller. If the field owns the controller
   /// (default when attached via [attachController] or `attachTextController`),
-  /// it's disposed too. Always disposes the internal `ValueNotifier`.
+  /// it's disposed too. Removes any [onValueChanged] listeners still active
+  /// and always disposes the internal `ValueNotifier`.
   void dispose() {
+    for (final listener in _onValueChangedListeners) {
+      _value.removeListener(listener);
+    }
+
+    _onValueChangedListeners.clear();
+
     final ownedText = _ownsAttachedController ? _attachedTextController : null;
     final ownedValue = _ownsAttachedController ? _attachedController : null;
     detachController();
@@ -297,7 +333,13 @@ extension VFieldStringController on VField<String> {
     TextEditingController controller, {
     bool owns = true,
   }) {
+    // Extension is statically constrained to VField<String>, so T is always
+    // String here — no runtime type check needed.
+    final previouslyOwned = _ownsAttachedController
+        ? (_attachedTextController ?? _attachedController)
+        : null;
     detachController();
+    previouslyOwned?.dispose();
     _ownsAttachedController = owns;
     _attachedTextController = controller;
     controller.addListener(_onTextControllerChanged);

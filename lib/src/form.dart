@@ -209,7 +209,13 @@ class VForm<T> {
     bool persist = false,
     bool force = false,
   }) {
-    final unknown = errors.keys.where((k) => !_fields.containsKey(k)).toList();
+    assert(
+      errors.isNotEmpty,
+      'setErrors called with an empty map — probably a mistake.',
+    );
+
+    final List<String> unknown =
+        errors.keys.where((k) => !_fields.containsKey(k)).toList();
     if (unknown.isNotEmpty) {
       throw ArgumentError(
         'Unknown field${unknown.length == 1 ? '' : 's'}: ${unknown.join(', ')}.',
@@ -218,6 +224,23 @@ class VForm<T> {
     for (final entry in errors.entries) {
       _fields[entry.key]!.setError(entry.value, persist: persist, force: force);
     }
+  }
+
+  /// Returns a map of field name → error message for every field that
+  /// currently fails validation, or `null` if all fields are valid.
+  ///
+  /// Read-only: does NOT consume one-shot manual errors, does NOT touch
+  /// the UI. Use this to inspect validation state for logging or custom
+  /// error displays.
+  Map<String, String>? errors() {
+    final result = <String, String>{};
+    for (final entry in _fields.entries) {
+      final error = entry.value.error;
+      if (error != null) {
+        result[entry.key] = error;
+      }
+    }
+    return result.isEmpty ? null : result;
   }
 
   /// Clears the imperative error on [field].
@@ -245,14 +268,25 @@ class VForm<T> {
 
   /// Validates without triggering UI error messages.
   ///
-  /// Runs only the underlying validart schema against the current parsed
-  /// values — imperative errors set via [setError] are NOT considered here.
-  /// `silentValidate` reflects whether the data model is valid, not whether
-  /// any transient UI errors exist. To check for manual errors, inspect
-  /// `field.manualError` directly.
-  bool silentValidate() => _silentValidator(
-        _fields.map((key, field) => MapEntry(key, field.parsedValue)),
-      );
+  /// Mirrors [validate] semantically — runs the validart schema AND each
+  /// field's validator (including cross-field validators and imperative
+  /// errors set via [setError]), consuming one-shot manual errors in the
+  /// process. The UI is never touched (no `FormState.validate()` call).
+  ///
+  /// Use `field.manualError` if you need to inspect errors without
+  /// consuming state.
+  bool silentValidate() {
+    bool allValid = true;
+    for (final field in _fields.values) {
+      if (field.validator(field.value) != null) {
+        allValid = false;
+      }
+    }
+    final schemaValid = _silentValidator(
+      _fields.map((key, field) => MapEntry(key, field.parsedValue)),
+    );
+    return allValid && schemaValid;
+  }
 
   /// Disposes all fields and releases resources.
   void dispose() {
