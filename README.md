@@ -94,7 +94,7 @@ final form = V.object<User>(
     .field('email', (u) => u.email, V.string().email()),
 ).form(
   builder: (data) => User(name: data['name'], email: data['email']),
-  defaultValue: User(name: 'John', email: 'john@example.com'),
+  initialValue: User(name: 'John', email: 'john@example.com'),
 );
 
 final user = form.value; // User instance
@@ -237,6 +237,56 @@ final form = V.map({
 
 Errors from `.when()` rules appear directly on the target fields.
 
+## Imperative Errors
+
+Force validation errors imperatively — useful for backend rejections, async availability checks, or business rules driven by external state.
+
+### Via VForm
+
+```dart
+// Single field
+form.setError('email', 'Email already taken');
+
+// Batch (e.g., an API response)
+form.setErrors({
+  'email': 'Invalid domain',
+  'cpf': 'Already registered',
+});
+
+// Clearing
+form.clearError('email');
+form.clearErrors();
+```
+
+### Via VField
+
+```dart
+final email = form.field<String>('email');
+email.setError('Email already taken');
+email.clearError();
+```
+
+### Options
+
+- **`persist: false`** (default) — one-shot. The error is consumed on the next `validator()` call, even when a standard validator wins the precedence (no ghost errors on later valid input).
+- **`persist: true`** — the error stays until `clearError()` is called. Ideal for business rules tied to external state.
+- **`force: false`** (default) — standard validators win; the manual error only surfaces when the field is otherwise valid.
+- **`force: true`** — overrides precedence so the manual error shows even on fields that would fail their own rules.
+
+`persist` and `force` can be combined (e.g. `persist: true, force: true` for a server-side block that always shows regardless of field state until cleared).
+
+### Single-field refresh
+
+Attach `field.key` to your `TextFormField` to let `setError` revalidate **only that field** — other fields aren't touched:
+
+```dart
+TextFormField(
+  key: email.key,
+  validator: email.validator,
+  onChanged: email.onChanged,
+)
+```
+
 ## Array Fields
 
 Validate lists with element-level constraints:
@@ -250,18 +300,18 @@ final tags = form.field<List<String>>('tags'); // VField<List<String>>
 tags.set(['dart', 'flutter']);
 ```
 
-## Default Values
+## Initial Values
 
 ```dart
 // VMap form
 final form = V.map({
   'email': V.string().email(),
-}).form(defaultValues: {'email': 'user@example.com'});
+}).form(initialValues: {'email': 'user@example.com'});
 
 // VObject form — pass a typed instance
 final form = V.object<User>(...).form(
   builder: (data) => User(...),
-  defaultValue: User(name: 'John', email: 'john@example.com'),
+  initialValue: User(name: 'John', email: 'john@example.com'),
 );
 ```
 
@@ -278,8 +328,12 @@ final form = V.object<User>(...).form(
 | `onSaved(T?)` | Handle form save callbacks |
 | `validator(T?)` | Returns error message or null |
 | `validate()` | Returns true if current value is valid |
-| `clear()` | Set value to null |
+| `clear()` | Set value to null (syncs attached controllers and `FormFieldState`) |
 | `reset()` | Restore initial value |
+| `setError(message, {persist, force})` | Set an imperative error on this field |
+| `clearError()` | Remove the imperative error (if any) |
+| `manualError` | Current imperative error message (or null) |
+| `key` | Key to attach to the TextFormField for single-field refresh |
 | `listenable` | Listenable for reactive UI |
 | `attachController(ValueNotifier<T?>)` | Bidirectional sync |
 | `attachTextController(TextEditingController)` | Text field sync |
@@ -298,7 +352,11 @@ final form = V.object<User>(...).form(
 | `silentValidate()` | Validate without UI |
 | `save()` | Trigger FormState save |
 | `reset()` | Restore initial values |
-| `clear()` | Clear all fields |
+| `clear()` | Clear every field to null (walks the Form tree and syncs controllers) |
+| `setError(field, message, {persist, force})` | Set imperative error on a specific field |
+| `setErrors(errors, {persist, force})` | Set imperative errors on multiple fields |
+| `clearError(field)` | Clear imperative error on a specific field |
+| `clearErrors()` | Clear imperative errors on all fields |
 | `listenable` | Combined listenable |
 | `addValueChangedListener(fn)` | Listen to changes |
 | `removeValueChangedListener(fn)` | Remove listener |
