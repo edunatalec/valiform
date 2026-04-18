@@ -95,7 +95,9 @@ class VField<T> {
         : null;
 
     detachController();
-    previouslyOwned?.dispose();
+    if (previouslyOwned != null && !identical(previouslyOwned, controller)) {
+      previouslyOwned.dispose();
+    }
     _ownsAttachedController = owns;
     _attachedController = controller;
     controller.addListener(_onControllerChanged);
@@ -339,7 +341,9 @@ extension VFieldStringController on VField<String> {
         ? (_attachedTextController ?? _attachedController)
         : null;
     detachController();
-    previouslyOwned?.dispose();
+    if (previouslyOwned != null && !identical(previouslyOwned, controller)) {
+      previouslyOwned.dispose();
+    }
     _ownsAttachedController = owns;
     _attachedTextController = controller;
     controller.addListener(_onTextControllerChanged);

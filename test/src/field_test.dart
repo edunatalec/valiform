@@ -260,6 +260,31 @@ void main() {
       ownedField.dispose();
     });
 
+    test('re-attaching the same owned controller does not dispose it', () {
+      final ownedField = VField<String>(type: V.string(), validators: []);
+      final ctrl = ValueNotifier<String?>('a');
+      ownedField.attachController(ctrl); // owns: true
+      ownedField.attachController(ctrl); // re-attach same instance
+
+      // ctrl must still be alive — if we had disposed it, addListener throws
+      expect(() => ctrl.addListener(() {}), returnsNormally);
+
+      ownedField.dispose(); // disposes ctrl now
+    });
+
+    test(
+        're-attaching the same owned TextEditingController does not dispose it',
+        () {
+      final ownedField = VField<String>(type: V.string(), validators: []);
+      final ctrl = TextEditingController(text: 'a');
+      ownedField.attachTextController(ctrl);
+      ownedField.attachTextController(ctrl);
+
+      expect(() => ctrl.addListener(() {}), returnsNormally);
+
+      ownedField.dispose();
+    });
+
     test(
         're-attach does NOT dispose previous when it was not owned (owns: false)',
         () {
