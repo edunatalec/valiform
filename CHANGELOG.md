@@ -1,9 +1,9 @@
-## [1.0.0] - 2026-04-15
+## [1.0.0] - 2026-04-18
 
 ### Breaking Changes
 
 - **Removed validart re-export** — Import `package:validart/validart.dart` separately.
-- **Removed built-in `TextEditingController`** — Use `attachTextController()` for bidirectional sync.
+- **Removed built-in `TextEditingController`** — Use `attachController()` for bidirectional sync.
 - **`VForm` is now generic** — `VForm<Map<String, dynamic>>` for VMap, `VForm<T>` for VObject.
 - **Replaced `Validart()` instance** — Use `V` class with static methods (`V.string()`, `V.map()`, etc.).
 - **Replaced `.refine(check, path:)`** — Use `.refineFormField(check, path:)` for cross-field validation.
@@ -22,9 +22,10 @@
   - **`persist: true, force: true`** — combined: always shows the manual error on every validation until `clearError()`, regardless of field state (useful for server-side blocks like "Account suspended").
 - **`VField.key`** — Optional `GlobalKey<FormFieldState<T>>` that, when attached to a `TextFormField`, lets `setError` revalidate only that field without triggering error display on others.
 - **VObject support** — Create typed forms with `V.object<T>().form(builder:)` that return `T` instead of `Map`.
-- **`attachController(ValueNotifier<T?>)`** — Bidirectional sync with any `ValueNotifier`.
-- **`attachTextController(TextEditingController)`** — Bidirectional sync for text fields.
-- **`detachController()`** — Remove attached controller listeners.
+- **`attachController(ValueNotifier<T?> controller, {bool owns = true})`** — Bidirectional sync with a `ValueNotifier<T?>` (or subclass like `LuneSelectFieldController<T>`). Takes ownership by default — controller is disposed together with the field. Pass `owns: false` to keep external lifecycle management. Retrieve via `field.controller` (typed).
+- **`attachTextController(TextEditingController, {bool owns = true})`** — Extension method on `VField<String>` for `TextEditingController` specifically (since its value type is `TextEditingValue`, not `String`). Same ownership semantics. Retrieve via `field.textController` (typed).
+- **`onValueChanged(void Function(T? value) callback)`** — Bridge method for complex cases where the external state isn't a `ValueNotifier<T?>`. Registers a callback invoked on every field value change; returns a dispose function.
+- **`detachController()`** — Remove attached controller listeners without disposing (dispose happens in `VField.dispose()` if owned).
 - **`parsedValue` getter** — Returns the value after pipeline transforms (trim, toLowerCase, etc.).
 - **`onValueChanged` callback** — Pass in `.form()` or use `addValueChangedListener()` / `removeValueChangedListener()`.
 - **`rawValue` getter on VForm** — Returns field values without transforms.
