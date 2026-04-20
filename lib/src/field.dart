@@ -18,6 +18,8 @@ class VField<T> {
   final ValueNotifier<T?> _value;
   final T? _initialValue;
   final List<String? Function()> _validators;
+  final List<Future<String?> Function()> _asyncValidators;
+  late final bool _acceptsNull = _type.isNullable;
 
   /// Attach this key to the corresponding `TextFormField` (or any
   /// `FormField`) to enable single-field revalidation via [setError].
@@ -39,14 +41,27 @@ class VField<T> {
   VField({
     required VType<T> type,
     required List<String? Function()> validators,
+    List<Future<String?> Function()> asyncValidators = const [],
     T? initialValue,
   })  : _type = type,
         _initialValue = initialValue,
         _value = ValueNotifier<T?>(initialValue),
-        _validators = validators;
+        _validators = validators,
+        _asyncValidators = asyncValidators;
 
   /// Listenable for tracking field value changes.
   Listenable get listenable => _value;
+
+  /// Whether this field has any async-only validation step — either the
+  /// underlying [VType] contains `refineAsync`/`preprocessAsync`/
+  /// `transformAsync`, or a conditional (`.when()`) rule targeting this
+  /// field points at an async type.
+  ///
+  /// When `true`, the synchronous inspection methods ([validate], [error],
+  /// [vError], [parsedValue]) throw [VAsyncRequiredException] — use the
+  /// `*Async` variants. The sole exception is [validator], the required
+  /// adapter for Flutter's synchronous `FormField.validator`.
+  bool get hasAsync => _type.hasAsync || _asyncValidators.isNotEmpty;
 
   /// The current value of the field.
   /// The current raw value of the field (as stored, without transforms).
@@ -54,7 +69,7 @@ class VField<T> {
     final val = _value.value;
 
     if (val == null) return null;
-    if (val is String && val.isEmpty && _type.validate(null)) return null;
+    if (val is String && val.isEmpty && _acceptsNull) return null;
 
     return val;
   }
@@ -63,8 +78,29 @@ class VField<T> {
   /// (transforms like trim, toLowerCase, etc. are applied).
   ///
   /// Returns the raw value if parsing fails.
+  ///
+  /// Throws [VAsyncRequiredException] when the schema contains async
+  /// steps — use [parsedValueAsync] instead.
   T? get parsedValue {
+    if (hasAsync) {
+      throw const VAsyncRequiredException(
+        methodName: 'VField.parsedValue',
+        suggestion: 'parsedValueAsync',
+      );
+    }
+
     final result = _type.safeParse(value);
+
+    if (result case VSuccess<T?>(value: final parsed)) return parsed;
+
+    return value;
+  }
+
+  /// Async variant of [parsedValue]: runs the full pipeline, including
+  /// async preprocessors and transforms. Returns the raw value if parsing
+  /// fails.
+  Future<T?> get parsedValueAsync async {
+    final result = await _type.safeParseAsync(value);
 
     if (result case VSuccess<T?>(value: final parsed)) return parsed;
 
@@ -262,20 +298,78 @@ class VField<T> {
   /// Returns `null` if valid, or an error message if invalid.
   /// Called by Flutter's `FormField` pipeline — consumes one-shot manual
   /// errors as a side effect.
+  ///
+  /// **Does NOT throw on async schemas.** This is the one sync adapter
+  /// the Flutter `FormField.validator` signature requires. It runs only
+  /// the synchronous extras (cross-field validators + `manualError`) and
+  /// is the channel [VForm.validateAsync] uses to surface async errors
+  /// via `setError(persist: true)`.
   String? validator(T? value) => _runValidators(value, consume: true);
 
   /// Returns `true` if the current value passes all validators.
   ///
   /// Read-only: unlike [validator], this does NOT consume one-shot manual
   /// errors. Call it as many times as you like without affecting state.
-  bool validate() => _runValidators(value, consume: false) == null;
+  ///
+  /// Throws [VAsyncRequiredException] when [hasAsync] is `true` — use
+  /// [validateAsync].
+  bool validate() {
+    if (hasAsync) {
+      throw const VAsyncRequiredException(
+        methodName: 'VField.validate',
+        suggestion: 'validateAsync',
+      );
+    }
+    return _runValidators(value, consume: false) == null;
+  }
+
+  /// Async variant of [validate]: runs the full pipeline (sync + async
+  /// steps) and every registered extra validator. Does NOT consume
+  /// one-shot manual errors.
+  Future<bool> validateAsync() async =>
+      (await _runValidatorsAsync(value)) == null;
+
+  /// Internal: runs only schema + extra validators asynchronously,
+  /// ignoring any `manualError`. Used by `VForm.validateAsync` which
+  /// manages manual errors itself (so stale async errors don't mask a
+  /// newly-valid value).
+  Future<String?> computeAsyncError() async {
+    final value = this.value;
+    final processed = value is String && value.isEmpty ? null : value;
+    final stdError = (await _type.errorsAsync(processed))?.firstOrNull?.message;
+    if (stdError != null) return stdError;
+
+    for (final fn in _validators) {
+      final message = fn();
+      if (message != null) return message;
+    }
+    for (final fn in _asyncValidators) {
+      final message = await fn();
+      if (message != null) return message;
+    }
+    return null;
+  }
 
   /// The current error message for this field (from standard validators,
   /// cross-field validators, or imperative errors) — or `null` if valid.
   ///
   /// Read-only: does NOT consume one-shot manual errors. Use this to
   /// inspect the state without mutating it.
-  String? get error => _runValidators(value, consume: false);
+  ///
+  /// Throws [VAsyncRequiredException] when [hasAsync] is `true` — use
+  /// [errorAsync].
+  String? get error {
+    if (hasAsync) {
+      throw const VAsyncRequiredException(
+        methodName: 'VField.error',
+        suggestion: 'errorAsync',
+      );
+    }
+    return _runValidators(value, consume: false);
+  }
+
+  /// Async variant of [error]: runs async schema validation too.
+  Future<String?> get errorAsync => _runValidatorsAsync(value);
 
   /// Returns the full list of [VError]s for this field's current value,
   /// preserving each error's `code`, `path`, and `message` — or `null` if
@@ -286,12 +380,48 @@ class VField<T> {
   /// VCode.custom, message: ...)` since they're produced outside validart.
   ///
   /// Read-only: does NOT consume one-shot manual errors.
+  ///
+  /// Throws [VAsyncRequiredException] when [hasAsync] is `true` — use
+  /// [vErrorAsync].
   List<VError>? get vError {
+    if (hasAsync) {
+      throw const VAsyncRequiredException(
+        methodName: 'VField.vError',
+        suggestion: 'vErrorAsync',
+      );
+    }
+    return _buildVError(_stdErrorsSync(), null);
+  }
+
+  /// Async variant of [vError]: includes errors produced by async schema
+  /// steps and async extra validators.
+  Future<List<VError>?> get vErrorAsync async {
+    final stdErrors = await _stdErrorsAsync();
+    String? asyncExtra;
+    for (final fn in _asyncValidators) {
+      final message = await fn();
+      if (message != null) {
+        asyncExtra = message;
+        break;
+      }
+    }
+    return _buildVError(stdErrors, asyncExtra);
+  }
+
+  List<VError>? _stdErrorsSync() {
+    if (_type.hasAsync) return null;
     final value = this.value;
     final processed = value is String && value.isEmpty ? null : value;
+    return _type.errors(processed);
+  }
 
-    final stdErrors = _type.errors(processed);
+  Future<List<VError>?> _stdErrorsAsync() async {
+    final value = this.value;
+    final processed = value is String && value.isEmpty ? null : value;
+    return _type.errorsAsync(processed);
+  }
 
+  List<VError>? _buildVError(List<VError>? stdErrors, String? asyncExtra) {
     String? extraError;
     for (final fn in _validators) {
       final message = fn();
@@ -300,6 +430,7 @@ class VField<T> {
         break;
       }
     }
+    extraError ??= asyncExtra;
 
     final manual = _manualError;
     final forced = _forceManualError;
@@ -319,7 +450,8 @@ class VField<T> {
 
   String? _runValidators(T? value, {required bool consume}) {
     final processed = value is String && value.isEmpty ? null : value;
-    final stdError = _type.errors(processed)?.firstOrNull?.message;
+    final stdError =
+        _type.hasAsync ? null : _type.errors(processed)?.firstOrNull?.message;
 
     String? extraError;
     for (final fn in _validators) {
@@ -336,6 +468,35 @@ class VField<T> {
       _manualError = null;
       _forceManualError = false;
     }
+
+    if (forced && manual != null) return manual;
+    return stdError ?? extraError ?? manual;
+  }
+
+  Future<String?> _runValidatorsAsync(T? value) async {
+    final processed = value is String && value.isEmpty ? null : value;
+    final stdError = (await _type.errorsAsync(processed))?.firstOrNull?.message;
+
+    String? extraError;
+    for (final fn in _validators) {
+      final message = fn();
+      if (message != null) {
+        extraError = message;
+        break;
+      }
+    }
+    if (extraError == null) {
+      for (final fn in _asyncValidators) {
+        final message = await fn();
+        if (message != null) {
+          extraError = message;
+          break;
+        }
+      }
+    }
+
+    final manual = _manualError;
+    final forced = _forceManualError;
 
     if (forced && manual != null) return manual;
     return stdError ?? extraError ?? manual;

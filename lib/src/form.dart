@@ -11,13 +11,25 @@ import 'package:validart/validart.dart';
 class VForm<T> {
   final GlobalKey<FormState> _formKey;
   final Map<String, VField> _fields = {};
-  final bool Function(Map<String, dynamic>) _silentValidator;
+  final bool Function(Map<String, dynamic>) _silentValidatorSync;
+  final Future<bool> Function(Map<String, dynamic>) _silentValidatorAsync;
   final T Function(Map<String, dynamic>) _valueBuilder;
   final List<void Function(T value)> _valueChangedListeners = [];
+  late final bool _hasAsync;
+
+  /// Whether any field in this form depends on async validation — either
+  /// its type contains `refineAsync`/`preprocessAsync`/`transformAsync`,
+  /// or a `.when()` rule targets an async conditional type.
+  ///
+  /// When `true`, synchronous inspection methods ([validate], [value],
+  /// [silentValidate], [errors], [vErrors]) throw [VAsyncRequiredException] —
+  /// use the `*Async` variants.
+  bool get hasAsync => _hasAsync;
 
   VForm._({
     required Map<String, VType> schema,
-    required bool Function(Map<String, dynamic>) silentValidator,
+    required bool Function(Map<String, dynamic>) silentValidatorSync,
+    required Future<bool> Function(Map<String, dynamic>) silentValidatorAsync,
     required T Function(Map<String, dynamic>) valueBuilder,
     GlobalKey<FormState>? formKey,
     Map<String, dynamic>? initialValues,
@@ -26,7 +38,8 @@ class VForm<T> {
         const [],
     void Function(T value)? onValueChanged,
   })  : _formKey = formKey ?? GlobalKey<FormState>(),
-        _silentValidator = silentValidator,
+        _silentValidatorSync = silentValidatorSync,
+        _silentValidatorAsync = silentValidatorAsync,
         _valueBuilder = valueBuilder {
     for (final entry in schema.entries) {
       final key = entry.key;
@@ -39,16 +52,28 @@ class VForm<T> {
                 return null;
               })
           .toList();
+      final asyncValidators = <Future<String?> Function()>[];
 
       for (final rule in whenRules) {
         final conditionalType = rule.then[key];
-        if (conditionalType != null) {
+        if (conditionalType == null) continue;
+        if (conditionalType.hasAsync) {
+          asyncValidators.add(() async {
+            if (rawValue[rule.field] != rule.equals) return null;
+            final fieldValue = _fields[key]?.value;
+            final processed =
+                fieldValue is String && fieldValue.isEmpty ? null : fieldValue;
+            return (await conditionalType.errorsAsync(processed))
+                ?.firstOrNull
+                ?.message;
+          });
+        } else {
           validators.add(() {
             if (rawValue[rule.field] != rule.equals) return null;
             final fieldValue = _fields[key]?.value;
             final processed = fieldValue is String &&
                     fieldValue.isEmpty &&
-                    conditionalType.validate(null)
+                    conditionalType.isNullable
                 ? null
                 : fieldValue;
             return conditionalType.errors(processed)?.firstOrNull?.message;
@@ -60,8 +85,11 @@ class VForm<T> {
         type: type,
         initialValue: initialValues?[key],
         validators: validators,
+        asyncValidators: asyncValidators,
       );
     }
+
+    _hasAsync = _fields.values.any((f) => f.hasAsync);
 
     if (onValueChanged != null) {
       _valueChangedListeners.add(onValueChanged);
@@ -83,7 +111,8 @@ class VForm<T> {
 
     return VForm._(
       schema: map.schema,
-      silentValidator: (raw) => map.validate(raw),
+      silentValidatorSync: (raw) => map.hasAsync ? true : map.validate(raw),
+      silentValidatorAsync: (raw) => map.validateAsync(raw),
       valueBuilder: (raw) => raw as T,
       formKey: formKey,
       initialValues: initialValues,
@@ -110,7 +139,9 @@ class VForm<T> {
 
     return VForm._(
       schema: object.schema,
-      silentValidator: (raw) => object.validate(builder(raw)),
+      silentValidatorSync: (raw) =>
+          object.hasAsync ? true : object.validate(builder(raw)),
+      silentValidatorAsync: (raw) => object.validateAsync(builder(raw)),
       valueBuilder: builder,
       formKey: formKey,
       initialValues: initialValues,
@@ -119,6 +150,10 @@ class VForm<T> {
   }
 
   void _notifyValueChanged() {
+    // Value change listeners require a synchronous value. In async schemas
+    // `value` would throw; skip the notification — consumers of async forms
+    // should listen on [listenable] directly and await [valueAsync].
+    if (_hasAsync) return;
     final current = value;
     for (final listener in _valueChangedListeners) {
       listener(current);
@@ -144,9 +179,31 @@ class VForm<T> {
   ///
   /// - For `VMap` forms: returns `Map<String, dynamic>`
   /// - For `VObject` forms: returns an instance of `T` built by the builder
-  T get value => _valueBuilder(
-        _fields.map((key, field) => MapEntry(key, field.parsedValue)),
+  ///
+  /// Throws [VAsyncRequiredException] when [hasAsync] is `true` — use
+  /// [valueAsync].
+  T get value {
+    if (_hasAsync) {
+      throw const VAsyncRequiredException(
+        methodName: 'VForm.value',
+        suggestion: 'valueAsync',
       );
+    }
+    return _valueBuilder(
+      _fields.map((key, field) => MapEntry(key, field.parsedValue)),
+    );
+  }
+
+  /// Async variant of [value]: awaits each field's async pipeline
+  /// (`refineAsync`/`preprocessAsync`/`transformAsync`) before building
+  /// the final form value.
+  Future<T> get valueAsync async {
+    final parsed = <String, dynamic>{};
+    for (final entry in _fields.entries) {
+      parsed[entry.key] = await entry.value.parsedValueAsync;
+    }
+    return _valueBuilder(parsed);
+  }
 
   /// Retrieves a specific form field by its key.
   ///
@@ -232,13 +289,33 @@ class VForm<T> {
   /// Read-only: does NOT consume one-shot manual errors, does NOT touch
   /// the UI. Use this to inspect validation state for logging or custom
   /// error displays.
+  ///
+  /// Throws [VAsyncRequiredException] when [hasAsync] is `true` — use
+  /// [errorsAsync].
   Map<String, String>? errors() {
+    if (_hasAsync) {
+      throw const VAsyncRequiredException(
+        methodName: 'VForm.errors',
+        suggestion: 'errorsAsync',
+      );
+    }
     final result = <String, String>{};
     for (final entry in _fields.entries) {
       final error = entry.value.error;
       if (error != null) {
         result[entry.key] = error;
       }
+    }
+    return result.isEmpty ? null : result;
+  }
+
+  /// Async variant of [errors]: inspects the full pipeline including
+  /// async steps. Still read-only.
+  Future<Map<String, String>?> errorsAsync() async {
+    final result = <String, String>{};
+    for (final entry in _fields.entries) {
+      final message = await entry.value.errorAsync;
+      if (message != null) result[entry.key] = message;
     }
     return result.isEmpty ? null : result;
   }
@@ -252,10 +329,30 @@ class VForm<T> {
   ///
   /// Read-only: does NOT consume one-shot manual errors, does NOT touch
   /// the UI.
+  ///
+  /// Throws [VAsyncRequiredException] when [hasAsync] is `true` — use
+  /// [vErrorsAsync].
   Map<String, List<VError>>? vErrors() {
+    if (_hasAsync) {
+      throw const VAsyncRequiredException(
+        methodName: 'VForm.vErrors',
+        suggestion: 'vErrorsAsync',
+      );
+    }
     final result = <String, List<VError>>{};
     for (final entry in _fields.entries) {
       final errs = entry.value.vError;
+      if (errs != null) result[entry.key] = errs;
+    }
+    return result.isEmpty ? null : result;
+  }
+
+  /// Async variant of [vErrors]: inspects the full pipeline including
+  /// async steps.
+  Future<Map<String, List<VError>>?> vErrorsAsync() async {
+    final result = <String, List<VError>>{};
+    for (final entry in _fields.entries) {
+      final errs = await entry.value.vErrorAsync;
       if (errs != null) result[entry.key] = errs;
     }
     return result.isEmpty ? null : result;
@@ -282,7 +379,41 @@ class VForm<T> {
   }
 
   /// Validates all form fields and returns `true` if all are valid.
-  bool validate() => _formKey.currentState?.validate() ?? false;
+  ///
+  /// Throws [VAsyncRequiredException] when [hasAsync] is `true` — use
+  /// [validateAsync].
+  bool validate() {
+    if (_hasAsync) {
+      throw const VAsyncRequiredException(
+        methodName: 'VForm.validate',
+        suggestion: 'validateAsync',
+      );
+    }
+    return _formKey.currentState?.validate() ?? false;
+  }
+
+  /// Async variant of [validate]: runs the full validation pipeline,
+  /// including `refineAsync`/`preprocessAsync` steps, and surfaces any
+  /// async errors as persistent imperative errors so they show up in
+  /// `FormField` widgets just like regular errors. Returns `true` when
+  /// every field is valid.
+  Future<bool> validateAsync() async {
+    bool allValid = true;
+    for (final entry in _fields.entries) {
+      final field = entry.value;
+      final message = await field.computeAsyncError();
+      if (message != null) {
+        allValid = false;
+        field.setError(message, persist: true);
+      } else {
+        field.clearError();
+      }
+    }
+    // Also repaint the UI so the persisted errors surface through
+    // FormField.validator.
+    _formKey.currentState?.validate();
+    return allValid;
+  }
 
   /// Validates without triggering UI error messages.
   ///
@@ -293,16 +424,41 @@ class VForm<T> {
   ///
   /// Use `field.manualError` if you need to inspect errors without
   /// consuming state.
+  ///
+  /// Throws [VAsyncRequiredException] when [hasAsync] is `true` — use
+  /// [silentValidateAsync].
   bool silentValidate() {
+    if (_hasAsync) {
+      throw const VAsyncRequiredException(
+        methodName: 'VForm.silentValidate',
+        suggestion: 'silentValidateAsync',
+      );
+    }
     bool allValid = true;
     for (final field in _fields.values) {
       if (field.validator(field.value) != null) {
         allValid = false;
       }
     }
-    final schemaValid = _silentValidator(
+    final schemaValid = _silentValidatorSync(
       _fields.map((key, field) => MapEntry(key, field.parsedValue)),
     );
+    return allValid && schemaValid;
+  }
+
+  /// Async variant of [silentValidate]: runs full pipeline without
+  /// touching the UI. Does NOT consume one-shot manual errors.
+  Future<bool> silentValidateAsync() async {
+    bool allValid = true;
+    for (final field in _fields.values) {
+      final message = await field.errorAsync;
+      if (message != null) allValid = false;
+    }
+    final parsed = <String, dynamic>{};
+    for (final entry in _fields.entries) {
+      parsed[entry.key] = await entry.value.parsedValueAsync;
+    }
+    final schemaValid = await _silentValidatorAsync(parsed);
     return allValid && schemaValid;
   }
 
@@ -318,12 +474,14 @@ class VForm<T> {
     required VType type,
     required dynamic initialValue,
     required List<String? Function()> validators,
+    List<Future<String?> Function()> asyncValidators = const [],
   }) {
     return type.mapType(<F>(VType<F> t) {
       return VField<F>(
         type: t,
         initialValue: initialValue as F?,
         validators: validators,
+        asyncValidators: asyncValidators,
       );
     });
   }

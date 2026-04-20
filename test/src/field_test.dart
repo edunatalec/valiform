@@ -715,4 +715,132 @@ void main() {
       controller.dispose();
     });
   });
+
+  group('Async validation', () {
+    test('validateAsync returns true for a valid value', () async {
+      final f = VField<String>(
+        type: V.string().min(3).refineAsync(
+              (v) async => v != 'taken',
+              message: 'already taken',
+            ),
+        validators: [],
+        initialValue: 'eduardo',
+      );
+      expect(await f.validateAsync(), isTrue);
+      expect(await f.errorAsync, isNull);
+      f.dispose();
+    });
+
+    test('validateAsync returns false and errorAsync reports the message',
+        () async {
+      final f = VField<String>(
+        type: V.string().refineAsync(
+              (v) async => v != 'taken',
+              message: 'already taken',
+            ),
+        validators: [],
+        initialValue: 'taken',
+      );
+      expect(await f.validateAsync(), isFalse);
+      expect(await f.errorAsync, 'already taken');
+      final errs = await f.vErrorAsync;
+      expect(errs, isNotNull);
+      expect(errs!.first.message, 'already taken');
+      f.dispose();
+    });
+
+    test('sync inspection methods throw VAsyncRequiredException when hasAsync',
+        () {
+      final f = VField<String>(
+        type: V.string().min(10).refineAsync((v) async => true),
+        validators: [],
+        initialValue: 'short',
+      );
+      expect(() => f.validate(), throwsA(isA<VAsyncRequiredException>()));
+      expect(() => f.error, throwsA(isA<VAsyncRequiredException>()));
+      expect(() => f.vError, throwsA(isA<VAsyncRequiredException>()));
+      expect(() => f.parsedValue, throwsA(isA<VAsyncRequiredException>()));
+      f.dispose();
+    });
+
+    test('validator(T?) stays tolerant on async schemas (Flutter adapter)', () {
+      final f = VField<String>(
+        type: V.string().refineAsync((v) async => true),
+        validators: [],
+        initialValue: 'anything',
+      );
+      // validator() must never throw — FormField.validator is sync and it
+      // is the channel VForm.validateAsync uses to surface async errors.
+      expect(f.validator(f.value), isNull);
+      f.setError('from async', persist: true);
+      expect(f.validator(f.value), 'from async');
+      f.dispose();
+    });
+
+    test('hasAsync reflects _type.hasAsync or async extras', () {
+      final syncField = VField<String>(
+        type: V.string(),
+        validators: [],
+      );
+      expect(syncField.hasAsync, isFalse);
+      syncField.dispose();
+
+      final asyncTypeField = VField<String>(
+        type: V.string().refineAsync((v) async => true),
+        validators: [],
+      );
+      expect(asyncTypeField.hasAsync, isTrue);
+      asyncTypeField.dispose();
+
+      final asyncExtraField = VField<String>(
+        type: V.string(),
+        validators: [],
+        asyncValidators: [() async => null],
+      );
+      expect(asyncExtraField.hasAsync, isTrue);
+      asyncExtraField.dispose();
+    });
+
+    test('parsedValueAsync runs transforms after async preprocessors',
+        () async {
+      final f = VField<String>(
+        type: V.string().trim().toLowerCase().refineAsync((v) async => true),
+        validators: [],
+        initialValue: '  Hello  ',
+      );
+      // parsedValue throws on async schemas (use parsedValueAsync).
+      expect(() => f.parsedValue, throwsA(isA<VAsyncRequiredException>()));
+      expect(await f.parsedValueAsync, 'hello');
+      f.dispose();
+    });
+
+    test('refineAsync timeout surfaces a timeout message', () async {
+      final f = VField<String>(
+        type: V.string().refineAsync(
+          (v) async {
+            await Future<void>.delayed(const Duration(milliseconds: 200));
+            return true;
+          },
+          message: 'unused',
+          timeout: const Duration(milliseconds: 20),
+        ),
+        validators: [],
+        initialValue: 'anything',
+      );
+      expect(await f.validateAsync(), isFalse);
+      f.dispose();
+    });
+
+    test('empty string is treated as null for nullable async schemas',
+        () async {
+      final f = VField<String>(
+        type: V.string().nullable().refineAsync((v) async => true),
+        validators: [],
+        initialValue: '',
+      );
+      expect(f.value, isNull);
+      expect(await f.validateAsync(), isTrue);
+      f.dispose();
+    });
+  });
 }

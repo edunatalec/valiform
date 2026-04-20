@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'pages/array_field_page.dart';
+import 'pages/async_validation_page.dart';
 import 'pages/basic_map_form_page.dart';
 import 'pages/conditional_validation_page.dart';
 import 'pages/object_form_page.dart';
@@ -117,6 +118,11 @@ class HomePage extends StatelessWidget {
         title: 'Array Field',
         subtitle: 'List of tags with VArray validation',
         page: const ArrayFieldPage(),
+      ),
+      _Example(
+        title: 'Async Validation',
+        subtitle: 'refineAsync + form.validateAsync() — remote username check',
+        page: const AsyncValidationPage(),
       ),
       _Example(
         title: 'Multi Type Form',

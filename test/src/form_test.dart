@@ -1002,6 +1002,241 @@ void main() {
       testForm.dispose();
     });
   });
+
+  group('Async validation', () {
+    test('VMap form.validateAsync fails and surfaces async error on field',
+        () async {
+      final form = V.map({
+        'username': V.string().min(3).refineAsync(
+              (v) async => v != 'taken',
+              message: 'already taken',
+            ),
+      }).form(initialValues: {'username': 'taken'});
+
+      expect(await form.validateAsync(), isFalse);
+
+      final field = form.field<String>('username');
+      // validateAsync persists the error as a manual error so the
+      // synchronous FormField.validator will surface it.
+      expect(field.manualError, 'already taken');
+      expect(field.validator(field.value), 'already taken');
+
+      form.dispose();
+    });
+
+    test('VMap form.validateAsync passes for a valid value', () async {
+      final form = V.map({
+        'username': V.string().refineAsync(
+              (v) async => v != 'taken',
+              message: 'already taken',
+            ),
+      }).form(initialValues: {'username': 'eduardo'});
+
+      expect(await form.validateAsync(), isTrue);
+      expect(form.field<String>('username').manualError, isNull);
+
+      form.dispose();
+    });
+
+    test('silentValidateAsync runs full pipeline without touching UI',
+        () async {
+      final form = V.map({
+        'email': V.string().email().refineAsync(
+              (v) async => !v.endsWith('@blocked.com'),
+              message: 'blocked domain',
+            ),
+      }).form(initialValues: {'email': 'a@blocked.com'});
+
+      expect(await form.silentValidateAsync(), isFalse);
+      // manualError must NOT be populated by silentValidateAsync.
+      expect(form.field<String>('email').manualError, isNull);
+
+      form.dispose();
+    });
+
+    test('errorsAsync and vErrorsAsync report full error detail', () async {
+      final form = V.map({
+        'username': V.string().refineAsync(
+              (v) async => v != 'taken',
+              message: 'already taken',
+            ),
+      }).form(initialValues: {'username': 'taken'});
+
+      expect(await form.errorsAsync(), {'username': 'already taken'});
+      final vErrs = await form.vErrorsAsync();
+      expect(vErrs, isNotNull);
+      expect(vErrs!['username']!.first.message, 'already taken');
+
+      form.dispose();
+    });
+
+    test(
+        'mixed sync + async schema: sync fields still validate individually '
+        'via field.validator, form-level sync methods throw', () async {
+      final form = V.map({
+        'name': V.string().min(3),
+        'username': V.string().refineAsync(
+              (v) async => v != 'taken',
+              message: 'already taken',
+            ),
+      }).form(initialValues: {'name': 'x', 'username': 'taken'});
+
+      // The sync `name` field still surfaces its error through its own
+      // validator — this is what Flutter's FormField uses while typing.
+      final name = form.field<String>('name');
+      expect(name.validator(name.value), isNotNull);
+
+      // Form-level sync methods are strict: they throw because some field
+      // depends on async validation.
+      expect(
+        () => form.silentValidate(),
+        throwsA(isA<VAsyncRequiredException>()),
+      );
+      expect(() => form.errors(), throwsA(isA<VAsyncRequiredException>()));
+
+      // Async path surfaces both the sync (still enforced) and the async.
+      expect(await form.validateAsync(), isFalse);
+      expect(form.field<String>('username').manualError, 'already taken');
+
+      form.dispose();
+    });
+
+    test('VObject form.validateAsync works', () async {
+      final schema = V.object<_User>(
+        configure: (o) => o
+          ..field('name', (u) => u.name, V.string().min(2))
+          ..field(
+            'email',
+            (u) => u.email,
+            V.string().email().refineAsync(
+                  (v) async => !v.endsWith('@blocked.com'),
+                  message: 'blocked domain',
+                ),
+          ),
+      );
+      final form = schema.form(
+        builder: (data) => _User(
+          name: data['name'] as String,
+          email: data['email'] as String,
+        ),
+        initialValue: const _User(name: 'John', email: 'a@blocked.com'),
+      );
+
+      expect(await form.validateAsync(), isFalse);
+      expect(form.field<String>('email').manualError, 'blocked domain');
+
+      form.dispose();
+    });
+
+    test('Conditional (when) rule with async type runs only when condition met',
+        () async {
+      final form = V.map({
+        'type': V.string(),
+        'taxId': V.string().nullable(),
+      }).when('type', equals: 'company', then: {
+        'taxId': V.string().refineAsync(
+              (v) async => v.length >= 5,
+              message: 'taxId too short',
+            ),
+      }).form(initialValues: {'type': 'person', 'taxId': 'x'});
+
+      // condition not met → valid
+      expect(await form.validateAsync(), isTrue);
+
+      // flip the condition
+      form.field<String>('type').set('company');
+      expect(await form.validateAsync(), isFalse);
+      expect(form.field<String>('taxId').manualError, 'taxId too short');
+
+      form.dispose();
+    });
+
+    test('validateAsync clears previous async error when value becomes valid',
+        () async {
+      final form = V.map({
+        'username': V.string().refineAsync(
+              (v) async => v != 'taken',
+              message: 'already taken',
+            ),
+      }).form(initialValues: {'username': 'taken'});
+
+      expect(await form.validateAsync(), isFalse);
+      expect(form.field<String>('username').manualError, 'already taken');
+
+      form.field<String>('username').set('available');
+      expect(await form.validateAsync(), isTrue);
+      expect(form.field<String>('username').manualError, isNull);
+
+      form.dispose();
+    });
+
+    test(
+        'sync methods on a fully async schema throw VAsyncRequiredException '
+        '(mirror of validart\'s contract)', () {
+      final form = V.map({
+        'username': V.string().refineAsync(
+              (v) async => v != 'taken',
+              message: 'already taken',
+            ),
+      }).form(initialValues: {'username': 'taken'});
+
+      expect(form.hasAsync, isTrue);
+      expect(() => form.validate(), throwsA(isA<VAsyncRequiredException>()));
+      expect(
+        () => form.silentValidate(),
+        throwsA(isA<VAsyncRequiredException>()),
+      );
+      expect(() => form.errors(), throwsA(isA<VAsyncRequiredException>()));
+      expect(() => form.vErrors(), throwsA(isA<VAsyncRequiredException>()));
+      expect(() => form.value, throwsA(isA<VAsyncRequiredException>()));
+
+      // Field-level sync methods throw too — except validator(T?), the
+      // unavoidable sync adapter for Flutter's FormField.
+      final field = form.field<String>('username');
+      expect(() => field.validate(), throwsA(isA<VAsyncRequiredException>()));
+      expect(() => field.error, throwsA(isA<VAsyncRequiredException>()));
+      expect(() => field.vError, throwsA(isA<VAsyncRequiredException>()));
+      expect(
+        () => field.parsedValue,
+        throwsA(isA<VAsyncRequiredException>()),
+      );
+      expect(() => field.validator('taken'), returnsNormally);
+
+      form.dispose();
+    });
+
+    test('form.valueAsync resolves parsed value across async pipeline',
+        () async {
+      final form = V.map({
+        'email': V.string().trim().toLowerCase().refineAsync(
+              (v) async => v.contains('@'),
+              message: 'invalid email',
+            ),
+      }).form(initialValues: {'email': '  USER@Mail.COM  '});
+
+      final result = await form.valueAsync;
+      expect(result['email'], 'user@mail.com');
+
+      form.dispose();
+    });
+
+    test(
+        'form 100% sync is unaffected — hasAsync false, sync methods behave '
+        'as before', () {
+      final form = V.map({
+        'email': V.string().email(),
+      }).form(initialValues: {'email': 'valid@mail.com'});
+
+      expect(form.hasAsync, isFalse);
+      expect(form.validate(), anyOf(isTrue, isFalse));
+      expect(form.silentValidate(), isTrue);
+      expect(form.errors(), isNull);
+      expect(form.vErrors(), isNull);
+      expect(form.value['email'], 'valid@mail.com');
+
+      form.dispose();
+    });
+  });
 }
 
 enum _Status { active, inactive }
