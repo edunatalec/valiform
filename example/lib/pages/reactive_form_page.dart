@@ -1,12 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
+import '../utils.dart';
 import '../widgets/widgets.dart';
-
-const JsonEncoder _encoder = JsonEncoder.withIndent('  ');
 
 class ReactiveFormPage extends StatefulWidget {
   const ReactiveFormPage({super.key});
@@ -29,7 +26,7 @@ class _ReactiveFormPageState extends State<ReactiveFormPage> {
     }).form(
       onValueChanged: (value) {
         setState(() {
-          _jsonPreview = _encoder.convert(value);
+          _jsonPreview = jsonEncoder.convert(value);
         });
       },
     );

@@ -1,9 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
+import 'utils.dart';
 import 'pages/array_field_page.dart';
 import 'pages/async_validation_page.dart';
 import 'pages/basic_map_form_page.dart';
+import 'pages/complex_form_page.dart';
 import 'pages/conditional_validation_page.dart';
 import 'pages/object_form_page.dart';
 import 'pages/password_match_page.dart';
@@ -125,6 +125,12 @@ class HomePage extends StatelessWidget {
         page: const AsyncValidationPage(),
       ),
       _Example(
+        title: 'Complex Form',
+        subtitle:
+            'All types + array + nested map + enum + union + when sync/async + refineFormField',
+        page: const ComplexFormPage(),
+      ),
+      _Example(
         title: 'Multi Type Form',
         subtitle: 'All field types combined in a single form',
         page: const MultiTypeFormPage(),
@@ -189,9 +195,7 @@ class _Example {
   });
 }
 
-const JsonEncoder _encoder = JsonEncoder.withIndent('  ');
-
 void printJson(Object? value) {
   if (value == null) return;
-  debugPrint(_encoder.convert(value));
+  debugPrint(jsonEncoder.convert(value));
 }

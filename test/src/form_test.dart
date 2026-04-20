@@ -1280,7 +1280,7 @@ void main() {
               'zip': V.string().min(5),
               'country': V.literal('US'),
             }),
-            'role': V.enm(_Role.values),
+            'role': V.enm<_Role>(_Role.values),
             'id': V.union([V.string().uuid(), V.int().min(1)]),
             'confirmation': V.string(),
             // A plain field that becomes async under a condition.
@@ -1335,6 +1335,9 @@ void main() {
       expect(value['height'], 1.72);
       expect(value['active'], isTrue);
       expect(value['role'], _Role.admin);
+      // Typed field access — exercises mapType generic preservation for
+      // enums (regression: V.enm must be called with an explicit <T>).
+      expect(form.field<_Role>('role').value, _Role.admin);
       expect((value['address'] as Map)['country'], 'US');
       expect((value['tags'] as List), ['dart', 'flutter']);
 
@@ -1381,7 +1384,7 @@ void main() {
             (u) => u.tags,
             V.string().min(2).array().min(1).unique(),
           )
-          ..field('role', (u) => u.role, V.enm(_Role.values))
+          ..field('role', (u) => u.role, V.enm<_Role>(_Role.values))
           ..field(
             'id',
             (u) => u.id,
@@ -1447,6 +1450,30 @@ void main() {
       expect(form.field<String>('email').manualError, 'blocked domain');
 
       form.dispose();
+    });
+
+    test(
+        'V.enm without explicit generic inside V.map({}) degrades to '
+        'VField<Enum> — pins the Dart inference pitfall that forces users '
+        'to write V.enm<T>(T.values)', () {
+      // Intentionally no <_Role> — Dart resolves T to the Enum upper bound.
+      final degraded = V.map({
+        'role': V.enm(_Role.values),
+      }).form(initialValues: {'role': _Role.admin});
+
+      expect(
+        () => degraded.field<_Role>('role'),
+        throwsArgumentError,
+      );
+      expect(degraded.field<Enum>('role').value, _Role.admin);
+      degraded.dispose();
+
+      // With the explicit generic, the field is correctly typed.
+      final ok = V.map({
+        'role': V.enm<_Role>(_Role.values),
+      }).form(initialValues: {'role': _Role.admin});
+      expect(ok.field<_Role>('role').value, _Role.admin);
+      ok.dispose();
     });
   });
 }
