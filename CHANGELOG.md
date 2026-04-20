@@ -1,3 +1,24 @@
+# Changelog
+
+## [1.1.0] - 2026-04-20
+
+### Added
+
+- **Async validation** — first-class support for validart 1.1.0 async primitives (`refineAsync`, `preprocessAsync`, `transformAsync`).
+  - `VForm.validateAsync()` — runs the full async pipeline and surfaces errors through the normal `FormField` error channel (via persistent imperative errors), so the UI updates exactly like sync validation.
+  - `VForm.silentValidateAsync()` — async validation without touching the UI.
+  - `VForm.errorsAsync()` / `VForm.vErrorsAsync()` — async counterparts for inspecting current errors.
+  - `VForm.valueAsync` — awaits each field's async pipeline and returns the fully-parsed value.
+  - `VForm.hasAsync` / `VField.hasAsync` — introspection flag for schemas that require async validation.
+  - `VField.validateAsync()`, `VField.errorAsync`, `VField.vErrorAsync`, `VField.parsedValueAsync` — per-field async APIs with the same semantics as their sync siblings.
+  - Conditional `.when()` rules now detect async schemas and register them into the async validation path automatically.
+- **Async example page** — `example/lib/pages/async_validation_page.dart` demonstrates a simulated remote username-availability check with loading state.
+
+### Changed
+
+- Synchronous inspection methods now mirror validart's strict contract: when the schema contains any async step, `VForm.validate`, `silentValidate`, `errors`, `vErrors`, `value`, `VField.validate`, `error`, `vError`, and `parsedValue` throw `VAsyncRequiredException`. Use the corresponding `*Async` variants. `VField.validator(T?)` is the single sync adapter kept tolerant — it is required by Flutter's synchronous `FormField.validator` signature and is the channel `validateAsync` uses to surface async errors via `setError(persist: true)`.
+- Bumped minimum validart constraint to `1.1.0` for `VType.isNullable`, `VType.hasAsync`, and the async pipeline APIs.
+
 ## [1.0.0] - 2026-04-18
 
 ### Breaking Changes
