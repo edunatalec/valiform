@@ -102,6 +102,7 @@ class _ComplexFormPageState extends State<ComplexFormPage> {
   @override
   void dispose() {
     _form.dispose();
+
     super.dispose();
   }
 
@@ -120,12 +121,14 @@ class _ComplexFormPageState extends State<ComplexFormPage> {
 
   Future<void> _submit() async {
     setState(() => _submitting = true);
+
     final valid = await _form.validateAsync();
     if (!mounted) return;
 
     final data = valid ? await _form.valueAsync : null;
     final errors = valid ? null : await _form.errorsAsync();
     if (!mounted) return;
+
     setState(() {
       _submitting = false;
       _validData = data;
@@ -226,8 +229,6 @@ class _ComplexFormPageState extends State<ComplexFormPage> {
   }
 }
 
-// --- helper widgets ---------------------------------------------------------
-
 class _IntField extends StatelessWidget {
   final VField<int> field;
   final String label;
@@ -249,6 +250,7 @@ class _IntField extends StatelessWidget {
 class _DoubleField extends StatelessWidget {
   final VField<double> field;
   final String label;
+
   const _DoubleField({required this.field, required this.label});
 
   @override
@@ -267,6 +269,7 @@ class _DoubleField extends StatelessWidget {
 class _BoolField extends StatelessWidget {
   final VField<bool> field;
   final String label;
+
   const _BoolField({required this.field, required this.label});
 
   @override
@@ -300,6 +303,7 @@ class _DateField extends StatelessWidget {
             lastDate: DateTime(2029, 12, 31),
             initialDate: field.value ?? DateTime.now(),
           );
+
           if (picked != null) field.set(picked);
         },
         child: InputDecorator(
@@ -317,11 +321,13 @@ class _DateField extends StatelessWidget {
 
 class _TagsField extends StatelessWidget {
   final VField<List<String>> field;
+
   const _TagsField({required this.field});
 
   @override
   Widget build(BuildContext context) {
     final controller = TextEditingController();
+
     return ListenableBuilder(
       listenable: field.listenable,
       builder: (_, __) {
@@ -338,7 +344,9 @@ class _TagsField extends StatelessWidget {
               onSubmitted: (v) {
                 final t = v.trim();
                 if (t.isEmpty) return;
+
                 field.set([...tags, t]);
+
                 controller.clear();
               },
             ),
@@ -351,6 +359,7 @@ class _TagsField extends StatelessWidget {
                     label: Text(tags[i]),
                     onDeleted: () {
                       final next = [...tags]..removeAt(i);
+
                       field.set(next);
                     },
                   ),
@@ -365,6 +374,7 @@ class _TagsField extends StatelessWidget {
 
 class _RoleField extends StatelessWidget {
   final VField<Role> field;
+
   const _RoleField({required this.field});
 
   @override
@@ -391,6 +401,7 @@ class _RoleField extends StatelessWidget {
 /// we parsed in the widget and fed `null` to the field.
 class _UnionField extends StatelessWidget {
   final VField<Object> field;
+
   const _UnionField({required this.field});
 
   @override
@@ -407,6 +418,7 @@ class _UnionField extends StatelessWidget {
 
 class _AddressFields extends StatelessWidget {
   final VField<Map<String, dynamic>> field;
+
   const _AddressFields({required this.field});
 
   @override
@@ -441,6 +453,7 @@ class _AddressFields extends StatelessWidget {
 
 class _TypeField extends StatelessWidget {
   final VField<String> field;
+
   const _TypeField({required this.field});
 
   @override

@@ -51,6 +51,7 @@ class _AsyncValidationPageState extends State<AsyncValidationPage> {
 
   Future<void> _submit() async {
     setState(() => _submitting = true);
+
     final valid = await _form.validateAsync();
     if (!mounted) return;
 
@@ -58,6 +59,7 @@ class _AsyncValidationPageState extends State<AsyncValidationPage> {
     // VAsyncRequiredException because the schema has async steps.
     final data = valid ? await _form.valueAsync : null;
     if (!mounted) return;
+
     setState(() => _submitting = false);
 
     ScaffoldMessenger.of(context).showSnackBar(

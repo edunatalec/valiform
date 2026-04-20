@@ -43,21 +43,28 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
   @override
   void initState() {
     super.initState();
+
     _form = V.map({
       // Required
       'name': V.string().min(3),
+
       // Optional strings
       'nickname': V.string().min(2).nullable(),
       'website': V.string().url().nullable(),
+
       // Optional number
       'age': V.int().min(0).max(150).nullable(),
       'score': V.double().min(0).max(10).nullable(),
+
       // Optional bool
       'newsletter': V.bool().nullable(),
+
       // Optional date
       'birthdate': V.date().nullable(),
+
       // Optional enum
       'favoriteColor': V.enm<Color>(Color.values).nullable(),
+
       // Optional custom class
       'address': V.object<Address>().nullable(),
     }).form();
@@ -66,6 +73,7 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
   @override
   void dispose() {
     _form.dispose();
+
     super.dispose();
   }
 
@@ -86,6 +94,7 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
     );
+
     if (picked != null) _birthdate.set(picked);
   }
 

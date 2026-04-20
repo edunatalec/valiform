@@ -45,6 +45,7 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
     _syncInitForm = V.map({'name': V.string().min(2)}).form(
       initialValues: {'name': 'John'},
     );
+
     _syncInitController = TextEditingController(text: 'John');
     _syncInitForm
         .field<String>('name')
@@ -57,6 +58,7 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
     _counterForm = V.map({'count': V.int().min(0).max(10)}).form(
       initialValues: {'count': 0},
     );
+
     _counterNotifier = ValueNotifier<int?>(0);
     _counterForm
         .field<int>('count')
@@ -68,11 +70,14 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
     _syncController.dispose();
     _syncForm.dispose();
     _noSyncForm.dispose();
+
     _syncInitController.dispose();
     _syncInitForm.dispose();
     _noSyncInitForm.dispose();
+
     _counterNotifier.dispose();
     _counterForm.dispose();
+
     super.dispose();
   }
 

@@ -55,17 +55,22 @@ class VForm<T> {
                 return null;
               })
           .toList();
+
       final asyncValidators = <Future<String?> Function()>[];
 
       for (final rule in whenRules) {
         final conditionalType = rule.then[key];
         if (conditionalType == null) continue;
+
         if (conditionalType.hasAsync) {
           asyncValidators.add(() async {
             if (rawValue[rule.field] != rule.equals) return null;
+
             final fieldValue = _fields[key]?.value;
-            final processed =
-                fieldValue is String && fieldValue.isEmpty ? null : fieldValue;
+            final processed = fieldValue is String && fieldValue.isEmpty
+                ? null
+                : fieldValue;
+
             return (await conditionalType.errorsAsync(processed))
                 ?.firstOrNull
                 ?.message;
@@ -73,12 +78,14 @@ class VForm<T> {
         } else {
           validators.add(() {
             if (rawValue[rule.field] != rule.equals) return null;
+
             final fieldValue = _fields[key]?.value;
             final processed = fieldValue is String &&
                     fieldValue.isEmpty &&
                     conditionalType.isNullable
                 ? null
                 : fieldValue;
+
             return conditionalType.errors(processed)?.firstOrNull?.message;
           });
         }
@@ -158,7 +165,9 @@ class VForm<T> {
     // `value` would throw; skip the notification — consumers of async forms
     // should listen on [listenable] directly and await [valueAsync].
     if (_hasAsync) return;
+
     final current = value;
+
     for (final listener in _valueChangedListeners) {
       listener(current);
     }
@@ -193,6 +202,7 @@ class VForm<T> {
         suggestion: 'valueAsync',
       );
     }
+
     return _valueBuilder(
       _fields.map((key, field) => MapEntry(key, field.parsedValue)),
     );
@@ -203,9 +213,11 @@ class VForm<T> {
   /// the final form value.
   Future<T> get valueAsync async {
     final parsed = <String, dynamic>{};
+
     for (final entry in _fields.entries) {
       parsed[entry.key] = await entry.value.parsedValueAsync;
     }
+
     return _valueBuilder(parsed);
   }
 
@@ -246,6 +258,7 @@ class VForm<T> {
   /// Resets all form fields to their initial values.
   void reset() {
     _formKey.currentState?.reset();
+
     for (final field in _fields.values) {
       field.reset();
     }
@@ -275,13 +288,16 @@ class VForm<T> {
       'setErrors called with an empty map — probably a mistake.',
     );
 
-    final List<String> unknown =
-        errors.keys.where((k) => !_fields.containsKey(k)).toList();
+    final List<String> unknown = errors.keys
+        .where((k) => !_fields.containsKey(k))
+        .toList();
+
     if (unknown.isNotEmpty) {
       throw ArgumentError(
         'Unknown field${unknown.length == 1 ? '' : 's'}: ${unknown.join(', ')}.',
       );
     }
+
     for (final entry in errors.entries) {
       _fields[entry.key]!.setError(entry.value, persist: persist, force: force);
     }
@@ -303,13 +319,16 @@ class VForm<T> {
         suggestion: 'errorsAsync',
       );
     }
+
     final result = <String, String>{};
+
     for (final entry in _fields.entries) {
       final error = entry.value.error;
       if (error != null) {
         result[entry.key] = error;
       }
     }
+
     return result.isEmpty ? null : result;
   }
 
@@ -317,10 +336,12 @@ class VForm<T> {
   /// async steps. Still read-only.
   Future<Map<String, String>?> errorsAsync() async {
     final result = <String, String>{};
+
     for (final entry in _fields.entries) {
       final message = await entry.value.errorAsync;
       if (message != null) result[entry.key] = message;
     }
+
     return result.isEmpty ? null : result;
   }
 
@@ -343,11 +364,14 @@ class VForm<T> {
         suggestion: 'vErrorsAsync',
       );
     }
+
     final result = <String, List<VError>>{};
+
     for (final entry in _fields.entries) {
       final errs = entry.value.vError;
       if (errs != null) result[entry.key] = errs;
     }
+
     return result.isEmpty ? null : result;
   }
 
@@ -355,10 +379,12 @@ class VForm<T> {
   /// async steps.
   Future<Map<String, List<VError>>?> vErrorsAsync() async {
     final result = <String, List<VError>>{};
+
     for (final entry in _fields.entries) {
       final errs = await entry.value.vErrorAsync;
       if (errs != null) result[entry.key] = errs;
     }
+
     return result.isEmpty ? null : result;
   }
 
@@ -376,9 +402,11 @@ class VForm<T> {
 
   VField _requireField(String key) {
     final field = _fields[key];
+
     if (field == null) {
       throw ArgumentError('The field "$key" does not exist.');
     }
+
     return field;
   }
 
@@ -393,6 +421,7 @@ class VForm<T> {
         suggestion: 'validateAsync',
       );
     }
+
     return _formKey.currentState?.validate() ?? false;
   }
 
@@ -403,9 +432,11 @@ class VForm<T> {
   /// every field is valid.
   Future<bool> validateAsync() async {
     bool allValid = true;
+
     for (final entry in _fields.entries) {
       final field = entry.value;
       final message = await field.computeAsyncError();
+
       if (message != null) {
         allValid = false;
         field.setError(message, persist: true);
@@ -413,9 +444,11 @@ class VForm<T> {
         field.clearError();
       }
     }
+
     // Also repaint the UI so the persisted errors surface through
     // FormField.validator.
     _formKey.currentState?.validate();
+
     return allValid;
   }
 
@@ -438,15 +471,19 @@ class VForm<T> {
         suggestion: 'silentValidateAsync',
       );
     }
+
     bool allValid = true;
+
     for (final field in _fields.values) {
       if (field.validator(field.value) != null) {
         allValid = false;
       }
     }
+
     final schemaValid = _silentValidatorSync(
       _fields.map((key, field) => MapEntry(key, field.parsedValue)),
     );
+
     return allValid && schemaValid;
   }
 
@@ -454,21 +491,27 @@ class VForm<T> {
   /// touching the UI. Does NOT consume one-shot manual errors.
   Future<bool> silentValidateAsync() async {
     bool allValid = true;
+
     for (final field in _fields.values) {
       final message = await field.errorAsync;
       if (message != null) allValid = false;
     }
+
     final parsed = <String, dynamic>{};
+
     for (final entry in _fields.entries) {
       parsed[entry.key] = await entry.value.parsedValueAsync;
     }
+
     final schemaValid = await _silentValidatorAsync(parsed);
+
     return allValid && schemaValid;
   }
 
   /// Disposes all fields and releases resources.
   void dispose() {
     _valueChangedListeners.clear();
+
     for (final field in _fields.values) {
       field.dispose();
     }

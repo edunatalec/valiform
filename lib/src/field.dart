@@ -131,11 +131,14 @@ class VField<T> {
         : null;
 
     detachController();
+
     if (previouslyOwned != null && !identical(previouslyOwned, controller)) {
       previouslyOwned.dispose();
     }
+
     _ownsAttachedController = owns;
     _attachedController = controller;
+
     controller.addListener(_onControllerChanged);
     _value.addListener(_onValueChanged);
   }
@@ -179,12 +182,14 @@ class VField<T> {
     if (_attachedController != null) {
       _attachedController!.removeListener(_onControllerChanged);
       _value.removeListener(_onValueChanged);
+
       _attachedController = null;
     }
 
     if (_attachedTextController != null) {
       _attachedTextController!.removeListener(_onTextControllerChanged);
       _value.removeListener(_onValueChangedForText);
+
       _attachedTextController = null;
     }
 
@@ -336,6 +341,7 @@ class VField<T> {
   Future<String?> computeAsyncError() async {
     final value = this.value;
     final processed = value is String && value.isEmpty ? null : value;
+
     final stdError = (await _type.errorsAsync(processed))?.firstOrNull?.message;
     if (stdError != null) return stdError;
 
@@ -343,10 +349,12 @@ class VField<T> {
       final message = fn();
       if (message != null) return message;
     }
+
     for (final fn in _asyncValidators) {
       final message = await fn();
       if (message != null) return message;
     }
+
     return null;
   }
 
@@ -410,19 +418,23 @@ class VField<T> {
 
   List<VError>? _stdErrorsSync() {
     if (_type.hasAsync) return null;
+
     final value = this.value;
     final processed = value is String && value.isEmpty ? null : value;
+
     return _type.errors(processed);
   }
 
   Future<List<VError>?> _stdErrorsAsync() async {
     final value = this.value;
     final processed = value is String && value.isEmpty ? null : value;
+
     return _type.errorsAsync(processed);
   }
 
   List<VError>? _buildVError(List<VError>? stdErrors, String? asyncExtra) {
     String? extraError;
+
     for (final fn in _validators) {
       final message = fn();
       if (message != null) {
@@ -430,6 +442,7 @@ class VField<T> {
         break;
       }
     }
+
     extraError ??= asyncExtra;
 
     final manual = _manualError;
@@ -438,22 +451,28 @@ class VField<T> {
     if (forced && manual != null) {
       return [VError(code: VCode.custom, message: manual)];
     }
+
     if (stdErrors != null && stdErrors.isNotEmpty) return stdErrors;
+
     if (extraError != null) {
       return [VError(code: VCode.custom, message: extraError)];
     }
+
     if (manual != null) {
       return [VError(code: VCode.custom, message: manual)];
     }
+
     return null;
   }
 
   String? _runValidators(T? value, {required bool consume}) {
     final processed = value is String && value.isEmpty ? null : value;
-    final stdError =
-        _type.hasAsync ? null : _type.errors(processed)?.firstOrNull?.message;
+    final stdError = _type.hasAsync
+        ? null
+        : _type.errors(processed)?.firstOrNull?.message;
 
     String? extraError;
+
     for (final fn in _validators) {
       final message = fn();
       if (message != null) {
@@ -464,12 +483,14 @@ class VField<T> {
 
     final manual = _manualError;
     final forced = _forceManualError;
+
     if (consume && manual != null && !_persistManualError) {
       _manualError = null;
       _forceManualError = false;
     }
 
     if (forced && manual != null) return manual;
+
     return stdError ?? extraError ?? manual;
   }
 
@@ -478,6 +499,7 @@ class VField<T> {
     final stdError = (await _type.errorsAsync(processed))?.firstOrNull?.message;
 
     String? extraError;
+
     for (final fn in _validators) {
       final message = fn();
       if (message != null) {
@@ -485,6 +507,7 @@ class VField<T> {
         break;
       }
     }
+
     if (extraError == null) {
       for (final fn in _asyncValidators) {
         final message = await fn();
@@ -499,6 +522,7 @@ class VField<T> {
     final forced = _forceManualError;
 
     if (forced && manual != null) return manual;
+
     return stdError ?? extraError ?? manual;
   }
 
@@ -517,7 +541,9 @@ class VField<T> {
 
     final ownedText = _ownsAttachedController ? _attachedTextController : null;
     final ownedValue = _ownsAttachedController ? _attachedController : null;
+
     detachController();
+
     ownedText?.dispose();
     ownedValue?.dispose();
     _value.dispose();
@@ -541,12 +567,16 @@ extension VFieldStringController on VField<String> {
     final previouslyOwned = _ownsAttachedController
         ? (_attachedTextController ?? _attachedController)
         : null;
+
     detachController();
+
     if (previouslyOwned != null && !identical(previouslyOwned, controller)) {
       previouslyOwned.dispose();
     }
+
     _ownsAttachedController = owns;
     _attachedTextController = controller;
+
     controller.addListener(_onTextControllerChanged);
     _value.addListener(_onValueChangedForText);
   }
