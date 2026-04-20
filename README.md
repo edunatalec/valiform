@@ -1,7 +1,7 @@
+# Valiform
+
 [![pub package](https://img.shields.io/pub/v/valiform.svg)](https://pub.dev/packages/valiform)
 [![package publisher](https://img.shields.io/pub/publisher/valiform.svg)](https://pub.dev/packages/valiform/publisher)
-
-# Valiform
 
 A Flutter form validation library built on top of [Validart](https://pub.dev/packages/validart). It provides reactive form state management, typed field validation, and seamless integration with Flutter's `Form` widget.
 
@@ -25,6 +25,7 @@ A Flutter form validation library built on top of [Validart](https://pub.dev/pac
 - [Controller Sync](#controller-sync)
 - [Imperative Errors](#imperative-errors)
 - [Inspecting Errors](#inspecting-errors)
+- [Async Validation](#async-validation)
 - [Validation Modes](#validation-modes)
 - [Reactive Features](#reactive-features)
 - [Disposing Resources](#disposing-resources)
@@ -182,6 +183,8 @@ final country  = form.field<Country>('country');   // VField<Country>
 final category = form.field<Category>('category'); // VField<Category>
 final tags     = form.field<List<String>>('tags'); // VField<List<String>>
 ```
+
+> **Note on `V.enm`:** always pass the enum type explicitly inside a `V.map({...})` literal — `V.enm<Country>(Country.values)`, not `V.enm(Country.values)`. The Dart analyzer can't infer the generic when the map context is raw and falls back to the upper bound (`Enum`), which then makes `form.field<Country>('country')` throw `Invalid argument: The field "country" is of type VField<Enum>, not VField<Country>`.
 
 ## Transforms
 
@@ -447,6 +450,49 @@ form.vErrors();
 
 Cross-field validators and imperative errors (which are produced outside validart) are wrapped as `VError(code: VCode.custom, message: ...)`.
 
+## Async Validation
+
+When a schema contains async steps (`refineAsync`, `preprocessAsync`, `transformAsync` from validart 1.1+), use the `*Async` methods. Sync inspection methods throw `VAsyncRequiredException` — this mirrors validart's own contract and prevents a form from silently submitting before the async check ran. The only sync method that stays tolerant is `VField.validator(T?)` (the required adapter for Flutter's sync `FormField.validator`; it is also the channel `validateAsync` uses to paint errors through `setError`). Full demo: [`async_validation_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/async_validation_page.dart).
+
+```dart
+final form = V.map({
+  'username': V.string().min(3).refineAsync(
+    (value) async {
+      final available = await api.checkUsername(value);
+      return available;
+    },
+    message: 'Username already taken',
+    timeout: const Duration(seconds: 2),
+  ),
+}).form();
+
+// Sync rules (min 3) fire automatically as the user types.
+// Run the async check on submit:
+Future<void> onSubmit() async {
+  if (await form.validateAsync()) {
+    final data = await form.valueAsync;
+    print(data);
+  }
+}
+```
+
+`form.validateAsync()` runs the full pipeline for every field and propagates async errors through the same UI channel as sync validation — no extra wiring needed on your `FormField`s. Afterwards, read `form.valueAsync` to get the parsed value (transforms applied).
+
+| Method                             |               Triggers UI               | Returns                              |
+| ---------------------------------- | :-------------------------------------: | ------------------------------------ |
+| `form.validateAsync()`             | ✓ (via persistent errors + `FormState`) | `Future<bool>`                       |
+| `form.silentValidateAsync()`       |                    ✗                    | `Future<bool>`                       |
+| `form.errorsAsync()`               |                    ✗                    | `Future<Map<String, String>?>`       |
+| `form.vErrorsAsync()`              |                    ✗                    | `Future<Map<String, List<VError>>?>` |
+| `form.valueAsync`                  |                    ✗                    | `Future<T>`                          |
+| `form.hasAsync` / `field.hasAsync` |                    ✗                    | `bool`                               |
+| `field.validateAsync()`            |                    ✗                    | `Future<bool>`                       |
+| `field.errorAsync`                 |                    ✗                    | `Future<String?>`                    |
+| `field.vErrorAsync`                |                    ✗                    | `Future<List<VError>?>`              |
+| `field.parsedValueAsync`           |                    ✗                    | `Future<T?>`                         |
+
+Mixed sync/async schemas: individual sync fields still surface their own errors via `field.validator` (that's what Flutter's `TextFormField` calls while typing). The form-level sync methods (`form.validate`, `silentValidate`, `errors`, `vErrors`, `value`) throw `VAsyncRequiredException` — run `validateAsync` on submit.
+
 Typical use: render an array with the failing index highlighted.
 
 ```dart
@@ -464,16 +510,16 @@ final badIndexes = arrayErrors
 
 Valiform exposes several ways to validate — pick based on whether you want UI side-effects and whether you want state mutation.
 
-| Method                  |               Triggers UI                | Consumes one-shot manual errors | Returns                       |
-| ----------------------- | :--------------------------------------: | :-----------------------------: | ----------------------------- |
-| `form.validate()`       | ✓ (via Flutter's `FormState.validate()`) |                ✓                | `bool`                        |
-| `form.silentValidate()` |                    ✗                     |                ✓                | `bool`                        |
-| `form.errors()`         |                    ✗                     |                ✗                | `Map<String, String>?`        |
-| `form.vErrors()`        |                    ✗                     |                ✗                | `Map<String, List<VError>>?`  |
-| `field.validator(v)`    |            depends on widget             |                ✓                | `String?`                     |
-| `field.validate()`      |                    ✗                     |                ✗                | `bool`                        |
-| `field.error`           |                    ✗                     |                ✗                | `String?`                     |
-| `field.vError`          |                    ✗                     |                ✗                | `List<VError>?`               |
+| Method                  |               Triggers UI                | Consumes one-shot manual errors | Returns                      |
+| ----------------------- | :--------------------------------------: | :-----------------------------: | ---------------------------- |
+| `form.validate()`       | ✓ (via Flutter's `FormState.validate()`) |                ✓                | `bool`                       |
+| `form.silentValidate()` |                    ✗                     |                ✓                | `bool`                       |
+| `form.errors()`         |                    ✗                     |                ✗                | `Map<String, String>?`       |
+| `form.vErrors()`        |                    ✗                     |                ✗                | `Map<String, List<VError>>?` |
+| `field.validator(v)`    |            depends on widget             |                ✓                | `String?`                    |
+| `field.validate()`      |                    ✗                     |                ✗                | `bool`                       |
+| `field.error`           |                    ✗                     |                ✗                | `String?`                    |
+| `field.vError`          |                    ✗                     |                ✗                | `List<VError>?`              |
 
 **Rule of thumb:**
 
@@ -546,10 +592,13 @@ If you attached a controller with `owns: false`, you are responsible for its `di
 | `onSaved(T?)`                                         | Wire to widget `onSaved` callbacks                                                                 |
 | `reset()`                                             | Restore initial value                                                                              |
 | `listenable`                                          | `Listenable` for reactive UI                                                                       |
+| `hasAsync`                                            | `true` when the field depends on any async step                                                    |
 | `validator(T?)`                                       | Returns error or `null` — **consumes** one-shot manual errors (for Flutter's `FormField` pipeline) |
-| `validate()`                                          | Returns `true` if valid — read-only, non-consuming                                                 |
-| `error`                                               | Current error message or `null` — read-only, non-consuming                                         |
-| `vError`                                              | Current errors as `List<VError>?` (preserves `code`, `path`, `message`) — read-only, non-consuming |
+| `validate()`                                          | Returns `true` if valid — read-only, non-consuming. Throws when `hasAsync` is true                 |
+| `validateAsync()`                                     | Async variant — runs full pipeline including `refineAsync`                                         |
+| `error` / `errorAsync`                                | Current error message or `null` (sync throws when `hasAsync`, async always safe)                   |
+| `vError` / `vErrorAsync`                              | Current errors as `List<VError>?` (sync throws when `hasAsync`, async always safe)                 |
+| `parsedValueAsync`                                    | Future with pipeline-transformed value (includes async preprocessors)                              |
 | `manualError`                                         | Current imperative error or `null`                                                                 |
 | `setError(message, {persist, force})`                 | Set an imperative error                                                                            |
 | `clearError()`                                        | Remove imperative error                                                                            |
@@ -564,25 +613,27 @@ If you attached a controller with `owns: false`, you are responsible for its `di
 
 ### `VForm<T>`
 
-| Member                                                           | Description                                            |
-| ---------------------------------------------------------------- | ------------------------------------------------------ |
-| `key`                                                            | `GlobalKey<FormState>` for the Flutter `Form` widget   |
-| `value`                                                          | Parsed form value (typed `T`)                          |
-| `rawValue`                                                       | Raw field values as `Map<String, dynamic>`             |
-| `field<F>(key)`                                                  | Type-safe field access                                 |
-| `listenable`                                                     | Combined `Listenable` across all fields                |
-| `validate()`                                                     | Validate all fields with UI errors                     |
-| `silentValidate()`                                               | Validate without touching the UI                       |
-| `errors()`                                                       | Map of current errors — read-only, non-consuming       |
-| `vErrors()`                                                      | Map of `List<VError>` per field (preserves `code`, `path`, `message`) — read-only |
-| `save()`                                                         | Trigger `FormState.save()`                             |
-| `reset()`                                                        | Restore initial values                                 |
-| `setError(field, message, {persist, force})`                     | Set error on a specific field                          |
-| `setErrors(errors, {persist, force})`                            | Batch set errors across fields                         |
-| `clearError(field)`                                              | Clear error on a specific field                        |
-| `clearErrors()`                                                  | Clear all imperative errors                            |
-| `addValueChangedListener(fn)` / `removeValueChangedListener(fn)` | Dynamic form-level listeners                           |
-| `dispose()`                                                      | Release all resources (each field + owned controllers) |
+| Member                                                           | Description                                                                 |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `key`                                                            | `GlobalKey<FormState>` for the Flutter `Form` widget                        |
+| `value` / `valueAsync`                                           | Parsed form value (typed `T`) — `valueAsync` awaits async pipelines         |
+| `rawValue`                                                       | Raw field values as `Map<String, dynamic>`                                  |
+| `hasAsync`                                                       | `true` when any field needs async validation                                |
+| `field<F>(key)`                                                  | Type-safe field access                                                      |
+| `listenable`                                                     | Combined `Listenable` across all fields                                     |
+| `validate()`                                                     | Validate all fields with UI errors                                          |
+| `validateAsync()`                                                | Async variant — full pipeline, surfaces errors via persistent manual errors |
+| `silentValidate()` / `silentValidateAsync()`                     | Validate without touching the UI (sync / async)                             |
+| `errors()` / `errorsAsync()`                                     | Map of current error messages — read-only (sync / async)                    |
+| `vErrors()` / `vErrorsAsync()`                                   | Map of `List<VError>` per field (preserves `code`, `path`, `message`)       |
+| `save()`                                                         | Trigger `FormState.save()`                                                  |
+| `reset()`                                                        | Restore initial values                                                      |
+| `setError(field, message, {persist, force})`                     | Set error on a specific field                                               |
+| `setErrors(errors, {persist, force})`                            | Batch set errors across fields                                              |
+| `clearError(field)`                                              | Clear error on a specific field                                             |
+| `clearErrors()`                                                  | Clear all imperative errors                                                 |
+| `addValueChangedListener(fn)` / `removeValueChangedListener(fn)` | Dynamic form-level listeners                                                |
+| `dispose()`                                                      | Release all resources (each field + owned controllers)                      |
 
 ## Example App
 
@@ -592,21 +643,26 @@ Every feature in this README has a page in the [example app](https://github.com/
 cd example && flutter run
 ```
 
-| Page                                                                                                                                        | What it shows                                           |
-| ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| [`basic_map_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/basic_map_form_page.dart)                 | Simplest VMap form + initial values                     |
-| [`object_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/object_form_page.dart)                       | `VObject<User>` returning a typed class                 |
-| [`multi_type_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/multi_type_form_page.dart)               | All field types combined                                |
-| [`checkbox_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/checkbox_form_page.dart)                   | `V.bool().isTrue()` with a checkbox                     |
-| [`dropdown_enum_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/dropdown_enum_page.dart)                   | `V.enm<Country>` with dropdown                          |
-| [`custom_class_field_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/custom_class_field_page.dart)         | `V.object<Category>()` inside VMap                      |
-| [`array_field_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/array_field_page.dart)                       | `V.array<String>()` with tag input                      |
-| [`optional_fields_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/optional_fields_page.dart)               | Every type with `.nullable()`                           |
-| [`transforms_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/transforms_page.dart)                         | Live `rawValue` vs `value` preview                      |
-| [`conditional_validation_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/conditional_validation_page.dart) | `.when()` conditional rules                             |
-| [`password_match_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/password_match_page.dart)                 | `refineFormField` vs `equalFields`                      |
-| [`controller_sync_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/controller_sync_page.dart)               | `TextEditingController` + `ValueNotifier<int?>` counter |
-| [`manual_error_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/manual_error_page.dart)                     | `setError`, `persist`, `force`, batch                   |
-| [`errors_preview_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/errors_preview_page.dart)                 | Live `form.errors()` / `field.error` panels             |
-| [`reactive_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/reactive_form_page.dart)                   | Live JSON preview via `onValueChanged`                  |
-| [`locale_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/locale_page.dart)                                 | `VLocale` switching at runtime                          |
+| Page                                                                                                                                        | What it shows                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| [`basic_map_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/basic_map_form_page.dart)                 | Simplest VMap form + initial values                       |
+| [`object_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/object_form_page.dart)                       | `VObject<User>` returning a typed class                   |
+| [`multi_type_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/multi_type_form_page.dart)               | All field types combined                                  |
+| [`checkbox_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/checkbox_form_page.dart)                   | `V.bool().isTrue()` with a checkbox                       |
+| [`dropdown_enum_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/dropdown_enum_page.dart)                   | `V.enm<Country>` with dropdown                            |
+| [`custom_class_field_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/custom_class_field_page.dart)         | `V.object<Category>()` inside VMap                        |
+| [`array_field_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/array_field_page.dart)                       | `V.array<String>()` with tag input                        |
+| [`optional_fields_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/optional_fields_page.dart)               | Every type with `.nullable()`                             |
+| [`transforms_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/transforms_page.dart)                         | Live `rawValue` vs `value` preview                        |
+| [`conditional_validation_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/conditional_validation_page.dart) | `.when()` conditional rules                               |
+| [`password_match_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/password_match_page.dart)                 | `refineFormField` vs `equalFields`                        |
+| [`controller_sync_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/controller_sync_page.dart)               | `TextEditingController` + `ValueNotifier<int?>` counter   |
+| [`async_validation_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/async_validation_page.dart)             | `refineAsync` + `form.validateAsync()` with loading state |
+| [`manual_error_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/manual_error_page.dart)                     | `setError`, `persist`, `force`, batch                     |
+| [`errors_preview_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/errors_preview_page.dart)                 | Live `form.errors()` / `field.error` panels               |
+| [`reactive_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/reactive_form_page.dart)                   | Live JSON preview via `onValueChanged`                    |
+| [`locale_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/locale_page.dart)                                 | `VLocale` switching at runtime                            |
+
+## License
+
+See [LICENSE](LICENSE) for details.
