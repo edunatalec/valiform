@@ -15,6 +15,7 @@ class VForm<T> {
   final Future<bool> Function(Map<String, dynamic>) _silentValidatorAsync;
   final T Function(Map<String, dynamic>) _valueBuilder;
   final List<void Function(T value)> _valueChangedListeners = [];
+  final bool _schemaHasAsync;
   late final bool _hasAsync;
 
   /// Whether any field in this form depends on async validation — either
@@ -28,6 +29,7 @@ class VForm<T> {
 
   VForm._({
     required Map<String, VType> schema,
+    required bool schemaHasAsync,
     required bool Function(Map<String, dynamic>) silentValidatorSync,
     required Future<bool> Function(Map<String, dynamic>) silentValidatorAsync,
     required T Function(Map<String, dynamic>) valueBuilder,
@@ -40,7 +42,8 @@ class VForm<T> {
   })  : _formKey = formKey ?? GlobalKey<FormState>(),
         _silentValidatorSync = silentValidatorSync,
         _silentValidatorAsync = silentValidatorAsync,
-        _valueBuilder = valueBuilder {
+        _valueBuilder = valueBuilder,
+        _schemaHasAsync = schemaHasAsync {
     for (final entry in schema.entries) {
       final key = entry.key;
       final type = entry.value;
@@ -89,7 +92,7 @@ class VForm<T> {
       );
     }
 
-    _hasAsync = _fields.values.any((f) => f.hasAsync);
+    _hasAsync = _schemaHasAsync || _fields.values.any((f) => f.hasAsync);
 
     if (onValueChanged != null) {
       _valueChangedListeners.add(onValueChanged);
@@ -111,7 +114,8 @@ class VForm<T> {
 
     return VForm._(
       schema: map.schema,
-      silentValidatorSync: (raw) => map.hasAsync ? true : map.validate(raw),
+      schemaHasAsync: map.hasAsync,
+      silentValidatorSync: (raw) => map.validate(raw),
       silentValidatorAsync: (raw) => map.validateAsync(raw),
       valueBuilder: (raw) => raw as T,
       formKey: formKey,
@@ -139,8 +143,8 @@ class VForm<T> {
 
     return VForm._(
       schema: object.schema,
-      silentValidatorSync: (raw) =>
-          object.hasAsync ? true : object.validate(builder(raw)),
+      schemaHasAsync: object.hasAsync,
+      silentValidatorSync: (raw) => object.validate(builder(raw)),
       silentValidatorAsync: (raw) => object.validateAsync(builder(raw)),
       valueBuilder: builder,
       formKey: formKey,

@@ -1236,14 +1236,252 @@ void main() {
 
       form.dispose();
     });
+
+    test(
+        'schema-level refineAsync on VMap — form is async even with sync '
+        'fields only (regression: bug where schema.hasAsync was ignored)',
+        () async {
+      final form = V
+          .map({
+            'a': V.string(),
+            'b': V.string(),
+          })
+          .refineAsync((data) async => data['a'] != data['b'])
+          .form(initialValues: {'a': 'same', 'b': 'same'});
+
+      // Form must report hasAsync even though every individual field is sync.
+      expect(form.hasAsync, isTrue);
+      expect(() => form.validate(), throwsA(isA<VAsyncRequiredException>()));
+      expect(
+        () => form.silentValidate(),
+        throwsA(isA<VAsyncRequiredException>()),
+      );
+      // Async path reports the schema-level failure.
+      expect(await form.silentValidateAsync(), isFalse);
+
+      form.dispose();
+    });
+  });
+
+  group('Integration: all types mixed with async/when', () {
+    test(
+        'VMap with every primitive + array + nested + enum + union + literal '
+        '+ when (sync & async) + refineFormField validates end-to-end',
+        () async {
+      final form = V
+          .map({
+            'name': V.string().min(1),
+            'age': V.int().between(0, 150),
+            'height': V.double().positive(),
+            'active': V.bool().isTrue(),
+            'joined': V.date().before(DateTime(2030)),
+            'tags': V.string().min(2).array().min(1).unique(),
+            'address': V.map({
+              'zip': V.string().min(5),
+              'country': V.literal('US'),
+            }),
+            'role': V.enm(_Role.values),
+            'id': V.union([V.string().uuid(), V.int().min(1)]),
+            'confirmation': V.string(),
+            // A plain field that becomes async under a condition.
+            'type': V.string(),
+            'username': V.string().nullable(),
+          })
+          // Cross-field sync validator: name echoes into confirmation.
+          .refineFormField(
+            (data) => data['name'] == data['confirmation'],
+            path: 'confirmation',
+            message: 'must match name',
+          )
+          // Conditional SYNC: when type=person, age must be >= 18.
+          .when('type', equals: 'person', then: {
+            'age': V.int().min(18, message: (_) => 'person must be 18+'),
+          })
+          // Conditional ASYNC: when type=member, username must be available.
+          .when('type', equals: 'member', then: {
+            'username': V.string().min(3).refineAsync(
+                  (v) async =>
+                      !const {'admin', 'root'}.contains(v.toLowerCase()),
+                  message: 'username taken',
+                ),
+          })
+          .form(initialValues: {
+            'name': 'Alice',
+            'age': 30,
+            'height': 1.72,
+            'active': true,
+            'joined': DateTime(2024, 6, 1),
+            'tags': ['dart', 'flutter'],
+            'address': {'zip': '12345', 'country': 'US'},
+            'role': _Role.admin,
+            'id': '550e8400-e29b-41d4-a716-446655440000',
+            'confirmation': 'Alice',
+            'type': 'person',
+            'username': null,
+          });
+
+      // The when('member') rule adds an async extra — form is async overall.
+      expect(form.hasAsync, isTrue);
+      expect(() => form.validate(), throwsA(isA<VAsyncRequiredException>()));
+      expect(() => form.value, throwsA(isA<VAsyncRequiredException>()));
+
+      // Async validation passes for these happy-path initial values.
+      expect(await form.validateAsync(), isTrue);
+
+      // valueAsync returns the fully-parsed form value.
+      final value = await form.valueAsync;
+      expect(value['name'], 'Alice');
+      expect(value['age'], 30);
+      expect(value['height'], 1.72);
+      expect(value['active'], isTrue);
+      expect(value['role'], _Role.admin);
+      expect((value['address'] as Map)['country'], 'US');
+      expect((value['tags'] as List), ['dart', 'flutter']);
+
+      // Flip to member with a taken username — async failure bubbles up.
+      form.field<String>('type').set('member');
+      form.field<String>('username').set('admin');
+      expect(await form.validateAsync(), isFalse);
+      expect(form.field<String>('username').manualError, 'username taken');
+
+      // Flip to a free username — async passes again.
+      form.field<String>('username').set('alice_new');
+      expect(await form.validateAsync(), isTrue);
+      expect(form.field<String>('username').manualError, isNull);
+
+      // Break the sync conditional (person under 18) to confirm the sync
+      // branch still fires.
+      form.field<String>('type').set('person');
+      form.field<int>('age').set(12);
+      expect(await form.validateAsync(), isFalse);
+      final ageError = form.field<int>('age');
+      expect(ageError.manualError, 'person must be 18+');
+
+      // Break the cross-field refineFormField too.
+      form.field<int>('age').set(25);
+      form.field<String>('confirmation').set('someone else');
+      expect(await form.validateAsync(), isFalse);
+      expect(form.field<String>('confirmation').manualError, 'must match name');
+
+      form.dispose();
+    });
+
+    test(
+        'VObject with every primitive + array + enum + union + async field '
+        'rebuilds the typed instance via valueAsync', () async {
+      final schema = V.object<_Profile>(
+        configure: (o) => o
+          ..field('name', (u) => u.name, V.string().min(1))
+          ..field('age', (u) => u.age, V.int().between(0, 150))
+          ..field('height', (u) => u.height, V.double().positive())
+          ..field('active', (u) => u.active, V.bool().isTrue())
+          ..field('joined', (u) => u.joined, V.date().before(DateTime(2030)))
+          ..field(
+            'tags',
+            (u) => u.tags,
+            V.string().min(2).array().min(1).unique(),
+          )
+          ..field('role', (u) => u.role, V.enm(_Role.values))
+          ..field(
+            'id',
+            (u) => u.id,
+            V.union([V.string().uuid(), V.int().min(1)]),
+          )
+          // Async: email must not be blocked.
+          ..field(
+            'email',
+            (u) => u.email,
+            V.string().email().trim().toLowerCase().refineAsync(
+                  (v) async => !v.endsWith('@blocked.com'),
+                  message: 'blocked domain',
+                ),
+          ),
+      );
+
+      final seed = _Profile(
+        name: 'Alice',
+        age: 30,
+        height: 1.72,
+        active: true,
+        joined: DateTime(2024, 6, 1),
+        tags: const ['dart', 'flutter'],
+        role: _Role.admin,
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        email: '  ALICE@example.COM  ',
+      );
+
+      final form = schema.form(
+        builder: (data) => _Profile(
+          name: data['name'] as String,
+          age: data['age'] as int,
+          height: data['height'] as double,
+          active: data['active'] as bool,
+          joined: data['joined'] as DateTime,
+          tags: (data['tags'] as List).cast<String>(),
+          role: data['role'] as _Role,
+          id: data['id'] as Object,
+          email: data['email'] as String,
+        ),
+        initialValue: seed,
+      );
+
+      expect(form.hasAsync, isTrue);
+      expect(() => form.validate(), throwsA(isA<VAsyncRequiredException>()));
+      expect(() => form.value, throwsA(isA<VAsyncRequiredException>()));
+
+      // Happy path.
+      expect(await form.validateAsync(), isTrue);
+
+      // valueAsync applies transforms (trim + toLowerCase on email) while
+      // reconstructing the typed object.
+      final user = await form.valueAsync;
+      expect(user.name, 'Alice');
+      expect(user.age, 30);
+      expect(user.role, _Role.admin);
+      expect(user.email, 'alice@example.com'); // trimmed + lowercased
+      expect(user.tags, ['dart', 'flutter']);
+
+      // Push a blocked email — async error persists on the field.
+      form.field<String>('email').set('bob@blocked.com');
+      expect(await form.validateAsync(), isFalse);
+      expect(form.field<String>('email').manualError, 'blocked domain');
+
+      form.dispose();
+    });
   });
 }
 
 enum _Status { active, inactive }
+
+enum _Role { admin, user, guest }
 
 class _User {
   final String name;
   final String email;
 
   const _User({required this.name, required this.email});
+}
+
+class _Profile {
+  final String name;
+  final int age;
+  final double height;
+  final bool active;
+  final DateTime joined;
+  final List<String> tags;
+  final _Role role;
+  final Object id; // String (uuid) OR int
+  final String email;
+
+  const _Profile({
+    required this.name,
+    required this.age,
+    required this.height,
+    required this.active,
+    required this.joined,
+    required this.tags,
+    required this.role,
+    required this.id,
+    required this.email,
+  });
 }
