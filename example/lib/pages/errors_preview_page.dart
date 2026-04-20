@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
+import '../utils.dart';
 import '../widgets/widgets.dart';
 
 class ErrorsPreviewPage extends StatefulWidget {
@@ -111,7 +112,11 @@ class _ErrorsPreviewPageState extends State<ErrorsPreviewPage> {
             onPressed: () {
               if (_smallForm.validate()) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Submitted: ${_smallForm.value}')),
+                  SnackBar(
+                    content: Text(
+                      'Submitted: ${prettyJson(_smallForm.value)}',
+                    ),
+                  ),
                 );
               }
             },
@@ -236,7 +241,11 @@ class _ErrorsPreviewPageState extends State<ErrorsPreviewPage> {
             onPressed: () {
               if (_largeForm.validate()) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Submitted: ${_largeForm.value}')),
+                  SnackBar(
+                    content: Text(
+                      'Submitted: ${prettyJson(_largeForm.value)}',
+                    ),
+                  ),
                 );
               }
             },
@@ -276,7 +285,7 @@ class _ErrorsPreview extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            errors == null ? 'null (all valid)' : errors.toString(),
+            errors == null ? 'null (all valid)' : prettyJson(errors),
             style: TextStyle(
               fontFamily: 'monospace',
               color: colorScheme.onSurfaceVariant,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
+import '../utils.dart';
 import '../widgets/widgets.dart';
 
 class AsyncValidationPage extends StatefulWidget {
@@ -65,7 +66,9 @@ class _AsyncValidationPageState extends State<AsyncValidationPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          data != null ? 'Submitted: $data' : 'Fix the errors above',
+          data != null
+              ? 'Submitted: ${prettyJson(data)}'
+              : 'Fix the errors above',
         ),
       ),
     );

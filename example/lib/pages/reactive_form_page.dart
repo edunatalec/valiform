@@ -26,7 +26,7 @@ class _ReactiveFormPageState extends State<ReactiveFormPage> {
     }).form(
       onValueChanged: (value) {
         setState(() {
-          _jsonPreview = jsonEncoder.convert(value);
+          _jsonPreview = prettyJson(value);
         });
       },
     );

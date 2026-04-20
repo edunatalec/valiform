@@ -220,6 +220,7 @@ class _CounterSection extends StatelessWidget {
                 // No FormField widget wraps this counter — inspect errors
                 // directly via form.errors() (headless, no UI).
                 final errs = form.errors();
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(errs == null

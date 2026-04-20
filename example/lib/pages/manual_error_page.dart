@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
+import '../utils.dart';
 import '../widgets/widgets.dart';
 
 class ManualErrorPage extends StatefulWidget {
@@ -169,7 +170,9 @@ class _ManualErrorPageState extends State<ManualErrorPage> {
                 onPressed: () {
                   if (_form.validate()) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Submitted: ${_form.value}')),
+                      SnackBar(
+                        content: Text('Submitted: ${prettyJson(_form.value)}'),
+                      ),
                     );
                   }
                 },

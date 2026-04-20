@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
+import '../utils.dart';
 import '../widgets/widgets.dart';
 
 class BasicMapFormPage extends StatefulWidget {
@@ -84,7 +85,11 @@ class _BasicMapFormPageState extends State<BasicMapFormPage> {
                     onPressed: () {
                       if (_form.validate()) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Submitted: ${_form.value}')),
+                          SnackBar(
+                            content: Text(
+                              'Submitted: ${prettyJson(_form.value)}',
+                            ),
+                          ),
                         );
                       }
                     },
@@ -134,8 +139,9 @@ class _BasicMapFormPageState extends State<BasicMapFormPage> {
                             if (_defaultForm.validate()) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content:
-                                      Text('Submitted: ${_defaultForm.value}'),
+                                  content: Text(
+                                    'Submitted: ${prettyJson(_defaultForm.value)}',
+                                  ),
                                 ),
                               );
                             }
