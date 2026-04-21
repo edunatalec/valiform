@@ -119,7 +119,11 @@ class _LoginPageState extends State<LoginPage> {
 
 ## Initial Values
 
-Seed field values at form construction:
+Each field's starting value resolves in this order:
+
+1. **`initialValues[key]`** in `.form()` — always wins when provided (even an explicit `null`).
+2. **`schema.defaultValue(...)`** — fallback when `initialValues` doesn't mention the field.
+3. **`null`** — otherwise.
 
 ```dart
 // VMap form
@@ -134,7 +138,32 @@ final form = V.object<User>(...).form(
 );
 ```
 
-`form.reset()` restores each field to its initial value.
+`form.reset()` restores each field to its resolved initial value.
+
+### `defaultValue` vs `initialValues` — pick the right one
+
+Both pre-fill a field, but they mean different things. Demo: [`default_value_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/default_value_page.dart).
+
+| | `defaultValue()` on the schema | `initialValues` on `.form()` |
+| --- | --- | --- |
+| Appears in the UI | Yes (auto-populated) | Yes |
+| Target of `reset()` | Yes | Yes (wins when both set) |
+| Field is required? | **No** — default is substituted for null before validators run | Yes — clearing the field can trigger `required`/`min`/etc. |
+| Lives on | Schema | Form instance |
+
+> **Key rule:** `defaultValue` makes the field **never required**. If you want a pre-filled value that the user can still invalidate by clearing it, use `initialValues`. Combine both when you want "pre-fill Alice, but fall back to Guest if the user empties the field".
+
+```dart
+// Pre-filled + non-required: submit never errors on this field.
+V.string().min(2).defaultValue('Guest')
+
+// Pre-filled but still required: clearing triggers the error.
+V.string().min(2)  // + .form(initialValues: {'name': 'Alice'})
+
+// Pre-filled with Alice, but empty submit falls back to Guest.
+V.string().min(2).defaultValue('Guest')
+  // + .form(initialValues: {'name': 'Alice'})
+```
 
 ## Typed Forms (VObject)
 
@@ -653,6 +682,8 @@ cd example && flutter run
 | [`custom_class_field_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/custom_class_field_page.dart)         | `V.object<Category>()` inside VMap                        |
 | [`array_field_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/array_field_page.dart)                       | `V.array<String>()` with tag input                        |
 | [`optional_fields_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/optional_fields_page.dart)               | Every type with `.nullable()`                             |
+| [`default_value_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/default_value_page.dart)                   | `defaultValue` vs `initialValues` — resolution & semantics |
+| [`required_message_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/required_message_page.dart)             | `V.bool(message: ...)` vs `preprocess` for custom required error |
 | [`transforms_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/transforms_page.dart)                         | Live `rawValue` vs `value` preview                        |
 | [`conditional_validation_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/conditional_validation_page.dart) | `.when()` conditional rules                               |
 | [`password_match_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/password_match_page.dart)                 | `refineFormField` vs `equalFields`                        |
