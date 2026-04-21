@@ -1566,6 +1566,88 @@ void main() {
       ok.dispose();
     });
   });
+
+  group('reset() with rebuilding widget tree', () {
+    testWidgets(
+      'clears TextFormField text in a single reset() call even when the tree '
+      'rebuilds on every keystroke — regression: widget.initialValue tracks '
+      'field.value during typing, so FormState.reset() would otherwise fire '
+      'against a stale initialValue and leave the text in place',
+      (WidgetTester tester) async {
+        final form = V.map({'name': V.string()}).form();
+
+        await tester.pumpWidget(_RebuildOnChangeHarness(form: form));
+
+        await tester.enterText(find.byKey(const Key('nameField')), 'John');
+        await tester.pumpAndSettle();
+
+        expect(form.field<String>('name').value, 'John');
+        expect(find.text('John'), findsOneWidget);
+
+        form.reset();
+        await tester.pumpAndSettle();
+
+        expect(
+          form.field<String>('name').value,
+          isNull,
+          reason: 'VField value should reset to initial (null) in one call',
+        );
+        expect(
+          find.text('John'),
+          findsNothing,
+          reason:
+              'TextFormField text must clear in a single reset() call, even '
+              'with onValueChanged-driven rebuilds between keystrokes',
+        );
+
+        form.dispose();
+      },
+    );
+  });
+}
+
+class _RebuildOnChangeHarness extends StatefulWidget {
+  final VForm<Map<String, dynamic>> form;
+
+  const _RebuildOnChangeHarness({required this.form});
+
+  @override
+  State<_RebuildOnChangeHarness> createState() =>
+      _RebuildOnChangeHarnessState();
+}
+
+class _RebuildOnChangeHarnessState extends State<_RebuildOnChangeHarness> {
+  @override
+  void initState() {
+    super.initState();
+    widget.form.addValueChangedListener(_onChange);
+  }
+
+  @override
+  void dispose() {
+    widget.form.removeValueChangedListener(_onChange);
+    super.dispose();
+  }
+
+  void _onChange(Map<String, dynamic> _) => setState(() {});
+
+  @override
+  Widget build(BuildContext context) {
+    final name = widget.form.field<String>('name');
+    return MaterialApp(
+      home: Scaffold(
+        body: Form(
+          key: widget.form.key,
+          child: TextFormField(
+            key: const Key('nameField'),
+            initialValue: name.value,
+            validator: name.validator,
+            onChanged: name.onChanged,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 enum _Status { active, inactive }
