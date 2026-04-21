@@ -1453,6 +1453,96 @@ void main() {
     });
 
     test(
+        'schema defaultValue auto-populates the VField initial value, '
+        'appears in the UI, and is the target of reset()', () {
+      final form = V.map({
+        'name': V.string().defaultValue('Guest'),
+      }).form();
+
+      final field = form.field<String>('name');
+
+      // UI sees the default out of the box.
+      expect(field.value, 'Guest');
+      expect(form.rawValue['name'], 'Guest');
+      expect(form.value['name'], 'Guest');
+
+      // User edits then resets — back to the default.
+      field.set('Alice');
+      expect(field.value, 'Alice');
+      field.reset();
+      expect(field.value, 'Guest');
+
+      form.dispose();
+    });
+
+    test(
+        'explicit initialValues win over schema defaultValue and reset() '
+        'restores the explicit value', () {
+      final form = V.map({
+        'name': V.string().defaultValue('Guest'),
+      }).form(initialValues: {'name': 'Alice'});
+
+      final field = form.field<String>('name');
+
+      expect(field.value, 'Alice');
+      field.set('Bob');
+      field.reset();
+      expect(field.value, 'Alice');
+
+      // parsedValue still falls back to the default on empty input.
+      field.set('');
+      expect(field.parsedValue, 'Guest');
+
+      form.dispose();
+    });
+
+    test(
+        'explicit null in initialValues wins over schema defaultValue — '
+        'dev opted out; reset() returns to null', () {
+      final form = V.map({
+        'name': V.string().defaultValue('Guest'),
+      }).form(initialValues: {'name': null});
+
+      final field = form.field<String>('name');
+
+      expect(field.value, isNull);
+      field.set('Typed');
+      field.reset();
+      expect(field.value, isNull);
+
+      // The pipeline still applies the default downstream — `form.value`
+      // produces `'Guest'` because validart's _resolveNull kicks in.
+      expect(form.value['name'], 'Guest');
+
+      form.dispose();
+    });
+
+    test(
+        'defaultValue on the schema flows into form.value / parsedValue '
+        'when the field is empty — regression for empty-string not being '
+        'normalized to null before safeParse', () {
+      final form = V.map({
+        'name': V.string().min(1).defaultValue('John'),
+      }).form();
+
+      final field = form.field<String>('name');
+
+      // User types and then clears — the stored raw value is an empty
+      // string, not null. parsedValue must still surface the default.
+      field.set('Alice');
+      field.set('');
+
+      expect(field.value, equals(''));
+      expect(field.parsedValue, 'John'); // ← bug: returns '' today
+      expect(form.value['name'], 'John');
+
+      // Validator must also see the field as valid (default applied).
+      expect(form.silentValidate(), isTrue);
+
+      form.dispose();
+    });
+
+    test(
         'V.enm without explicit generic inside V.map({}) degrades to '
         'VField<Enum> — pins the Dart inference pitfall that forces users '
         'to write V.enm<T>(T.values)', () {

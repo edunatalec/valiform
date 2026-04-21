@@ -89,7 +89,11 @@ class VField<T> {
       );
     }
 
-    final result = _type.safeParse(value);
+    // Normalize empty strings to null so validart's `_resolveNull` can
+    // apply `defaultValue` / nullable handling — otherwise '' bypasses
+    // those and the pipeline runs against the raw empty string.
+    final input = value is String && (value as String).isEmpty ? null : value;
+    final result = _type.safeParse(input);
 
     if (result case VSuccess<T?>(value: final parsed)) return parsed;
 
@@ -100,7 +104,8 @@ class VField<T> {
   /// async preprocessors and transforms. Returns the raw value if parsing
   /// fails.
   Future<T?> get parsedValueAsync async {
-    final result = await _type.safeParseAsync(value);
+    final input = value is String && (value as String).isEmpty ? null : value;
+    final result = await _type.safeParseAsync(input);
 
     if (result case VSuccess<T?>(value: final parsed)) return parsed;
 
@@ -467,9 +472,8 @@ class VField<T> {
 
   String? _runValidators(T? value, {required bool consume}) {
     final processed = value is String && value.isEmpty ? null : value;
-    final stdError = _type.hasAsync
-        ? null
-        : _type.errors(processed)?.firstOrNull?.message;
+    final stdError =
+        _type.hasAsync ? null : _type.errors(processed)?.firstOrNull?.message;
 
     String? extraError;
 

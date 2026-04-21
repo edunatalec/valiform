@@ -67,9 +67,8 @@ class VForm<T> {
             if (rawValue[rule.field] != rule.equals) return null;
 
             final fieldValue = _fields[key]?.value;
-            final processed = fieldValue is String && fieldValue.isEmpty
-                ? null
-                : fieldValue;
+            final processed =
+                fieldValue is String && fieldValue.isEmpty ? null : fieldValue;
 
             return (await conditionalType.errorsAsync(processed))
                 ?.firstOrNull
@@ -91,9 +90,24 @@ class VForm<T> {
         }
       }
 
+      // Resolve the field's initial value:
+      //   1. `initialValues[key]` if the caller explicitly provided it
+      //      (even `null` counts — use `containsKey` to distinguish).
+      //   2. `type.defaultValueOrNull` when the schema has a `defaultValue`.
+      //   3. `null` otherwise.
+      //
+      // Because validart's `defaultValue` makes the field non-required
+      // (the default is substituted for null before any validator runs),
+      // surfacing it as the VField's initial value aligns the UI with the
+      // pipeline and makes `reset()` restore it.
+      final Object? resolvedInitial =
+          initialValues != null && initialValues.containsKey(key)
+              ? initialValues[key]
+              : type.defaultValueOrNull;
+
       _fields[key] = _createField(
         type: type,
-        initialValue: initialValues?[key],
+        initialValue: resolvedInitial,
         validators: validators,
         asyncValidators: asyncValidators,
       );
@@ -288,9 +302,8 @@ class VForm<T> {
       'setErrors called with an empty map — probably a mistake.',
     );
 
-    final List<String> unknown = errors.keys
-        .where((k) => !_fields.containsKey(k))
-        .toList();
+    final List<String> unknown =
+        errors.keys.where((k) => !_fields.containsKey(k)).toList();
 
     if (unknown.isNotEmpty) {
       throw ArgumentError(
