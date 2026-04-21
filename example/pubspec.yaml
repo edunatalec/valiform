@@ -13,7 +13,7 @@ dependencies:
 
   valiform:
     path: ../
-  validart: ^1.0.0
+  validart: ^1.1.0
 
 dev_dependencies:
   flutter_test:
