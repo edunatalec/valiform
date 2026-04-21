@@ -115,13 +115,7 @@ class _BasicMapFormPageState extends State<BasicMapFormPage> {
                     onPressed: _submitForm,
                     child: const Text('Sign In'),
                   ),
-                  if (_formResult != null) ...[
-                    const SizedBox(height: 16),
-                    ResultBox.success(data: _formResult!),
-                  ] else if (_formErrors != null) ...[
-                    const SizedBox(height: 16),
-                    ResultBox.failure(errors: _formErrors!),
-                  ],
+                  ResultFeedback(data: _formResult, errors: _formErrors),
                 ],
               ),
             ),
@@ -174,13 +168,10 @@ class _BasicMapFormPageState extends State<BasicMapFormPage> {
                       ),
                     ],
                   ),
-                  if (_defaultFormResult != null) ...[
-                    const SizedBox(height: 16),
-                    ResultBox.success(data: _defaultFormResult!),
-                  ] else if (_defaultFormErrors != null) ...[
-                    const SizedBox(height: 16),
-                    ResultBox.failure(errors: _defaultFormErrors!),
-                  ],
+                  ResultFeedback(
+                    data: _defaultFormResult,
+                    errors: _defaultFormErrors,
+                  ),
                 ],
               ),
             ),

@@ -62,3 +62,40 @@ class ResultBox extends StatelessWidget {
     );
   }
 }
+
+/// Null-aware wrapper around [ResultBox] that also owns the top spacing.
+/// Drop-in replacement for the recurring
+/// `if (result != null) ...[SizedBox, ResultBox.success] else if (errors
+/// != null) ...[SizedBox, ResultBox.failure]` pattern across the example
+/// pages. Renders nothing until either [data] or [errors] is non-null.
+class ResultFeedback extends StatelessWidget {
+  final Map<String, dynamic>? data;
+  final Map<String, String>? errors;
+  final double spacing;
+
+  const ResultFeedback({
+    super.key,
+    this.data,
+    this.errors,
+    this.spacing = 16,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget? box;
+    if (data != null) {
+      box = ResultBox.success(data: data!);
+    } else if (errors != null) {
+      box = ResultBox.failure(errors: errors!);
+    } else {
+      box = null;
+    }
+
+    if (box == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: EdgeInsets.only(top: spacing),
+      child: box,
+    );
+  }
+}

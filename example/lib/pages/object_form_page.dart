@@ -140,10 +140,7 @@ class _ObjectFormPageState extends State<ObjectFormPage> {
                   TextFormField(
                     decoration: const InputDecoration(labelText: 'Age'),
                     keyboardType: TextInputType.number,
-                    onChanged: (value) {
-                      final parsed = int.tryParse(value);
-                      if (parsed != null) age.set(parsed);
-                    },
+                    onChanged: (value) => age.onChanged(int.tryParse(value)),
                     validator: (_) => age.validator(age.value),
                   ),
                   const SizedBox(height: 16),
@@ -151,13 +148,7 @@ class _ObjectFormPageState extends State<ObjectFormPage> {
                     onPressed: _submitForm,
                     child: const Text('Submit'),
                   ),
-                  if (_formResult != null) ...[
-                    const SizedBox(height: 16),
-                    ResultBox.success(data: _formResult!),
-                  ] else if (_formErrors != null) ...[
-                    const SizedBox(height: 16),
-                    ResultBox.failure(errors: _formErrors!),
-                  ],
+                  ResultFeedback(data: _formResult, errors: _formErrors),
                 ],
               ),
             ),
@@ -191,10 +182,7 @@ class _ObjectFormPageState extends State<ObjectFormPage> {
                     decoration: const InputDecoration(labelText: 'Age'),
                     keyboardType: TextInputType.number,
                     initialValue: defAge.value?.toString(),
-                    onChanged: (value) {
-                      final parsed = int.tryParse(value);
-                      if (parsed != null) defAge.set(parsed);
-                    },
+                    onChanged: (value) => defAge.onChanged(int.tryParse(value)),
                     validator: (_) => defAge.validator(defAge.value),
                   ),
                   const SizedBox(height: 16),
@@ -221,13 +209,10 @@ class _ObjectFormPageState extends State<ObjectFormPage> {
                       ),
                     ],
                   ),
-                  if (_defaultFormResult != null) ...[
-                    const SizedBox(height: 16),
-                    ResultBox.success(data: _defaultFormResult!),
-                  ] else if (_defaultFormErrors != null) ...[
-                    const SizedBox(height: 16),
-                    ResultBox.failure(errors: _defaultFormErrors!),
-                  ],
+                  ResultFeedback(
+                    data: _defaultFormResult,
+                    errors: _defaultFormErrors,
+                  ),
                 ],
               ),
             ),

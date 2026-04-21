@@ -207,13 +207,7 @@ class _DemoState extends State<_Demo> {
               ),
             ],
           ),
-          if (_validData != null) ...[
-            const SizedBox(height: 12),
-            ResultBox.success(data: _validData!),
-          ] else if (_errors != null) ...[
-            const SizedBox(height: 12),
-            ResultBox.failure(errors: _errors!),
-          ],
+          ResultFeedback(data: _validData, errors: _errors, spacing: 12),
         ],
       ),
     );

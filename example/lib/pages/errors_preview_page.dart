@@ -119,10 +119,7 @@ class _ErrorsPreviewPageState extends State<ErrorsPreviewPage> {
             },
             child: const Text('Submit'),
           ),
-          if (_smallResult != null) ...[
-            const SizedBox(height: 16),
-            ResultBox.success(data: _smallResult!),
-          ],
+          ResultFeedback(data: _smallResult),
         ],
       ),
     );
@@ -246,10 +243,7 @@ class _ErrorsPreviewPageState extends State<ErrorsPreviewPage> {
             },
             child: const Text('Submit'),
           ),
-          if (_largeResult != null) ...[
-            const SizedBox(height: 16),
-            ResultBox.success(data: _largeResult!),
-          ],
+          ResultFeedback(data: _largeResult),
         ],
       ),
     );

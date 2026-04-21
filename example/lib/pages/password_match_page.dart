@@ -135,13 +135,7 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
                     onPressed: _submitRefine,
                     child: const Text('Submit (refineFormField)'),
                   ),
-                  if (_refineResult != null) ...[
-                    const SizedBox(height: 16),
-                    ResultBox.success(data: _refineResult!),
-                  ] else if (_refineErrors != null) ...[
-                    const SizedBox(height: 16),
-                    ResultBox.failure(errors: _refineErrors!),
-                  ],
+                  ResultFeedback(data: _refineResult, errors: _refineErrors),
                 ],
               ),
             ),
@@ -175,13 +169,7 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
                     onPressed: _submitEqualFields,
                     child: const Text('Submit (equalFields)'),
                   ),
-                  if (_equalResult != null) ...[
-                    const SizedBox(height: 16),
-                    ResultBox.success(data: _equalResult!),
-                  ] else if (_equalErrors != null) ...[
-                    const SizedBox(height: 16),
-                    ResultBox.failure(errors: _equalErrors!),
-                  ],
+                  ResultFeedback(data: _equalResult, errors: _equalErrors),
                 ],
               ),
             ),

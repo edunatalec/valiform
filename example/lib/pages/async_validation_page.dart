@@ -127,13 +127,7 @@ class _AsyncValidationPageState extends State<AsyncValidationPage> {
                       )
                     : const Text('Sign Up'),
               ),
-              if (_result != null) ...[
-                const SizedBox(height: 16),
-                ResultBox.success(data: _result!),
-              ] else if (_errors != null) ...[
-                const SizedBox(height: 16),
-                ResultBox.failure(errors: _errors!),
-              ],
+              ResultFeedback(data: _result, errors: _errors),
               const SizedBox(height: 32),
               const SectionTitle('Strict async contract'),
               const SizedBox(height: 8),

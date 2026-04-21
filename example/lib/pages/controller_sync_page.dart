@@ -12,44 +12,27 @@ class ControllerSyncPage extends StatefulWidget {
 }
 
 class _ControllerSyncPageState extends State<ControllerSyncPage> {
-  // Section 1: With controller, no initial value
   late final VForm<Map<String, dynamic>> _syncForm;
-  late final TextEditingController _syncController;
-
-  // Section 2: Without controller, no initial value
   late final VForm<Map<String, dynamic>> _noSyncForm;
-
-  // Section 3: With controller + initial value
   late final VForm<Map<String, dynamic>> _syncInitForm;
-  late final TextEditingController _syncInitController;
-
-  // Section 4: Without controller + initial value
   late final VForm<Map<String, dynamic>> _noSyncInitForm;
-
-  // Section 5: ValueNotifier<int?> for a non-text field
   late final VForm<Map<String, dynamic>> _counterForm;
-  late final ValueNotifier<int?> _counterNotifier;
 
   @override
   void initState() {
     super.initState();
 
     _syncForm = V.map({'name': V.string().min(2)}).form();
-    _syncController = TextEditingController();
-    _syncForm
-        .field<String>('name')
-        .attachTextController(_syncController, owns: false);
+    _syncField.attachTextController(TextEditingController());
 
     _noSyncForm = V.map({'name': V.string().min(2)}).form();
 
     _syncInitForm = V.map({'name': V.string().min(2)}).form(
       initialValues: {'name': 'John'},
     );
-
-    _syncInitController = TextEditingController(text: 'John');
-    _syncInitForm
-        .field<String>('name')
-        .attachTextController(_syncInitController, owns: false);
+    _syncInitField.attachTextController(
+      TextEditingController(text: _syncInitField.value),
+    );
 
     _noSyncInitForm = V.map({'name': V.string().min(2)}).form(
       initialValues: {'name': 'Jane'},
@@ -58,28 +41,25 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
     _counterForm = V.map({'count': V.int().min(0).max(10)}).form(
       initialValues: {'count': 0},
     );
-
-    _counterNotifier = ValueNotifier<int?>(0);
-    _counterForm
-        .field<int>('count')
-        .attachController(_counterNotifier, owns: false);
+    _counterField.attachController(ValueNotifier<int?>(_counterField.value));
   }
 
   @override
   void dispose() {
-    _syncController.dispose();
     _syncForm.dispose();
     _noSyncForm.dispose();
-
-    _syncInitController.dispose();
     _syncInitForm.dispose();
     _noSyncInitForm.dispose();
-
-    _counterNotifier.dispose();
     _counterForm.dispose();
 
     super.dispose();
   }
+
+  VField<String> get _syncField => _syncForm.field('name');
+  VField<String> get _noSyncField => _noSyncForm.field('name');
+  VField<String> get _syncInitField => _syncInitForm.field('name');
+  VField<String> get _noSyncInitField => _noSyncInitForm.field('name');
+  VField<int> get _counterField => _counterForm.field<int>('count');
 
   @override
   Widget build(BuildContext context) {
@@ -92,12 +72,12 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
           children: [
             _SyncSection(
               title: 'With Controller',
-              description: 'attachController creates bidirectional sync. '
+              description: 'attachTextController creates bidirectional sync. '
                   'Calling set() or reset() updates the text field. '
-                  'Typing updates the VField value.',
+                  'Typing updates the VField value. The controller is owned '
+                  'by the field and disposed when form.dispose() runs.',
               form: _syncForm,
-              field: _syncForm.field('name'),
-              controller: _syncController,
+              field: _syncField,
             ),
             const Divider(height: 48),
             _SyncSection(
@@ -106,7 +86,7 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
                   'VField value but NOT the widget text. The ListenableBuilder '
                   'below shows the real VField value.',
               form: _noSyncForm,
-              field: _noSyncForm.field('name'),
+              field: _noSyncField,
             ),
             const Divider(height: 48),
             _SyncSection(
@@ -115,25 +95,23 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
                   'TextEditingController is created with the same text. '
                   'Reset restores to the initial value in both.',
               form: _syncInitForm,
-              field: _syncInitForm.field('name'),
-              controller: _syncInitController,
+              field: _syncInitField,
             ),
             const Divider(height: 48),
             _SyncSection(
               title: 'Without Controller + Initial Value',
               description: 'initialValues sets the VField value to "Jane". '
-                  'initialValue on TextFormField shows it in the widget. '
-                  'But without a controller, set()/reset() only update the '
-                  'VField — the widget text stays unchanged.',
+                  'VTextField uses field.value as the widget\'s initialValue, '
+                  'so "Jane" appears on screen. But without a controller, '
+                  'set()/reset() only update the VField — the widget text '
+                  'stays unchanged.',
               form: _noSyncInitForm,
-              field: _noSyncInitForm.field('name'),
-              initialValue: 'Jane',
+              field: _noSyncInitField,
             ),
             const Divider(height: 48),
             _CounterSection(
               form: _counterForm,
-              field: _counterForm.field<int>('count'),
-              notifier: _counterNotifier,
+              field: _counterField,
             ),
           ],
         ),
@@ -145,16 +123,13 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
 class _CounterSection extends StatelessWidget {
   final VForm<Map<String, dynamic>> form;
   final VField<int> field;
-  final ValueNotifier<int?> notifier;
 
-  const _CounterSection({
-    required this.form,
-    required this.field,
-    required this.notifier,
-  });
+  const _CounterSection({required this.form, required this.field});
 
   @override
   Widget build(BuildContext context) {
+    final notifier = field.controller!;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -163,9 +138,10 @@ class _CounterSection extends StatelessWidget {
         const InfoCard(
           'attachController works with any ValueNotifier<T?>, not just '
           'TextEditingController. Here a ValueNotifier<int?> drives a '
-          'counter field. Typing into the notifier (via the +/− buttons '
-          'mutating notifier.value) flows into the VField — and VField.set '
-          'flows back into the notifier.',
+          'counter field. Mutating notifier.value (via +/− buttons) flows '
+          'into the VField — and VField.set flows back into the notifier. '
+          'The notifier is recovered via field.controller, owned by the '
+          'field, and disposed when form.dispose() runs.',
         ),
         const SizedBox(height: 16),
         ListenableBuilder(
@@ -217,8 +193,6 @@ class _CounterSection extends StatelessWidget {
             ),
             FilledButton.tonal(
               onPressed: () {
-                // No FormField widget wraps this counter — inspect errors
-                // directly via form.errors() (headless, no UI).
                 final errs = form.errors();
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -257,16 +231,12 @@ class _SyncSection extends StatelessWidget {
   final String description;
   final VForm<Map<String, dynamic>> form;
   final VField<String> field;
-  final TextEditingController? controller;
-  final String? initialValue;
 
   const _SyncSection({
     required this.title,
     required this.description,
     required this.form,
     required this.field,
-    this.controller,
-    this.initialValue,
   });
 
   @override
@@ -286,20 +256,7 @@ class _SyncSection extends StatelessWidget {
           const SizedBox(height: 8),
           InfoCard(description),
           const SizedBox(height: 16),
-          if (controller != null)
-            TextFormField(
-              controller: controller,
-              decoration: const InputDecoration(labelText: 'Name'),
-              validator: field.validator,
-              onChanged: field.onChanged,
-            )
-          else
-            TextFormField(
-              initialValue: initialValue,
-              decoration: const InputDecoration(labelText: 'Name'),
-              validator: field.validator,
-              onChanged: field.onChanged,
-            ),
+          VTextField(field: field, label: 'Name'),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,

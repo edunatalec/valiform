@@ -158,49 +158,16 @@ class _DemoState extends State<_Demo> {
             ),
           ),
           const SizedBox(height: 16),
-          FormField<bool>(
-            initialValue: field.value ?? false,
-            validator: (_) => field.validator(field.value),
-            builder: (state) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CheckboxListTile(
-                    title: const Text('I accept the terms and conditions'),
-                    value: field.value ?? false,
-                    onChanged: (val) {
-                      field.set(val);
-                      state.didChange(val);
-                    },
-                    controlAffinity: ListTileControlAffinity.leading,
-                  ),
-                  if (state.hasError)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 16),
-                      child: Text(
-                        state.errorText!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
+          VCheckboxField(
+            field: field,
+            title: 'I accept the terms and conditions',
           ),
           const SizedBox(height: 12),
           ElevatedButton(
             onPressed: _submit,
             child: const Text('Submit'),
           ),
-          if (_result != null) ...[
-            const SizedBox(height: 12),
-            ResultBox.success(data: _result!),
-          ] else if (_errors != null) ...[
-            const SizedBox(height: 12),
-            ResultBox.failure(errors: _errors!),
-          ],
+          ResultFeedback(data: _result, errors: _errors, spacing: 12),
         ],
       ),
     );

@@ -38,6 +38,7 @@ class _ReactiveFormPageState extends State<ReactiveFormPage> {
   @override
   void dispose() {
     _form.dispose();
+
     super.dispose();
   }
 
@@ -60,7 +61,26 @@ class _ReactiveFormPageState extends State<ReactiveFormPage> {
               'listenable tracks individual field changes, such as the '
               'character count for the name field.',
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
+            const SectionTitle('Live JSON Preview'),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: Colors.grey[900],
+              ),
+              child: Text(
+                _jsonPreview,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 14,
+                  color: Colors.greenAccent,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
             Form(
               key: _form.key,
               child: Column(
@@ -123,33 +143,8 @@ class _ReactiveFormPageState extends State<ReactiveFormPage> {
                       ),
                     ],
                   ),
-                  if (_result != null) ...[
-                    const SizedBox(height: 16),
-                    ResultBox.success(data: _result!),
-                  ] else if (_errors != null) ...[
-                    const SizedBox(height: 16),
-                    ResultBox.failure(errors: _errors!),
-                  ],
+                  ResultFeedback(data: _result, errors: _errors),
                 ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            const SectionTitle('Live JSON Preview'),
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: Colors.grey[900],
-              ),
-              child: Text(
-                _jsonPreview,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 14,
-                  color: Colors.greenAccent,
-                ),
               ),
             ),
           ],

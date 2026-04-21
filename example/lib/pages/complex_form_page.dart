@@ -213,13 +213,7 @@ class _ComplexFormPageState extends State<ComplexFormPage> {
                       )
                     : const Text('Submit (validateAsync)'),
               ),
-              if (_validData != null) ...[
-                const SizedBox(height: 16),
-                ResultBox.success(data: _validData!),
-              ] else if (_validationErrors != null) ...[
-                const SizedBox(height: 16),
-                ResultBox.failure(errors: _validationErrors!),
-              ],
+              ResultFeedback(data: _validData, errors: _validationErrors),
             ],
           ),
         ),

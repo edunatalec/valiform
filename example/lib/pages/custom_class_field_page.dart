@@ -117,13 +117,7 @@ class _CustomClassFieldPageState extends State<CustomClassFieldPage> {
                 onPressed: _submit,
                 child: const Text('Submit'),
               ),
-              if (_result != null) ...[
-                const SizedBox(height: 16),
-                ResultBox.success(data: _result!),
-              ] else if (_errors != null) ...[
-                const SizedBox(height: 16),
-                ResultBox.failure(errors: _errors!),
-              ],
+              ResultFeedback(data: _result, errors: _errors),
             ],
           ),
         ),

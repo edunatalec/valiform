@@ -85,51 +85,16 @@ class _CheckboxFormPageState extends State<CheckboxFormPage> {
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
-              FormField<bool>(
-                initialValue: _acceptTerms.value ?? false,
-                validator: (_) => _acceptTerms.validator(_acceptTerms.value),
-                builder: (state) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CheckboxListTile(
-                        title: const Text(
-                          'I accept the terms and conditions',
-                        ),
-                        value: _acceptTerms.value ?? false,
-                        onChanged: (val) {
-                          _acceptTerms.set(val);
-                          state.didChange(val);
-                        },
-                        controlAffinity: ListTileControlAffinity.leading,
-                      ),
-                      if (state.hasError)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 16),
-                          child: Text(
-                            state.errorText!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                          ),
-                        ),
-                    ],
-                  );
-                },
+              VCheckboxField(
+                field: _acceptTerms,
+                title: 'I accept the terms and conditions',
               ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _submit,
                 child: const Text('Submit'),
               ),
-              if (_result != null) ...[
-                const SizedBox(height: 16),
-                ResultBox.success(data: _result!),
-              ] else if (_errors != null) ...[
-                const SizedBox(height: 16),
-                ResultBox.failure(errors: _errors!),
-              ],
+              ResultFeedback(data: _result, errors: _errors),
             ],
           ),
         ),

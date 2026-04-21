@@ -160,13 +160,7 @@ class _ConditionalValidationPageState extends State<ConditionalValidationPage> {
             },
             child: const Text('Submit'),
           ),
-          if (_resultA != null) ...[
-            const SizedBox(height: 16),
-            ResultBox.success(data: _resultA!),
-          ] else if (_errorsA != null) ...[
-            const SizedBox(height: 16),
-            ResultBox.failure(errors: _errorsA!),
-          ],
+          ResultFeedback(data: _resultA, errors: _errorsA),
         ],
       ),
     );
@@ -244,13 +238,7 @@ class _ConditionalValidationPageState extends State<ConditionalValidationPage> {
             },
             child: const Text('Submit'),
           ),
-          if (_resultB != null) ...[
-            const SizedBox(height: 16),
-            ResultBox.success(data: _resultB!),
-          ] else if (_errorsB != null) ...[
-            const SizedBox(height: 16),
-            ResultBox.failure(errors: _errorsB!),
-          ],
+          ResultFeedback(data: _resultB, errors: _errorsB),
         ],
       ),
     );
