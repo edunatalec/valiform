@@ -17,10 +17,17 @@ class _CheckboxFormPageState extends State<CheckboxFormPage> {
   @override
   void initState() {
     super.initState();
+
     _form = V.map({
       'name': V.string().min(3),
       'email': V.string().email(),
-      'acceptTerms': V.bool().isTrue(message: 'You must accept the terms'),
+      // `preprocess((v) => v ?? false)` normalizes an untouched checkbox
+      // (null) into `false` so the `isTrue` check always fires with its
+      // custom message — otherwise null would surface the generic
+      // `required` error and the `isTrue` message would never be seen.
+      'acceptTerms': V.bool()
+          .preprocess((v) => v ?? false)
+          .isTrue(message: 'You must accept the terms'),
     }).form();
   }
 

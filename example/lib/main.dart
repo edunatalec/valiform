@@ -9,9 +9,11 @@ import 'pages/object_form_page.dart';
 import 'pages/password_match_page.dart';
 import 'pages/controller_sync_page.dart';
 import 'pages/reactive_form_page.dart';
+import 'pages/required_message_page.dart';
 import 'pages/checkbox_form_page.dart';
 import 'pages/dropdown_enum_page.dart';
 import 'pages/custom_class_field_page.dart';
+import 'pages/default_value_page.dart';
 import 'pages/locale_page.dart';
 import 'pages/multi_type_form_page.dart';
 import 'pages/errors_preview_page.dart';
@@ -90,6 +92,12 @@ class HomePage extends StatelessWidget {
         page: const CheckboxFormPage(),
       ),
       _Example(
+        title: 'Required Message',
+        subtitle:
+            'Two ways to customize the required error on an untouched checkbox',
+        page: const RequiredMessagePage(),
+      ),
+      _Example(
         title: 'Dropdown Enum',
         subtitle: 'Enum fields with dropdown selection',
         page: const DropdownEnumPage(),
@@ -103,6 +111,12 @@ class HomePage extends StatelessWidget {
         title: 'Optional Fields',
         subtitle: 'Nullable fields that stay valid when cleared',
         page: const OptionalFieldsPage(),
+      ),
+      _Example(
+        title: 'Default Value',
+        subtitle:
+            'defaultValue vs initialValues — resolution order, reset, required semantics',
+        page: const DefaultValuePage(),
       ),
       _Example(
         title: 'Conditional Validation',
