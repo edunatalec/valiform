@@ -15,6 +15,12 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
   late final VForm<Map<String, dynamic>> _refineForm;
   late final VForm<Map<String, dynamic>> _equalFieldsForm;
 
+  Map<String, dynamic>? _refineResult;
+  Map<String, String>? _refineErrors;
+
+  Map<String, dynamic>? _equalResult;
+  Map<String, String>? _equalErrors;
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +54,7 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
   void dispose() {
     _refineForm.dispose();
     _equalFieldsForm.dispose();
+
     super.dispose();
   }
 
@@ -55,6 +62,40 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
   VField<String> get _refineConfirm => _refineForm.field('confirmPassword');
   VField<String> get _equalPassword => _equalFieldsForm.field('password');
   VField<String> get _equalConfirm => _equalFieldsForm.field('confirmPassword');
+
+  void _submitRefine() {
+    setState(() {
+      if (_refineForm.validate()) {
+        _refineResult = _refineForm.value;
+        _refineErrors = null;
+      } else {
+        _refineResult = null;
+        _refineErrors = _refineForm.errors();
+      }
+    });
+  }
+
+  void _submitEqualFields() {
+    final fieldsValid = _equalFieldsForm.validate();
+    final schemaValid = fieldsValid && _equalFieldsForm.silentValidate();
+
+    setState(() {
+      if (schemaValid) {
+        _equalResult = _equalFieldsForm.value;
+        _equalErrors = null;
+      } else {
+        _equalResult = null;
+        // equalFields errors only show up in silentValidate, not on individual
+        // fields — merge a synthetic error into the map so ResultBox.failure
+        // has something to render.
+        final errs = _equalFieldsForm.errors() ?? <String, String>{};
+        if (fieldsValid && !_equalFieldsForm.silentValidate()) {
+          errs['_form'] = 'Passwords must match';
+        }
+        _equalErrors = errs.isEmpty ? null : errs;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -91,15 +132,16 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () {
-                      if (_refineForm.validate()) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Passwords match!')),
-                        );
-                      }
-                    },
+                    onPressed: _submitRefine,
                     child: const Text('Submit (refineFormField)'),
                   ),
+                  if (_refineResult != null) ...[
+                    const SizedBox(height: 16),
+                    ResultBox.success(data: _refineResult!),
+                  ] else if (_refineErrors != null) ...[
+                    const SizedBox(height: 16),
+                    ResultBox.failure(errors: _refineErrors!),
+                  ],
                 ],
               ),
             ),
@@ -130,27 +172,16 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () {
-                      final fieldsValid = _equalFieldsForm.validate();
-
-                      if (fieldsValid && !_equalFieldsForm.silentValidate()) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Passwords must match'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                        return;
-                      }
-
-                      if (fieldsValid && _equalFieldsForm.silentValidate()) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Passwords match!')),
-                        );
-                      }
-                    },
+                    onPressed: _submitEqualFields,
                     child: const Text('Submit (equalFields)'),
                   ),
+                  if (_equalResult != null) ...[
+                    const SizedBox(height: 16),
+                    ResultBox.success(data: _equalResult!),
+                  ] else if (_equalErrors != null) ...[
+                    const SizedBox(height: 16),
+                    ResultBox.failure(errors: _equalErrors!),
+                  ],
                 ],
               ),
             ),

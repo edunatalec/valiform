@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
-import '../utils.dart';
 import '../widgets/widgets.dart';
 
 enum Priority { low, medium, high, critical }
@@ -16,6 +15,9 @@ class MultiTypeFormPage extends StatefulWidget {
 
 class _MultiTypeFormPageState extends State<MultiTypeFormPage> {
   late final VForm<Map<String, dynamic>> _form;
+
+  Map<String, dynamic>? _result;
+  Map<String, String>? _errors;
 
   @override
   void initState() {
@@ -191,24 +193,25 @@ class _MultiTypeFormPageState extends State<MultiTypeFormPage> {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {
-                  if (_form.validate()) {
-                    final values = _form.value;
-                    printJson({
-                      'title': values['title'],
-                      'description': values['description'],
-                      'maxParticipants': values['maxParticipants'],
-                      'rating': values['rating'],
-                      'isPublic': values['isPublic'],
-                      'eventDate': values['eventDate']?.toString(),
-                      'priority': _priority.value?.name,
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Event created!')),
-                    );
-                  }
+                  setState(() {
+                    if (_form.validate()) {
+                      _result = _form.value;
+                      _errors = null;
+                    } else {
+                      _result = null;
+                      _errors = _form.errors();
+                    }
+                  });
                 },
                 child: const Text('Create Event'),
               ),
+              if (_result != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.success(data: _result!),
+              ] else if (_errors != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.failure(errors: _errors!),
+              ],
             ],
           ),
         ),

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
-import '../utils.dart';
 import '../widgets/widgets.dart';
 
 /// Two ways to customize the error shown when a required field is left
@@ -101,7 +100,7 @@ class _RequiredMessagePageState extends State<RequiredMessagePage> {
   }
 }
 
-class _Demo extends StatelessWidget {
+class _Demo extends StatefulWidget {
   final String title;
   final String description;
   final String schemaSnippet;
@@ -115,17 +114,37 @@ class _Demo extends StatelessWidget {
   });
 
   @override
+  State<_Demo> createState() => _DemoState();
+}
+
+class _DemoState extends State<_Demo> {
+  Map<String, dynamic>? _result;
+  Map<String, String>? _errors;
+
+  void _submit() {
+    setState(() {
+      if (widget.form.validate()) {
+        _result = widget.form.value;
+        _errors = null;
+      } else {
+        _result = null;
+        _errors = widget.form.errors();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final field = form.field<bool>('acceptTerms');
+    final field = widget.form.field<bool>('acceptTerms');
 
     return Form(
-      key: form.key,
+      key: widget.form.key,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SectionTitle(title),
+          SectionTitle(widget.title),
           const SizedBox(height: 8),
-          InfoCard(description),
+          InfoCard(widget.description),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(12),
@@ -134,7 +153,7 @@ class _Demo extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              schemaSnippet,
+              widget.schemaSnippet,
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
           ),
@@ -172,17 +191,16 @@ class _Demo extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           ElevatedButton(
-            onPressed: () {
-              if (form.validate()) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Submitted: ${prettyJson(form.value)}'),
-                  ),
-                );
-              }
-            },
+            onPressed: _submit,
             child: const Text('Submit'),
           ),
+          if (_result != null) ...[
+            const SizedBox(height: 12),
+            ResultBox.success(data: _result!),
+          ] else if (_errors != null) ...[
+            const SizedBox(height: 12),
+            ResultBox.failure(errors: _errors!),
+          ],
         ],
       ),
     );

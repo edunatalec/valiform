@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
-import '../utils.dart';
 import '../widgets/widgets.dart';
 
 class BasicMapFormPage extends StatefulWidget {
@@ -15,6 +14,12 @@ class BasicMapFormPage extends StatefulWidget {
 class _BasicMapFormPageState extends State<BasicMapFormPage> {
   late final VForm<Map<String, dynamic>> _form;
   late final VForm<Map<String, dynamic>> _defaultForm;
+
+  Map<String, dynamic>? _formResult;
+  Map<String, String>? _formErrors;
+
+  Map<String, dynamic>? _defaultFormResult;
+  Map<String, String>? _defaultFormErrors;
 
   @override
   void initState() {
@@ -37,6 +42,7 @@ class _BasicMapFormPageState extends State<BasicMapFormPage> {
   void dispose() {
     _form.dispose();
     _defaultForm.dispose();
+
     super.dispose();
   }
 
@@ -44,6 +50,30 @@ class _BasicMapFormPageState extends State<BasicMapFormPage> {
   VField<String> get _password => _form.field('password');
   VField<String> get _defEmail => _defaultForm.field('email');
   VField<String> get _defPassword => _defaultForm.field('password');
+
+  void _submitForm() {
+    setState(() {
+      if (_form.validate()) {
+        _formResult = _form.value;
+        _formErrors = null;
+      } else {
+        _formResult = null;
+        _formErrors = _form.errors();
+      }
+    });
+  }
+
+  void _submitDefaultForm() {
+    setState(() {
+      if (_defaultForm.validate()) {
+        _defaultFormResult = _defaultForm.value;
+        _defaultFormErrors = null;
+      } else {
+        _defaultFormResult = null;
+        _defaultFormErrors = _defaultForm.errors();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,19 +112,16 @@ class _BasicMapFormPageState extends State<BasicMapFormPage> {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () {
-                      if (_form.validate()) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Submitted: ${prettyJson(_form.value)}',
-                            ),
-                          ),
-                        );
-                      }
-                    },
+                    onPressed: _submitForm,
                     child: const Text('Sign In'),
                   ),
+                  if (_formResult != null) ...[
+                    const SizedBox(height: 16),
+                    ResultBox.success(data: _formResult!),
+                  ] else if (_formErrors != null) ...[
+                    const SizedBox(height: 16),
+                    ResultBox.failure(errors: _formErrors!),
+                  ],
                 ],
               ),
             ),
@@ -128,29 +155,32 @@ class _BasicMapFormPageState extends State<BasicMapFormPage> {
                     children: [
                       Expanded(
                         child: FilledButton.tonal(
-                          onPressed: _defaultForm.reset,
+                          onPressed: () {
+                            _defaultForm.reset();
+                            setState(() {
+                              _defaultFormResult = null;
+                              _defaultFormErrors = null;
+                            });
+                          },
                           child: const Text('Reset'),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {
-                            if (_defaultForm.validate()) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Submitted: ${prettyJson(_defaultForm.value)}',
-                                  ),
-                                ),
-                              );
-                            }
-                          },
+                          onPressed: _submitDefaultForm,
                           child: const Text('Sign In'),
                         ),
                       ),
                     ],
                   ),
+                  if (_defaultFormResult != null) ...[
+                    const SizedBox(height: 16),
+                    ResultBox.success(data: _defaultFormResult!),
+                  ] else if (_defaultFormErrors != null) ...[
+                    const SizedBox(height: 16),
+                    ResultBox.failure(errors: _defaultFormErrors!),
+                  ],
                 ],
               ),
             ),

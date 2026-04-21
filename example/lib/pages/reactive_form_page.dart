@@ -16,6 +16,9 @@ class _ReactiveFormPageState extends State<ReactiveFormPage> {
   late final VForm<Map<String, dynamic>> _form;
   String _jsonPreview = '{}';
 
+  Map<String, dynamic>? _result;
+  Map<String, String>? _errors;
+
   @override
   void initState() {
     super.initState();
@@ -96,20 +99,37 @@ class _ReactiveFormPageState extends State<ReactiveFormPage> {
                     children: [
                       ElevatedButton(
                         onPressed: () {
-                          if (_form.validate()) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Form is valid!')),
-                            );
-                          }
+                          setState(() {
+                            if (_form.validate()) {
+                              _result = _form.value;
+                              _errors = null;
+                            } else {
+                              _result = null;
+                              _errors = _form.errors();
+                            }
+                          });
                         },
                         child: const Text('Validate'),
                       ),
                       ElevatedButton(
-                        onPressed: _form.reset,
+                        onPressed: () {
+                          _form.reset();
+                          setState(() {
+                            _result = null;
+                            _errors = null;
+                          });
+                        },
                         child: const Text('Reset'),
                       ),
                     ],
                   ),
+                  if (_result != null) ...[
+                    const SizedBox(height: 16),
+                    ResultBox.success(data: _result!),
+                  ] else if (_errors != null) ...[
+                    const SizedBox(height: 16),
+                    ResultBox.failure(errors: _errors!),
+                  ],
                 ],
               ),
             ),

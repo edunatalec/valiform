@@ -15,9 +15,13 @@ class _ArrayFieldPageState extends State<ArrayFieldPage> {
   late final VForm<Map<String, dynamic>> _form;
   final _tagController = TextEditingController();
 
+  Map<String, dynamic>? _result;
+  Map<String, String>? _errors;
+
   @override
   void initState() {
     super.initState();
+
     _form = V.map({
       'title': V.string().min(3),
       'tags': V.array<String>(V.string().min(2)).min(2).max(5),
@@ -162,27 +166,25 @@ class _ArrayFieldPageState extends State<ArrayFieldPage> {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {
-                  if (_form.validate()) {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Form Submitted'),
-                        content: Text(
-                          'Title: ${_title.value}\n'
-                          'Tags: ${_tags.value?.join(", ")}',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('OK'),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
+                  setState(() {
+                    if (_form.validate()) {
+                      _result = _form.value;
+                      _errors = null;
+                    } else {
+                      _result = null;
+                      _errors = _form.errors();
+                    }
+                  });
                 },
                 child: const Text('Submit'),
               ),
+              if (_result != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.success(data: _result!),
+              ] else if (_errors != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.failure(errors: _errors!),
+              ],
             ],
           ),
         ),

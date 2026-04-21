@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
-import '../utils.dart';
 import '../widgets/widgets.dart';
 
 class AsyncValidationPage extends StatefulWidget {
@@ -18,6 +17,9 @@ class _AsyncValidationPageState extends State<AsyncValidationPage> {
 
   late final VForm<Map<String, dynamic>> _form;
   bool _submitting = false;
+
+  Map<String, dynamic>? _result;
+  Map<String, String>? _errors;
 
   @override
   void initState() {
@@ -59,19 +61,14 @@ class _AsyncValidationPageState extends State<AsyncValidationPage> {
     // Read the parsed value via valueAsync — `_form.value` would throw
     // VAsyncRequiredException because the schema has async steps.
     final data = valid ? await _form.valueAsync : null;
+    final errors = valid ? null : await _form.errorsAsync();
     if (!mounted) return;
 
-    setState(() => _submitting = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          data != null
-              ? 'Submitted: ${prettyJson(data)}'
-              : 'Fix the errors above',
-        ),
-      ),
-    );
+    setState(() {
+      _submitting = false;
+      _result = data;
+      _errors = errors;
+    });
   }
 
   void _trySyncValidate() {
@@ -130,6 +127,13 @@ class _AsyncValidationPageState extends State<AsyncValidationPage> {
                       )
                     : const Text('Sign Up'),
               ),
+              if (_result != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.success(data: _result!),
+              ] else if (_errors != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.failure(errors: _errors!),
+              ],
               const SizedBox(height: 32),
               const SectionTitle('Strict async contract'),
               const SizedBox(height: 8),

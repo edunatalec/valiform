@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
-import '../utils.dart';
 import '../widgets/widgets.dart';
 
 class TransformsPage extends StatefulWidget {
@@ -15,9 +14,13 @@ class TransformsPage extends StatefulWidget {
 class _TransformsPageState extends State<TransformsPage> {
   late final VForm<Map<String, dynamic>> _form;
 
+  Map<String, dynamic>? _result;
+  Map<String, String>? _errors;
+
   @override
   void initState() {
     super.initState();
+
     _form = V.map({
       // .trim() removes leading/trailing whitespace before validation.
       // .toLowerCase() normalizes email casing.
@@ -30,7 +33,20 @@ class _TransformsPageState extends State<TransformsPage> {
   @override
   void dispose() {
     _form.dispose();
+
     super.dispose();
+  }
+
+  void _submit() {
+    setState(() {
+      if (_form.validate()) {
+        _result = _form.value;
+        _errors = null;
+      } else {
+        _result = null;
+        _errors = _form.errors();
+      }
+    });
   }
 
   VField<String> get _email => _form.field('email');
@@ -75,17 +91,16 @@ class _TransformsPageState extends State<TransformsPage> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () {
-                  if (_form.validate()) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Submitted: ${prettyJson(_form.value)}'),
-                      ),
-                    );
-                  }
-                },
+                onPressed: _submit,
                 child: const Text('Submit'),
               ),
+              if (_result != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.success(data: _result!),
+              ] else if (_errors != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.failure(errors: _errors!),
+              ],
             ],
           ),
         ),

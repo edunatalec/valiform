@@ -16,6 +16,12 @@ class _ConditionalValidationPageState extends State<ConditionalValidationPage> {
   late final VForm<Map<String, dynamic>> _formA;
   late final VForm<Map<String, dynamic>> _formB;
 
+  Map<String, dynamic>? _resultA;
+  Map<String, String>? _errorsA;
+
+  Map<String, dynamic>? _resultB;
+  Map<String, String>? _errorsB;
+
   @override
   void initState() {
     super.initState();
@@ -142,29 +148,25 @@ class _ConditionalValidationPageState extends State<ConditionalValidationPage> {
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: () {
-              if (_formA.validate()) {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Form Submitted'),
-                    content: Text(
-                      'Type: ${_type.value}\n'
-                      'Name: ${_name.value}\n'
-                      'CPF: ${_cpf.value ?? "(not required)"}\n'
-                      'CNPJ: ${_cnpj.value ?? "(not required)"}',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('OK'),
-                      ),
-                    ],
-                  ),
-                );
-              }
+              setState(() {
+                if (_formA.validate()) {
+                  _resultA = _formA.value;
+                  _errorsA = null;
+                } else {
+                  _resultA = null;
+                  _errorsA = _formA.errors();
+                }
+              });
             },
             child: const Text('Submit'),
           ),
+          if (_resultA != null) ...[
+            const SizedBox(height: 16),
+            ResultBox.success(data: _resultA!),
+          ] else if (_errorsA != null) ...[
+            const SizedBox(height: 16),
+            ResultBox.failure(errors: _errorsA!),
+          ],
         ],
       ),
     );
@@ -230,27 +232,25 @@ class _ConditionalValidationPageState extends State<ConditionalValidationPage> {
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: () {
-              if (_formB.validate()) {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Form Submitted'),
-                    content: Text(
-                      'Contact Type: ${_contactType.value}\n'
-                      'Contact: ${_contact.value}',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('OK'),
-                      ),
-                    ],
-                  ),
-                );
-              }
+              setState(() {
+                if (_formB.validate()) {
+                  _resultB = _formB.value;
+                  _errorsB = null;
+                } else {
+                  _resultB = null;
+                  _errorsB = _formB.errors();
+                }
+              });
             },
             child: const Text('Submit'),
           ),
+          if (_resultB != null) ...[
+            const SizedBox(height: 16),
+            ResultBox.success(data: _resultB!),
+          ] else if (_errorsB != null) ...[
+            const SizedBox(height: 16),
+            ResultBox.failure(errors: _errorsB!),
+          ],
         ],
       ),
     );

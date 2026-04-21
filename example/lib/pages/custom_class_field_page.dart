@@ -40,9 +40,13 @@ class CustomClassFieldPage extends StatefulWidget {
 class _CustomClassFieldPageState extends State<CustomClassFieldPage> {
   late final VForm<Map<String, dynamic>> _form;
 
+  Map<String, dynamic>? _result;
+  Map<String, String>? _errors;
+
   @override
   void initState() {
     super.initState();
+
     _form = V.map({
       'title': V.string().min(3),
       'description': V.string().min(10),
@@ -53,6 +57,7 @@ class _CustomClassFieldPageState extends State<CustomClassFieldPage> {
   @override
   void dispose() {
     _form.dispose();
+
     super.dispose();
   }
 
@@ -61,26 +66,15 @@ class _CustomClassFieldPageState extends State<CustomClassFieldPage> {
   VField<Category> get _category => _form.field('category');
 
   void _submit() {
-    if (_form.validate()) {
-      final cat = _category.value!;
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Form Submitted'),
-          content: Text(
-            'Title: ${_title.value}\n'
-            'Description: ${_description.value}\n'
-            'Category: ${cat.name} (id: ${cat.id})',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    }
+    setState(() {
+      if (_form.validate()) {
+        _result = _form.value;
+        _errors = null;
+      } else {
+        _result = null;
+        _errors = _form.errors();
+      }
+    });
   }
 
   @override
@@ -123,6 +117,13 @@ class _CustomClassFieldPageState extends State<CustomClassFieldPage> {
                 onPressed: _submit,
                 child: const Text('Submit'),
               ),
+              if (_result != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.success(data: _result!),
+              ] else if (_errors != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.failure(errors: _errors!),
+              ],
             ],
           ),
         ),

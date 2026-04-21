@@ -17,6 +17,9 @@ class _ErrorsPreviewPageState extends State<ErrorsPreviewPage> {
   late final VForm<Map<String, dynamic>> _singleForm;
   late final VForm<Map<String, dynamic>> _largeForm;
 
+  Map<String, dynamic>? _smallResult;
+  Map<String, dynamic>? _largeResult;
+
   @override
   void initState() {
     super.initState();
@@ -110,18 +113,16 @@ class _ErrorsPreviewPageState extends State<ErrorsPreviewPage> {
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: () {
-              if (_smallForm.validate()) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Submitted: ${prettyJson(_smallForm.value)}',
-                    ),
-                  ),
-                );
-              }
+              setState(() {
+                _smallResult = _smallForm.validate() ? _smallForm.value : null;
+              });
             },
             child: const Text('Submit'),
           ),
+          if (_smallResult != null) ...[
+            const SizedBox(height: 16),
+            ResultBox.success(data: _smallResult!),
+          ],
         ],
       ),
     );
@@ -239,18 +240,16 @@ class _ErrorsPreviewPageState extends State<ErrorsPreviewPage> {
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: () {
-              if (_largeForm.validate()) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Submitted: ${prettyJson(_largeForm.value)}',
-                    ),
-                  ),
-                );
-              }
+              setState(() {
+                _largeResult = _largeForm.validate() ? _largeForm.value : null;
+              });
             },
             child: const Text('Submit'),
           ),
+          if (_largeResult != null) ...[
+            const SizedBox(height: 16),
+            ResultBox.success(data: _largeResult!),
+          ],
         ],
       ),
     );

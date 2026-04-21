@@ -40,6 +40,9 @@ class OptionalFieldsPage extends StatefulWidget {
 class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
   late final VForm<Map<String, dynamic>> _form;
 
+  Map<String, dynamic>? _result;
+  Map<String, String>? _errors;
+
   @override
   void initState() {
     super.initState();
@@ -305,24 +308,25 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {
-                  if (_form.validate()) {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Form Submitted'),
-                        content: Text(_formatValues()),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('OK'),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
+                  setState(() {
+                    if (_form.validate()) {
+                      _result = _form.value;
+                      _errors = null;
+                    } else {
+                      _result = null;
+                      _errors = _form.errors();
+                    }
+                  });
                 },
                 child: const Text('Submit'),
               ),
+              if (_result != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.success(data: _result!),
+              ] else if (_errors != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.failure(errors: _errors!),
+              ],
             ],
           ),
         ),

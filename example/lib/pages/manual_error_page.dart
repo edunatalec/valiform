@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
-import '../utils.dart';
 import '../widgets/widgets.dart';
 
 class ManualErrorPage extends StatefulWidget {
@@ -14,6 +13,9 @@ class ManualErrorPage extends StatefulWidget {
 
 class _ManualErrorPageState extends State<ManualErrorPage> {
   late final VForm<Map<String, dynamic>> _form;
+
+  Map<String, dynamic>? _result;
+  Map<String, String>? _errors;
 
   @override
   void initState() {
@@ -168,16 +170,25 @@ class _ManualErrorPageState extends State<ManualErrorPage> {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {
-                  if (_form.validate()) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Submitted: ${prettyJson(_form.value)}'),
-                      ),
-                    );
-                  }
+                  setState(() {
+                    if (_form.validate()) {
+                      _result = _form.value;
+                      _errors = null;
+                    } else {
+                      _result = null;
+                      _errors = _form.errors();
+                    }
+                  });
                 },
                 child: const Text('Submit'),
               ),
+              if (_result != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.success(data: _result!),
+              ] else if (_errors != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.failure(errors: _errors!),
+              ],
             ],
           ),
         ),

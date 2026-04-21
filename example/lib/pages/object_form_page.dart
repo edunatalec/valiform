@@ -41,6 +41,12 @@ class _ObjectFormPageState extends State<ObjectFormPage> {
   late final VForm<User> _form;
   late final VForm<User> _defaultForm;
 
+  Map<String, dynamic>? _formResult;
+  Map<String, String>? _formErrors;
+
+  Map<String, dynamic>? _defaultFormResult;
+  Map<String, String>? _defaultFormErrors;
+
   @override
   void initState() {
     super.initState();
@@ -49,8 +55,11 @@ class _ObjectFormPageState extends State<ObjectFormPage> {
 
     _defaultForm = _userSchema().form(
       builder: _buildUser,
-      initialValue:
-          const User(name: 'John', email: 'john@example.com', age: 25),
+      initialValue: const User(
+        name: 'John',
+        email: 'john@example.com',
+        age: 25,
+      ),
     );
   }
 
@@ -58,7 +67,32 @@ class _ObjectFormPageState extends State<ObjectFormPage> {
   void dispose() {
     _form.dispose();
     _defaultForm.dispose();
+
     super.dispose();
+  }
+
+  void _submitForm() {
+    setState(() {
+      if (_form.validate()) {
+        _formResult = _form.value.toJson();
+        _formErrors = null;
+      } else {
+        _formResult = null;
+        _formErrors = _form.errors();
+      }
+    });
+  }
+
+  void _submitDefaultForm() {
+    setState(() {
+      if (_defaultForm.validate()) {
+        _defaultFormResult = _defaultForm.value.toJson();
+        _defaultFormErrors = null;
+      } else {
+        _defaultFormResult = null;
+        _defaultFormErrors = _defaultForm.errors();
+      }
+    });
   }
 
   @override
@@ -114,18 +148,16 @@ class _ObjectFormPageState extends State<ObjectFormPage> {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () {
-                      if (_form.validate()) {
-                        final user = _form.value;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Type: ${user.runtimeType} — $user'),
-                          ),
-                        );
-                      }
-                    },
+                    onPressed: _submitForm,
                     child: const Text('Submit'),
                   ),
+                  if (_formResult != null) ...[
+                    const SizedBox(height: 16),
+                    ResultBox.success(data: _formResult!),
+                  ] else if (_formErrors != null) ...[
+                    const SizedBox(height: 16),
+                    ResultBox.failure(errors: _formErrors!),
+                  ],
                 ],
               ),
             ),
@@ -170,29 +202,32 @@ class _ObjectFormPageState extends State<ObjectFormPage> {
                     children: [
                       Expanded(
                         child: FilledButton.tonal(
-                          onPressed: _defaultForm.reset,
+                          onPressed: () {
+                            _defaultForm.reset();
+                            setState(() {
+                              _defaultFormResult = null;
+                              _defaultFormErrors = null;
+                            });
+                          },
                           child: const Text('Reset'),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {
-                            if (_defaultForm.validate()) {
-                              final user = _defaultForm.value;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content:
-                                      Text('Type: ${user.runtimeType} — $user'),
-                                ),
-                              );
-                            }
-                          },
+                          onPressed: _submitDefaultForm,
                           child: const Text('Submit'),
                         ),
                       ),
                     ],
                   ),
+                  if (_defaultFormResult != null) ...[
+                    const SizedBox(height: 16),
+                    ResultBox.success(data: _defaultFormResult!),
+                  ] else if (_defaultFormErrors != null) ...[
+                    const SizedBox(height: 16),
+                    ResultBox.failure(errors: _defaultFormErrors!),
+                  ],
                 ],
               ),
             ),

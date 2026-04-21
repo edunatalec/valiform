@@ -14,6 +14,9 @@ class CheckboxFormPage extends StatefulWidget {
 class _CheckboxFormPageState extends State<CheckboxFormPage> {
   late final VForm<Map<String, dynamic>> _form;
 
+  Map<String, dynamic>? _result;
+  Map<String, String>? _errors;
+
   @override
   void initState() {
     super.initState();
@@ -42,26 +45,15 @@ class _CheckboxFormPageState extends State<CheckboxFormPage> {
   VField<bool> get _acceptTerms => _form.field('acceptTerms');
 
   void _submit() {
-    if (_form.validate()) {
-      final values = _form.value;
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Form Submitted'),
-          content: Text(
-            'Name: ${values['name']}\n'
-            'Email: ${values['email']}\n'
-            'Accepted Terms: ${values['acceptTerms']}',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    }
+    setState(() {
+      if (_form.validate()) {
+        _result = _form.value;
+        _errors = null;
+      } else {
+        _result = null;
+        _errors = _form.errors();
+      }
+    });
   }
 
   @override
@@ -131,6 +123,13 @@ class _CheckboxFormPageState extends State<CheckboxFormPage> {
                 onPressed: _submit,
                 child: const Text('Submit'),
               ),
+              if (_result != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.success(data: _result!),
+              ] else if (_errors != null) ...[
+                const SizedBox(height: 16),
+                ResultBox.failure(errors: _errors!),
+              ],
             ],
           ),
         ),
