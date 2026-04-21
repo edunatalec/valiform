@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
-import '../main.dart';
+import '../utils.dart';
 import '../widgets/widgets.dart';
 
 enum Priority { low, medium, high, critical }

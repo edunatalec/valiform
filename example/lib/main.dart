@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'utils.dart';
 import 'pages/array_field_page.dart';
 import 'pages/async_validation_page.dart';
 import 'pages/basic_map_form_page.dart';
@@ -207,9 +206,4 @@ class _Example {
     required this.subtitle,
     required this.page,
   });
-}
-
-void printJson(Object? value) {
-  if (value == null) return;
-  debugPrint(jsonEncoder.convert(value));
 }

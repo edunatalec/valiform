@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
 
-import '../utils.dart';
 import '../widgets/widgets.dart';
 
 /// Demonstrates the three ways to seed a field's initial value and the
@@ -210,72 +209,11 @@ class _DemoState extends State<_Demo> {
           ),
           if (_validData != null) ...[
             const SizedBox(height: 12),
-            _ResultBox.success(data: _validData!),
+            ResultBox.success(data: _validData!),
           ] else if (_errors != null) ...[
             const SizedBox(height: 12),
-            _ResultBox.failure(errors: _errors!),
+            ResultBox.failure(errors: _errors!),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Translucent coloured box that shows the form value (green) or the
-/// validation errors (red). Small local copy — kept private so each page
-/// can evolve its own styling without coupling.
-class _ResultBox extends StatelessWidget {
-  final String title;
-  final String body;
-  final MaterialColor color;
-
-  const _ResultBox._({
-    required this.title,
-    required this.body,
-    required this.color,
-  });
-
-  factory _ResultBox.success({required Map<String, dynamic> data}) {
-    return _ResultBox._(
-      title: 'Form is valid',
-      body: prettyJson(data),
-      color: Colors.green,
-    );
-  }
-
-  factory _ResultBox.failure({required Map<String, String> errors}) {
-    return _ResultBox._(
-      title: 'Form has errors',
-      body: prettyJson(errors),
-      color: Colors.red,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: color.shade900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            body,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          ),
         ],
       ),
     );
