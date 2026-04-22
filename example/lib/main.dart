@@ -60,116 +60,116 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final examples = <_Example>[
+    const examples = <_Example>[
       _Example(
         title: 'Basic Map Form',
         subtitle: 'Simple login form using VMap and .form()',
-        page: const BasicMapFormPage(),
+        page: BasicMapFormPage(),
       ),
       _Example(
         title: 'Object Form',
         subtitle: 'Typed form with VObject returning a User instance',
-        page: const ObjectFormPage(),
+        page: ObjectFormPage(),
       ),
       _Example(
         title: 'Password Match',
         subtitle: 'Cross-field validation with refineFormField',
-        page: const PasswordMatchPage(),
+        page: PasswordMatchPage(),
       ),
       _Example(
         title: 'Controller Sync',
         subtitle: 'TextEditingController integration with attachController',
-        page: const ControllerSyncPage(),
+        page: ControllerSyncPage(),
       ),
       _Example(
         title: 'Reactive Form',
         subtitle: 'Live preview updated via value change listeners',
-        page: const ReactiveFormPage(),
+        page: ReactiveFormPage(),
       ),
       _Example(
         title: 'Checkbox Form',
         subtitle: 'Boolean validation with checkbox fields',
-        page: const CheckboxFormPage(),
+        page: CheckboxFormPage(),
       ),
       _Example(
         title: 'Required Message',
         subtitle:
             'Two ways to customize the required error on an untouched checkbox',
-        page: const RequiredMessagePage(),
+        page: RequiredMessagePage(),
       ),
       _Example(
         title: 'Dropdown Enum',
         subtitle: 'Enum fields with dropdown selection',
-        page: const DropdownEnumPage(),
+        page: DropdownEnumPage(),
       ),
       _Example(
         title: 'Custom Class Field',
         subtitle: 'Custom type fields beyond primitives',
-        page: const CustomClassFieldPage(),
+        page: CustomClassFieldPage(),
       ),
       _Example(
         title: 'Optional Fields',
         subtitle: 'Nullable fields that stay valid when cleared',
-        page: const OptionalFieldsPage(),
+        page: OptionalFieldsPage(),
       ),
       _Example(
         title: 'Default Value',
         subtitle:
             'defaultValue vs initialValues — resolution order, reset, required semantics',
-        page: const DefaultValuePage(),
+        page: DefaultValuePage(),
       ),
       _Example(
         title: 'Conditional Validation',
         subtitle: 'Show/hide fields based on another field value with .when()',
-        page: const ConditionalValidationPage(),
+        page: ConditionalValidationPage(),
       ),
       _Example(
         title: 'Multi Language',
         subtitle: 'Switch locale to change error messages',
-        page: const LocalePage(),
+        page: LocalePage(),
       ),
       _Example(
         title: 'Array Field',
         subtitle: 'List of tags with VArray validation',
-        page: const ArrayFieldPage(),
+        page: ArrayFieldPage(),
       ),
       _Example(
         title: 'Async Validation',
         subtitle: 'refineAsync + form.validateAsync() — remote username check',
-        page: const AsyncValidationPage(),
+        page: AsyncValidationPage(),
       ),
       _Example(
         title: 'Complex Form',
         subtitle:
             'All types + array + nested map + enum + union + when sync/async + refineFormField',
-        page: const ComplexFormPage(),
+        page: ComplexFormPage(),
       ),
       _Example(
         title: 'Multi Type Form',
         subtitle: 'All field types combined in a single form',
-        page: const MultiTypeFormPage(),
+        page: MultiTypeFormPage(),
       ),
       _Example(
         title: 'Manual Error',
         subtitle:
             'Imperative setError/clearError for backend and business rule errors',
-        page: const ManualErrorPage(),
+        page: ManualErrorPage(),
       ),
       _Example(
         title: 'Transforms',
         subtitle: 'Pipeline transforms (trim, toLowerCase) — rawValue vs value',
-        page: const TransformsPage(),
+        page: TransformsPage(),
       ),
       _Example(
         title: 'Errors Preview',
         subtitle: 'form.errors() and field.error for live previews',
-        page: const ErrorsPreviewPage(),
+        page: ErrorsPreviewPage(),
       ),
       _Example(
         title: 'vErrors',
         subtitle:
             'Structured errors with code + path — great for arrays and i18n',
-        page: const VErrorsPage(),
+        page: VErrorsPage(),
       ),
     ];
 
