@@ -70,6 +70,13 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const InfoCard.highlight(
+              'Reset buttons here call field.reset(), not form.reset(). '
+              'Without a controller attached, only the VField value resets '
+              '— the widget text stays. Check the preview under each '
+              'section for the real VField value.',
+            ),
+            const SizedBox(height: 16),
             _SyncSection(
               title: 'With Controller',
               description: 'attachTextController creates bidirectional sync. '
@@ -271,7 +278,7 @@ class _SyncSection extends StatelessWidget {
                 child: const Text('Set null'),
               ),
               FilledButton.tonal(
-                onPressed: () => field.reset(),
+                onPressed: field.reset,
                 child: const Text('Reset'),
               ),
             ],
