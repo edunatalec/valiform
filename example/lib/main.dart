@@ -19,6 +19,7 @@ import 'pages/errors_preview_page.dart';
 import 'pages/manual_error_page.dart';
 import 'pages/optional_fields_page.dart';
 import 'pages/transforms_page.dart';
+import 'pages/v_errors_page.dart';
 
 void main() {
   runApp(const ValiformExampleApp());
@@ -163,6 +164,12 @@ class HomePage extends StatelessWidget {
         title: 'Errors Preview',
         subtitle: 'form.errors() and field.error for live previews',
         page: const ErrorsPreviewPage(),
+      ),
+      _Example(
+        title: 'vErrors',
+        subtitle:
+            'Structured errors with code + path — great for arrays and i18n',
+        page: const VErrorsPage(),
       ),
     ];
 
