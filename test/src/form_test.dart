@@ -1567,12 +1567,9 @@ void main() {
     });
   });
 
-  group('reset() with rebuilding widget tree', () {
+  group('reset() clears widget text in a single call', () {
     testWidgets(
-      'clears TextFormField text in a single reset() call even when the tree '
-      'rebuilds on every keystroke — regression: widget.initialValue tracks '
-      'field.value during typing, so FormState.reset() would otherwise fire '
-      'against a stale initialValue and leave the text in place',
+      'with a listener rebuilding on every keystroke',
       (WidgetTester tester) async {
         final form = V.map({'name': V.string()}).form();
 
@@ -1587,23 +1584,155 @@ void main() {
         form.reset();
         await tester.pumpAndSettle();
 
-        expect(
-          form.field<String>('name').value,
-          isNull,
-          reason: 'VField value should reset to initial (null) in one call',
+        expect(form.field<String>('name').value, isNull);
+        expect(find.text('John'), findsNothing);
+
+        form.dispose();
+      },
+    );
+
+    testWidgets(
+      'with no listener rebuilding the tree between keystrokes',
+      (WidgetTester tester) async {
+        final form = V.map({'name': V.string(), 'email': V.string()}).form();
+
+        await tester.pumpWidget(_StaticHarness(form: form));
+
+        await tester.enterText(find.byKey(const Key('nameField')), 'John');
+        await tester.enterText(
+          find.byKey(const Key('emailField')),
+          'john@example.com',
         );
-        expect(
-          find.text('John'),
-          findsNothing,
-          reason:
-              'TextFormField text must clear in a single reset() call, even '
-              'with onValueChanged-driven rebuilds between keystrokes',
+        await tester.pumpAndSettle();
+
+        expect(form.field<String>('name').value, 'John');
+        expect(form.field<String>('email').value, 'john@example.com');
+
+        form.reset();
+        await tester.pumpAndSettle();
+
+        expect(form.field<String>('name').value, isNull);
+        expect(form.field<String>('email').value, isNull);
+        expect(find.text('John'), findsNothing);
+        expect(find.text('john@example.com'), findsNothing);
+
+        form.dispose();
+      },
+    );
+
+    testWidgets(
+      'after a submit-driven setState rebuild',
+      (WidgetTester tester) async {
+        final form = V.map({'name': V.string(), 'email': V.string()}).form();
+
+        await tester.pumpWidget(_SubmitThenResetHarness(form: form));
+
+        await tester.enterText(find.byKey(const Key('nameField')), 'John');
+        await tester.enterText(
+          find.byKey(const Key('emailField')),
+          'john@example.com',
         );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('submit')));
+        await tester.pumpAndSettle();
+
+        form.reset();
+        await tester.pumpAndSettle();
+
+        expect(form.field<String>('name').value, isNull);
+        expect(form.field<String>('email').value, isNull);
+        expect(find.text('John'), findsNothing);
+        expect(find.text('john@example.com'), findsNothing);
 
         form.dispose();
       },
     );
   });
+}
+
+class _SubmitThenResetHarness extends StatefulWidget {
+  final VForm<Map<String, dynamic>> form;
+
+  const _SubmitThenResetHarness({required this.form});
+
+  @override
+  State<_SubmitThenResetHarness> createState() =>
+      _SubmitThenResetHarnessState();
+}
+
+class _SubmitThenResetHarnessState extends State<_SubmitThenResetHarness> {
+  @override
+  Widget build(BuildContext context) {
+    final name = widget.form.field<String>('name');
+    final email = widget.form.field<String>('email');
+    return MaterialApp(
+      home: Scaffold(
+        body: Form(
+          key: widget.form.key,
+          child: Column(
+            children: [
+              TextFormField(
+                key: const Key('nameField'),
+                initialValue: name.initialValue,
+                validator: name.validator,
+                onChanged: name.onChanged,
+              ),
+              TextFormField(
+                key: const Key('emailField'),
+                initialValue: email.initialValue,
+                validator: email.validator,
+                onChanged: email.onChanged,
+              ),
+              ElevatedButton(
+                key: const Key('submit'),
+                onPressed: () {
+                  widget.form.validate();
+                  setState(() {});
+                },
+                child: const Text('Submit'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StaticHarness extends StatelessWidget {
+  final VForm<Map<String, dynamic>> form;
+
+  const _StaticHarness({required this.form});
+
+  @override
+  Widget build(BuildContext context) {
+    final name = form.field<String>('name');
+    final email = form.field<String>('email');
+    return MaterialApp(
+      home: Scaffold(
+        body: Form(
+          key: form.key,
+          child: Column(
+            children: [
+              TextFormField(
+                key: const Key('nameField'),
+                initialValue: name.initialValue,
+                validator: name.validator,
+                onChanged: name.onChanged,
+              ),
+              TextFormField(
+                key: const Key('emailField'),
+                initialValue: email.initialValue,
+                validator: email.validator,
+                onChanged: email.onChanged,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _RebuildOnChangeHarness extends StatefulWidget {
@@ -1640,7 +1769,7 @@ class _RebuildOnChangeHarnessState extends State<_RebuildOnChangeHarness> {
           key: widget.form.key,
           child: TextFormField(
             key: const Key('nameField'),
-            initialValue: name.value,
+            initialValue: name.initialValue,
             validator: name.validator,
             onChanged: name.onChanged,
           ),

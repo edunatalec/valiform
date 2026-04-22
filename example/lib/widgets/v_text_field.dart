@@ -44,7 +44,11 @@ class VTextField extends StatelessWidget {
     return TextFormField(
       key: field.key,
       controller: controller,
-      initialValue: controller == null ? field.value : null,
+      // Point initialValue at the stable field.initialValue (not field.value)
+      // so FormField.reset() targets the true starting point. Otherwise any
+      // rebuild during typing recaptures the current value as "initial", and
+      // a later reset() would restore that stale text instead of clearing it.
+      initialValue: controller == null ? field.initialValue : null,
       decoration:
           decoration ?? InputDecoration(labelText: label, hintText: hint),
       keyboardType: keyboardType,

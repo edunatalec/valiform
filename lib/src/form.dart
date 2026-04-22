@@ -271,35 +271,20 @@ class VForm<T> {
 
   /// Resets all form fields to their initial values.
   ///
-  /// The reset happens in two phases:
+  /// Calls `FormState.reset()` first so each `TextFormField` descendant
+  /// restores its text from `widget.initialValue`; the subsequent
+  /// `field.reset()` overrides any `''` that `TextFormField.reset()`
+  /// writes back via its `widget.onChanged(text)` side effect.
   ///
-  /// 1. `field.reset()` runs synchronously on every field so `VField.value`
-  ///    and any attached controllers reflect the initial value immediately
-  ///    and trigger a rebuild if listeners are wired.
-  /// 2. `FormState.reset()` is deferred to a post-frame callback. If we
-  ///    called it synchronously, `TextFormField.reset()` would snapshot
-  ///    `widget.initialValue` from the previous build — stale whenever the
-  ///    tree rebuilds on every keystroke (e.g. `onValueChanged` + a
-  ///    widget that mirrors `field.value` as its `initialValue`), leaving
-  ///    the text in place and forcing a second `reset()` to clear it.
-  ///
-  /// After `FormState.reset()` we re-apply `field.reset()` once more:
-  /// `TextFormField.reset()` explicitly calls `widget.onChanged(text)`
-  /// after the controller change, and when that callback is wired to
-  /// `field.onChanged`, it writes `''` back into a non-nullable string
-  /// field — we restore the actual initial value.
+  /// Requires widgets to bind `initialValue` to `VField.initialValue`
+  /// (not `VField.value`) so the reset target stays stable across
+  /// rebuilds — see `VField.initialValue`'s dartdoc.
   void reset() {
+    _formKey.currentState?.reset();
+
     for (final field in _fields.values) {
       field.reset();
     }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _formKey.currentState?.reset();
-
-      for (final field in _fields.values) {
-        field.reset();
-      }
-    });
   }
 
   /// Sets an imperative error on [field].

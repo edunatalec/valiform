@@ -52,6 +52,17 @@ class VField<T> {
   /// Listenable for tracking field value changes.
   Listenable get listenable => _value;
 
+  /// The initial value for this field, set either via `initialValues`
+  /// at form construction or the schema's `defaultValue`. Stable — does
+  /// not change as the user types.
+  ///
+  /// Prefer this over [value] when binding a widget's `initialValue`
+  /// parameter (e.g. `TextFormField.initialValue`): those parameters
+  /// are captured at mount and re-applied on `reset()`, so pointing
+  /// them at the live [value] makes `reset()` target whatever the user
+  /// last typed instead of the true starting point.
+  T? get initialValue => _initialValue;
+
   /// Whether this field has any async-only validation step — either the
   /// underlying [VType] contains `refineAsync`/`preprocessAsync`/
   /// `transformAsync`, or a conditional (`.when()`) rule targeting this
