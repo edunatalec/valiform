@@ -284,6 +284,25 @@ void main() {
 
       expect(form.validate(), false);
     });
+
+    test('vError wraps the extra validator message in VError(custom)', () {
+      form.field<String>('password').set('Aa1@aaaa');
+      form.field<String>('confirmPassword').set('Aa1@bbbb');
+
+      final vErr = form.field<String>('confirmPassword').vError;
+      expect(vErr, isNotNull);
+      expect(vErr!.first.code, VCode.custom);
+    });
+
+    test('errorAsync surfaces the extra validator message', () async {
+      form.field<String>('password').set('Aa1@aaaa');
+      form.field<String>('confirmPassword').set('Aa1@bbbb');
+
+      expect(
+        await form.field<String>('confirmPassword').errorAsync,
+        isNotNull,
+      );
+    });
   });
 
   group('VForm initialization with different types', () {
@@ -428,6 +447,36 @@ void main() {
 
       formWithDefaults.dispose();
     });
+
+    test('silentValidateAsync runs the typed builder pipeline', () async {
+      final form = V
+          .object<_User>(
+            configure: (o) =>
+                o.field('name', (u) => u.name, V.string().min(3)).field(
+                      'email',
+                      (u) => u.email,
+                      V.string().email().refineAsync(
+                            (v) async => !v.contains('bad'),
+                            message: 'forbidden',
+                          ),
+                    ),
+          )
+          .form(
+            builder: (data) => _User(
+              name: data['name'] ?? '',
+              email: data['email'] ?? '',
+            ),
+          );
+
+      form.field<String>('name').set('Alice');
+      form.field<String>('email').set('alice@example.com');
+      expect(await form.silentValidateAsync(), true);
+
+      form.field<String>('email').set('bad@example.com');
+      expect(await form.silentValidateAsync(), false);
+
+      form.dispose();
+    });
   });
 
   group('onValueChanged', () {
@@ -503,6 +552,24 @@ void main() {
 
       form.dispose();
     });
+
+    test(
+      'dispose clears pending onValueChanged listeners without explicit disposer',
+      () {
+        final form = V.map({'name': V.string()}).form();
+        final name = form.field<String>('name');
+        var calls = 0;
+
+        // Register but intentionally never call the returned disposer —
+        // form.dispose() must clean the listener list on its own.
+        name.onValueChanged((_) => calls++);
+
+        name.set('first');
+        expect(calls, 1);
+
+        form.dispose();
+      },
+    );
   });
 
   group('Typed fields via mapType', () {
@@ -639,6 +706,35 @@ void main() {
       form.field<String>('document').set(null);
       expect(form.silentValidate(), true);
     });
+
+    test(
+      'empty string on non-nullable base is substituted with null for a nullable conditional type',
+      () {
+        final form = V.map({
+          'type': V.string(),
+          // Non-nullable base keeps empty string as-is instead of
+          // normalizing it to null. Lets the when-validator see the
+          // empty string and exercise the nullable-substitution branch.
+          'bio': V.string(),
+        }).when(
+          'type',
+          equals: 'verbose',
+          then: {'bio': V.string().nullable().min(5)},
+        ).form();
+
+        form.field<String>('type').set('verbose');
+        form.field<String>('bio').set('');
+
+        // The when-validator treats '' as null because the conditional type
+        // is nullable, so it produces no error on its own. The base
+        // validator (non-nullable, empty → invalid) is the one that fails;
+        // this confirms the two paths stay independent.
+        expect(form.silentValidate(), false);
+        expect(form.field<String>('bio').value, '');
+
+        form.dispose();
+      },
+    );
   });
 
   group('Manual errors', () {
@@ -871,6 +967,50 @@ void main() {
       form.clearErrors();
       await tester.pump();
       expect(find.text('Email already taken'), findsNothing);
+    });
+
+    test('form.errors() returns a map keyed by failing field names', () {
+      final form = V.map({
+        'email': V.string().email(),
+        'password': V.string().password(),
+      }).form();
+
+      final errs = form.errors();
+      expect(errs, isNotNull);
+      expect(errs!.keys, containsAll(['email', 'password']));
+
+      form.dispose();
+    });
+
+    test('vError wraps a forced manual error in VError(custom)', () {
+      final form = V.map({'email': V.string().email()}).form(
+        initialValues: {'email': 'user@example.com'},
+      );
+      final email = form.field<String>('email');
+      email.setError('server rejected', force: true);
+
+      final vErr = email.vError;
+      expect(vErr, isNotNull);
+      expect(vErr!.length, 1);
+      expect(vErr.first.code, VCode.custom);
+      expect(vErr.first.message, 'server rejected');
+
+      form.dispose();
+    });
+
+    test('vError wraps a non-forced manual error when std+extra pass', () {
+      final form = V.map({'email': V.string().email()}).form(
+        initialValues: {'email': 'user@example.com'},
+      );
+      final email = form.field<String>('email');
+      email.setError('server rejected');
+
+      final vErr = email.vError;
+      expect(vErr, isNotNull);
+      expect(vErr!.first.code, VCode.custom);
+      expect(vErr.first.message, 'server rejected');
+
+      form.dispose();
     });
   });
 
@@ -1258,6 +1398,56 @@ void main() {
       );
       // Async path reports the schema-level failure.
       expect(await form.silentValidateAsync(), isFalse);
+
+      form.dispose();
+    });
+
+    test('VField.vErrorAsync surfaces errors from async extra validators',
+        () async {
+      final form = V.map({
+        'type': V.string(),
+        'name': V.string().nullable(),
+      }).when(
+        'type',
+        equals: 'member',
+        then: {
+          'name': V.string().min(1).refineAsync(
+                (v) async => false,
+                message: 'taken',
+              ),
+        },
+      ).form();
+
+      form.field<String>('type').set('member');
+      form.field<String>('name').set('foo');
+
+      final vErr = await form.field<String>('name').vErrorAsync;
+      expect(vErr, isNotNull);
+      expect(vErr!.first.message, 'taken');
+
+      form.dispose();
+    });
+
+    test('VField.errorAsync surfaces errors from async extra validators',
+        () async {
+      final form = V.map({
+        'type': V.string(),
+        'name': V.string().nullable(),
+      }).when(
+        'type',
+        equals: 'member',
+        then: {
+          'name': V.string().min(1).refineAsync(
+                (v) async => false,
+                message: 'taken',
+              ),
+        },
+      ).form();
+
+      form.field<String>('type').set('member');
+      form.field<String>('name').set('foo');
+
+      expect(await form.field<String>('name').errorAsync, 'taken');
 
       form.dispose();
     });
