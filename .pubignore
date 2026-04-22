@@ -1,5 +1,5 @@
 .dart_tool/
-.build/
+build/
 .packages
 pubspec.lock
 
@@ -45,3 +45,10 @@ windows/.dart_tool/
 CLAUDE.md
 .claude/
 scripts/
+
+example/android/
+example/ios/
+example/linux/
+example/macos/
+example/web/
+example/windows/
