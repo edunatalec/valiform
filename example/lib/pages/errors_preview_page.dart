@@ -216,10 +216,7 @@ class _ErrorsPreviewPageState extends State<ErrorsPreviewPage> {
           TextFormField(
             decoration: const InputDecoration(labelText: 'Age (18-120)'),
             keyboardType: TextInputType.number,
-            onChanged: (value) {
-              final parsed = int.tryParse(value);
-              if (parsed != null) age.set(parsed);
-            },
+            onChanged: (value) => age.onChanged(int.tryParse(value)),
             validator: (_) => age.validator(age.value),
           ),
           const SizedBox(height: 12),

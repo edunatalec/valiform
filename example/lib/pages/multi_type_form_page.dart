@@ -93,10 +93,8 @@ class _MultiTypeFormPageState extends State<MultiTypeFormPage> {
                 decoration:
                     const InputDecoration(labelText: 'Max Participants'),
                 keyboardType: TextInputType.number,
-                onChanged: (value) {
-                  final parsed = int.tryParse(value);
-                  if (parsed != null) _maxParticipants.set(parsed);
-                },
+                onChanged: (value) =>
+                    _maxParticipants.onChanged(int.tryParse(value)),
                 validator: (_) =>
                     _maxParticipants.validator(_maxParticipants.value),
               ),
@@ -106,10 +104,7 @@ class _MultiTypeFormPageState extends State<MultiTypeFormPage> {
                     const InputDecoration(labelText: 'Rating (0.0 - 5.0)'),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                onChanged: (value) {
-                  final parsed = double.tryParse(value);
-                  if (parsed != null) _rating.set(parsed);
-                },
+                onChanged: (value) => _rating.onChanged(double.tryParse(value)),
                 validator: (_) => _rating.validator(_rating.value),
               ),
               const SizedBox(height: 16),

@@ -149,10 +149,7 @@ class _LocalePageState extends State<LocalePage> {
               TextFormField(
                 decoration: const InputDecoration(labelText: 'Age'),
                 keyboardType: TextInputType.number,
-                onChanged: (value) {
-                  final parsed = int.tryParse(value);
-                  if (parsed != null) _age.set(parsed);
-                },
+                onChanged: (value) => _age.onChanged(int.tryParse(value)),
                 validator: (_) => _age.validator(_age.value),
               ),
               const SizedBox(height: 24),

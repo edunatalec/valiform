@@ -151,14 +151,7 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
                   hintText: '0-150 if provided',
                 ),
                 keyboardType: TextInputType.number,
-                onChanged: (value) {
-                  if (value.isEmpty) {
-                    _age.set(null);
-                  } else {
-                    final parsed = int.tryParse(value);
-                    if (parsed != null) _age.set(parsed);
-                  }
-                },
+                onChanged: (value) => _age.onChanged(int.tryParse(value)),
                 validator: (_) => _age.validator(_age.value),
               ),
               const SizedBox(height: 16),
@@ -169,14 +162,7 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
                 ),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                onChanged: (value) {
-                  if (value.isEmpty) {
-                    _score.set(null);
-                  } else {
-                    final parsed = double.tryParse(value);
-                    if (parsed != null) _score.set(parsed);
-                  }
-                },
+                onChanged: (value) => _score.onChanged(double.tryParse(value)),
                 validator: (_) => _score.validator(_score.value),
               ),
               const SizedBox(height: 24),
