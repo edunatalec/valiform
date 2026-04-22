@@ -165,6 +165,18 @@ V.string().min(2).defaultValue('Guest')
   // + .form(initialValues: {'name': 'Alice'})
 ```
 
+### Binding widgets' `initialValue`
+
+When you pass a `VField`'s value to a widget's `initialValue` parameter (e.g. `TextFormField.initialValue`), use **`field.initialValue`**, not `field.value`. Flutter's `FormField.reset()` re-reads `widget.initialValue` from the last build — if it's pointing at `field.value`, any rebuild during typing (from `onValueChanged`, submit's `setState`, etc.) recaptures the current text as "initial" and a later `reset()` restores the stale value instead of clearing. `field.initialValue` is stable across rebuilds, so reset always targets the true starting point.
+
+```dart
+TextFormField(
+  initialValue: field.initialValue,   // stable — reset() targets this
+  validator: field.validator,
+  onChanged: field.onChanged,
+);
+```
+
 ## Typed Forms (VObject)
 
 Return a typed object instead of a `Map`. Full example: [`object_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/object_form_page.dart).
@@ -615,6 +627,7 @@ If you attached a controller with `owns: false`, you are responsible for its `di
 | Member                                                | Description                                                                                        |
 | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `value`                                               | Raw value                                                                                          |
+| `initialValue`                                        | Stable initial value (resolved at construction). Prefer over `value` when binding to widget `initialValue` parameters so `reset()` targets the true starting point |
 | `parsedValue`                                         | Value after pipeline transforms (trim, toLowerCase, ...)                                           |
 | `set(T?)`                                             | Update value programmatically                                                                      |
 | `onChanged(T?)`                                       | Wire to widget `onChanged` callbacks                                                               |
