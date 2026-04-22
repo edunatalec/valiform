@@ -118,6 +118,17 @@ class _CustomClassFieldPageState extends State<CustomClassFieldPage> {
                 child: const Text('Submit'),
               ),
               ResultFeedback(data: _result, errors: _errors),
+              if (_result != null) ...[
+                const SizedBox(height: 12),
+                InfoCard.highlight(
+                  'Tip: category renders as a plain string above because '
+                  'Category.toString() returns the name. The stored value '
+                  'is still a typed Category instance — '
+                  'form.value[\'category\'] is a ${_category.value!.runtimeType}, '
+                  'so you can access fields like .id '
+                  '(currently ${_category.value!.id}).',
+                ),
+              ],
             ],
           ),
         ),
