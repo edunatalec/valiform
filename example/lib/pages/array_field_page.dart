@@ -32,6 +32,7 @@ class _ArrayFieldPageState extends State<ArrayFieldPage> {
   void dispose() {
     _tagController.dispose();
     _form.dispose();
+
     super.dispose();
   }
 
