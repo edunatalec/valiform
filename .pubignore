@@ -1,9 +1,8 @@
 .dart_tool/
-build/
+.build/
 .packages
 pubspec.lock
 
-.dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .flutter-versions
@@ -45,3 +44,4 @@ windows/.dart_tool/
 
 CLAUDE.md
 .claude/
+scripts/
