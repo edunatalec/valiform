@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.1.0] - 2026-04-21
+## [1.1.0] - 2026-04-22
 
 ### Added
 
@@ -16,6 +16,7 @@
 - **Schema `defaultValue` now seeds the VField initial value** — when `.form()` isn't given an explicit value for a field, the schema's `defaultValue` (if any) auto-populates the UI and is the target of `reset()`. Resolution order: `initialValues[key]` (even an explicit `null`) → `schema.defaultValue` → `null`. Reinforces the semantic that a field with `defaultValue` is **never required** — validart substitutes the default for null before any validator runs.
 - **`Required Message` example page** — `example/lib/pages/required_message_page.dart` compares `V.bool(message: ...)` against `preprocess((v) => v ?? false)` as two ways to customize the error on an untouched checkbox.
 - **`Default Value` example page** — `example/lib/pages/default_value_page.dart` demonstrates the three combinations (`defaultValue` only, `initialValues` only, both) side by side with their respective `reset()` and `required` semantics.
+- **`VField.initialValue` getter** — exposes the stable initial value resolved at form construction (`initialValues[key]` → `schema.defaultValue` → `null`). Prefer binding widgets' `initialValue` parameter to this getter instead of `VField.value` so `FormField.reset()` always targets the true starting point, even when the widget tree rebuilds during typing.
 
 ### Changed
 
