@@ -181,6 +181,47 @@ void main() {
     );
   });
 
+  group('form.listenable contract', () {
+    test(
+      'add/removeListener against an ad-hoc access still works — fresh merge propagates to the underlying field ValueNotifiers',
+      () {
+        // Listenable.merge returns a new wrapper on every form.listenable
+        // access, BUT both wrappers delegate add/removeListener to the same
+        // underlying field.listenable notifiers — so removeListener on a
+        // second access correctly removes the listener registered on the
+        // first. Pinning this here because a previous CLAUDE.md note
+        // incorrectly claimed the opposite.
+        final form = V.map({'name': V.string()}).form();
+
+        final a = form.listenable;
+        final b = form.listenable;
+        expect(
+          identical(a, b),
+          isFalse,
+          reason:
+              'still a fresh wrapper per access — allocation characteristic, not a correctness one',
+        );
+
+        var calls = 0;
+        void listener() => calls++;
+
+        form.listenable.addListener(listener);
+        form.listenable.removeListener(listener);
+
+        form.field<String>('name').set('x');
+
+        expect(
+          calls,
+          0,
+          reason:
+              'removeListener on a fresh merge wrapper correctly unregisters from the underlying field notifiers',
+        );
+
+        form.dispose();
+      },
+    );
+  });
+
   group('Default values', () {
     late VForm<Map<String, dynamic>> form;
     late VField<String> email;
@@ -558,6 +599,86 @@ void main() {
 
       form.dispose();
     });
+
+    // Initial value resolution order — parity with VMap tests elsewhere in
+    // this file. VMap is thoroughly covered; VObject wasn't. The resolution
+    // rule is the same (initialValues[key] > schema.defaultValueOrNull > null),
+    // but since the user-facing surface for VObject is a typed instance, it
+    // needs its own pins.
+
+    test(
+      'schema defaultValue auto-populates field when no initialValue is passed',
+      () {
+        final form = V
+            .object<_User>(
+              configure: (o) => o
+                  .field(
+                    'name',
+                    (u) => u.name,
+                    V.string().defaultValue('Guest'),
+                  )
+                  .field('email', (u) => u.email, V.string().email()),
+            )
+            .form(
+              builder: (data) =>
+                  _User(name: data['name'] ?? '', email: data['email'] ?? ''),
+            );
+
+        expect(form.field<String>('name').value, 'Guest');
+
+        form.dispose();
+      },
+    );
+
+    test('initialValue wins over schema defaultValue', () {
+      final form = V
+          .object<_User>(
+            configure: (o) => o
+                .field(
+                  'name',
+                  (u) => u.name,
+                  V.string().defaultValue('Guest'),
+                )
+                .field('email', (u) => u.email, V.string().email()),
+          )
+          .form(
+            builder: (data) =>
+                _User(name: data['name'] ?? '', email: data['email'] ?? ''),
+            initialValue: const _User(name: 'Alice', email: 'alice@x.com'),
+          );
+
+      expect(form.field<String>('name').value, 'Alice');
+
+      form.dispose();
+    });
+
+    test(
+      'reset() restores the winning initial value (initialValue, not defaultValue)',
+      () {
+        final form = V
+            .object<_User>(
+              configure: (o) => o
+                  .field(
+                    'name',
+                    (u) => u.name,
+                    V.string().defaultValue('Guest'),
+                  )
+                  .field('email', (u) => u.email, V.string().email()),
+            )
+            .form(
+              builder: (data) =>
+                  _User(name: data['name'] ?? '', email: data['email'] ?? ''),
+              initialValue: const _User(name: 'Alice', email: 'alice@x.com'),
+            );
+
+        form.field<String>('name').set('Bob');
+        form.reset();
+
+        expect(form.field<String>('name').value, 'Alice');
+
+        form.dispose();
+      },
+    );
   });
 
   group('onValueChanged', () {
@@ -1532,6 +1653,68 @@ void main() {
 
       form.dispose();
     });
+
+    test(
+      'validateAsync handles re-entry cycle bad → good → bad without ghost errors',
+      () async {
+        // Existing test covers bad → good. This extends to a full round-trip
+        // to pin that the internal setError/clearError mechanism used by
+        // validateAsync does not get stuck after a clear — otherwise a user
+        // who fixes and re-breaks the same value would see no error.
+        final form = V.map({
+          'username': V.string().refineAsync(
+                (v) async => v != 'taken',
+                message: 'already taken',
+              ),
+        }).form(initialValues: {'username': 'taken'});
+
+        expect(await form.validateAsync(), isFalse);
+        expect(form.field<String>('username').manualError, 'already taken');
+
+        form.field<String>('username').set('available');
+        expect(await form.validateAsync(), isTrue);
+        expect(form.field<String>('username').manualError, isNull);
+
+        // Re-entry: the mechanism must re-populate the error cleanly.
+        form.field<String>('username').set('taken');
+        expect(await form.validateAsync(), isFalse);
+        expect(form.field<String>('username').manualError, 'already taken');
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'validateAsync clears prior manual persistent errors when async passes — contract pin',
+      () async {
+        // Pins current behavior documented in form.dart:455-475: validateAsync
+        // unconditionally calls field.clearError() on fields whose async
+        // pipeline returns null. That wipes any persistent manual error the
+        // caller set BEFORE validateAsync — e.g. a server-side block pushed
+        // via form.setError(..., persist: true). If this ever needs to
+        // distinguish "my own persistent errors" from "user-set ones",
+        // update this expect and the implementation together.
+        final form = V.map({
+          'username': V.string().refineAsync(
+                (v) async => true, // always passes
+                message: 'never fires',
+              ),
+        }).form(initialValues: {'username': 'anything'});
+
+        form.setError('username', 'server-side block', persist: true);
+        expect(form.field<String>('username').manualError, 'server-side block');
+
+        expect(await form.validateAsync(), isTrue);
+        expect(
+          form.field<String>('username').manualError,
+          isNull,
+          reason:
+              'validateAsync unconditionally clearError()s on pass — pinned',
+        );
+
+        form.dispose();
+      },
+    );
   });
 
   group('Integration: all types mixed with async/when', () {
