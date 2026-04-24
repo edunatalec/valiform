@@ -555,11 +555,11 @@ final form = V.map({
 form.field<List<String>>('emails').set(['a@b.com', 'bad']);
 
 form.errors();
-// {'emails': 'Invalid email'}  ← just the message
+// {'emails': 'Invalid email address'}  ← just the message
 
 form.vErrors();
-// {'emails': [VError(code: invalid_email, path: [1], message: 'Invalid email')]}
-//                                         ^^^^^^^ index of the invalid element
+// {'emails': [VError(code: 'string.email', path: [1], message: 'Invalid email address')]}
+//                                                 ^^^^^^^ index of the invalid element
 ```
 
 Cross-field validators and imperative errors (which are produced outside validart) are wrapped as `VError(code: VCode.custom, message: ...)`.
