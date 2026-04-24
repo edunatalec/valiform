@@ -163,6 +163,22 @@ void main() {
       expect(value, isA<Map<String, dynamic>>());
       expect(value['email'], 'test@example.com');
     });
+
+    test(
+      'value does NOT throw when fields are empty on VMap — nulls fit inside Map<String, dynamic>',
+      () {
+        // Contrast with the VObject case: a VMap form just returns a Map
+        // populated with whatever the fields hold (including `null`). No
+        // builder is invoked, so there is no non-nullable constructor
+        // parameter to explode on.
+        //
+        // Reading `form.value` on an unvalidated VMap is therefore safe —
+        // the TypeError risk is exclusive to VObject forms whose builder
+        // dereferences `data[key]` directly.
+        expect(() => form.value, returnsNormally);
+        expect(form.value, {'email': null, 'password': null});
+      },
+    );
   });
 
   group('Default values', () {
@@ -447,6 +463,71 @@ void main() {
 
       formWithDefaults.dispose();
     });
+
+    test(
+      'value throws TypeError when fields are empty and builder has no null fallback',
+      () {
+        // `form.value` is optimistic — it builds T from whatever is in the
+        // fields, without running validation first. If the builder dereferences
+        // `data['name']` directly (no `??` fallback) and the field is empty,
+        // the resulting `null` is passed to a non-nullable `String` parameter
+        // and Dart throws at runtime.
+        //
+        // This is the documented contract: either validate before reading
+        // `form.value`, or add null fallbacks in the builder, or read
+        // `form.rawValue` / individual `form.field(...)` values instead.
+        final form = V
+            .object<_User>(
+              configure: (o) => o
+                  .field('name', (u) => u.name, V.string().min(3))
+                  .field('email', (u) => u.email, V.string().email()),
+            )
+            .form(
+              // Intentionally no `?? ''` — we want the TypeError to surface.
+              builder: (data) =>
+                  _User(name: data['name'], email: data['email']),
+            );
+
+        expect(() => form.value, throwsA(isA<TypeError>()));
+
+        // rawValue stays safe — always `Map<String, dynamic>`, null-tolerant —
+        // and individual field access is also safe (both VObject and VMap
+        // forms share this escape hatch).
+        expect(form.rawValue, {'name': null, 'email': null});
+        expect(form.field<String>('name').value, isNull);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'value succeeds after validate returns true, even when builder has no null fallback',
+      () {
+        // Flip side of the previous test: once every field passes validation,
+        // the builder can safely dereference without `??` fallbacks.
+        final form = V
+            .object<_User>(
+              configure: (o) => o
+                  .field('name', (u) => u.name, V.string().min(3))
+                  .field('email', (u) => u.email, V.string().email()),
+            )
+            .form(
+              builder: (data) =>
+                  _User(name: data['name'], email: data['email']),
+            );
+
+        form.field<String>('name').set('Alice');
+        form.field<String>('email').set('alice@example.com');
+
+        expect(form.silentValidate(), true);
+
+        final user = form.value;
+        expect(user.name, 'Alice');
+        expect(user.email, 'alice@example.com');
+
+        form.dispose();
+      },
+    );
 
     test('silentValidateAsync runs the typed builder pipeline', () async {
       final form = V
