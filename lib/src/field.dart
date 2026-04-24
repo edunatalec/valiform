@@ -74,8 +74,10 @@ class VField<T> {
   /// adapter for Flutter's synchronous `FormField.validator`.
   bool get hasAsync => _type.hasAsync || _asyncValidators.isNotEmpty;
 
-  /// The current value of the field.
   /// The current raw value of the field (as stored, without transforms).
+  ///
+  /// Empty strings are normalized to `null` when the field is nullable —
+  /// see [VField] class-level docs for the full rationale.
   T? get value {
     final val = _value.value;
 
