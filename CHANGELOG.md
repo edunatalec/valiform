@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0] - 2026-04-23
+
+### Changed
+
+- Bumped minimum `validart` constraint to `1.3.0` for the domain-prefixed error-code format (`string.email`, `number.positive`, `int.even`, ...) introduced in validart 1.2.0 and the `V.coerce.date()` multi-format parsing added in 1.3.0. No API surface of valiform itself changed — the generic `VForm<T>` / `VField<T>` contract stays identical.
+- **Example — `locale_page.dart` PT-BR map migrated to the nested type-prefixed shape.** Every validator's translation now lives under its owning type group (`'string': { 'email': '...' }`, `'int': { 'even': '...' }`, `'enum': { 'invalid': '...' }`, ...). The legacy flat keys (`'invalid_email'`, `'positive'`, `'even'`, `'weekday'`, `'invalid_enum'`, ...) were emitted by validart ≤ 1.1.0 but no longer match any code emitted by 1.2.0+, so the previous map silently fell back to English for most validators. `required`, `invalid_type` and `custom` stay flat as documented global fallbacks.
+
 ## [1.1.0] - 2026-04-22
 
 ### Added
