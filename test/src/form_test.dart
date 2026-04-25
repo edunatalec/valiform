@@ -430,11 +430,9 @@ void main() {
 
     setUp(() {
       form = V
-          .object<_User>(
-            configure: (o) => o
-                .field('name', (u) => u.name, V.string().min(3))
-                .field('email', (u) => u.email, V.string().email()),
-          )
+          .object<_User>()
+          .field('name', (u) => u.name, V.string().min(3))
+          .field('email', (u) => u.email, V.string().email())
           .form(
             builder: (data) =>
                 _User(name: data['name'] ?? '', email: data['email'] ?? ''),
@@ -487,11 +485,9 @@ void main() {
 
     test('initial values work with typed initialValue', () {
       final formWithDefaults = V
-          .object<_User>(
-            configure: (o) => o
-                .field('name', (u) => u.name, V.string().min(3))
-                .field('email', (u) => u.email, V.string().email()),
-          )
+          .object<_User>()
+          .field('name', (u) => u.name, V.string().min(3))
+          .field('email', (u) => u.email, V.string().email())
           .form(
             builder: (data) =>
                 _User(name: data['name'] ?? '', email: data['email'] ?? ''),
@@ -518,11 +514,9 @@ void main() {
         // `form.value`, or add null fallbacks in the builder, or read
         // `form.rawValue` / individual `form.field(...)` values instead.
         final form = V
-            .object<_User>(
-              configure: (o) => o
-                  .field('name', (u) => u.name, V.string().min(3))
-                  .field('email', (u) => u.email, V.string().email()),
-            )
+            .object<_User>()
+            .field('name', (u) => u.name, V.string().min(3))
+            .field('email', (u) => u.email, V.string().email())
             .form(
               // Intentionally no `?? ''` — we want the TypeError to surface.
               builder: (data) =>
@@ -547,11 +541,9 @@ void main() {
         // Flip side of the previous test: once every field passes validation,
         // the builder can safely dereference without `??` fallbacks.
         final form = V
-            .object<_User>(
-              configure: (o) => o
-                  .field('name', (u) => u.name, V.string().min(3))
-                  .field('email', (u) => u.email, V.string().email()),
-            )
+            .object<_User>()
+            .field('name', (u) => u.name, V.string().min(3))
+            .field('email', (u) => u.email, V.string().email())
             .form(
               builder: (data) =>
                   _User(name: data['name'], email: data['email']),
@@ -572,16 +564,15 @@ void main() {
 
     test('silentValidateAsync runs the typed builder pipeline', () async {
       final form = V
-          .object<_User>(
-            configure: (o) =>
-                o.field('name', (u) => u.name, V.string().min(3)).field(
-                      'email',
-                      (u) => u.email,
-                      V.string().email().refineAsync(
-                            (v) async => !v.contains('bad'),
-                            message: 'forbidden',
-                          ),
-                    ),
+          .object<_User>()
+          .field('name', (u) => u.name, V.string().min(3))
+          .field(
+            'email',
+            (u) => u.email,
+            V.string().email().refineAsync(
+                  (v) async => !v.contains('bad'),
+                  message: 'forbidden',
+                ),
           )
           .form(
             builder: (data) => _User(
@@ -610,15 +601,13 @@ void main() {
       'schema defaultValue auto-populates field when no initialValue is passed',
       () {
         final form = V
-            .object<_User>(
-              configure: (o) => o
-                  .field(
-                    'name',
-                    (u) => u.name,
-                    V.string().defaultValue('Guest'),
-                  )
-                  .field('email', (u) => u.email, V.string().email()),
+            .object<_User>()
+            .field(
+              'name',
+              (u) => u.name,
+              V.string().defaultValue('Guest'),
             )
+            .field('email', (u) => u.email, V.string().email())
             .form(
               builder: (data) =>
                   _User(name: data['name'] ?? '', email: data['email'] ?? ''),
@@ -632,15 +621,13 @@ void main() {
 
     test('initialValue wins over schema defaultValue', () {
       final form = V
-          .object<_User>(
-            configure: (o) => o
-                .field(
-                  'name',
-                  (u) => u.name,
-                  V.string().defaultValue('Guest'),
-                )
-                .field('email', (u) => u.email, V.string().email()),
+          .object<_User>()
+          .field(
+            'name',
+            (u) => u.name,
+            V.string().defaultValue('Guest'),
           )
+          .field('email', (u) => u.email, V.string().email())
           .form(
             builder: (data) =>
                 _User(name: data['name'] ?? '', email: data['email'] ?? ''),
@@ -656,15 +643,13 @@ void main() {
       'reset() restores the winning initial value (initialValue, not defaultValue)',
       () {
         final form = V
-            .object<_User>(
-              configure: (o) => o
-                  .field(
-                    'name',
-                    (u) => u.name,
-                    V.string().defaultValue('Guest'),
-                  )
-                  .field('email', (u) => u.email, V.string().email()),
+            .object<_User>()
+            .field(
+              'name',
+              (u) => u.name,
+              V.string().defaultValue('Guest'),
             )
+            .field('email', (u) => u.email, V.string().email())
             .form(
               builder: (data) =>
                   _User(name: data['name'] ?? '', email: data['email'] ?? ''),
@@ -736,11 +721,9 @@ void main() {
       final users = <_User>[];
 
       final form = V
-          .object<_User>(
-            configure: (o) => o
-                .field('name', (u) => u.name, V.string())
-                .field('email', (u) => u.email, V.string()),
-          )
+          .object<_User>()
+          .field('name', (u) => u.name, V.string())
+          .field('email', (u) => u.email, V.string())
           .form(
             builder: (data) =>
                 _User(name: data['name'] ?? '', email: data['email'] ?? ''),
@@ -835,11 +818,9 @@ void main() {
 
     test('VObject form value applies transforms', () {
       final form = V
-          .object<_User>(
-            configure: (o) => o
-                .field('name', (u) => u.name, V.string().trim())
-                .field('email', (u) => u.email, V.string().trim()),
-          )
+          .object<_User>()
+          .field('name', (u) => u.name, V.string().trim())
+          .field('email', (u) => u.email, V.string().trim())
           .form(
             builder: (data) =>
                 _User(name: data['name'] ?? '', email: data['email'] ?? ''),
@@ -908,6 +889,50 @@ void main() {
       form.field<String>('document').set(null);
       expect(form.silentValidate(), true);
     });
+
+    test(
+      'VObject .when() rules surface on per-field validator (regression: '
+      'VForm.object was dropping VObject.whenRules)',
+      () {
+        // Pins the bug where `VForm.object` failed to forward
+        // `VObject.whenRules` to the per-field validators wired into each
+        // FormField. Before the fix, the schema-level `silentValidate` saw
+        // the rule (because `object.validate` runs whenRules itself), but
+        // `field.validator(...)` — the channel `Form.validate()` exercises
+        // — did not, so `form.validate()` could return true for a value the
+        // schema knew to be invalid.
+        final schema = V
+            .object<_TaxPayer>()
+            .field('country', (t) => t.country, V.string())
+            .field('taxId', (t) => t.taxId, V.string().nullable())
+            .when(
+          'country',
+          equals: 'US',
+          then: {'taxId': V.string().min(9)},
+        );
+
+        final form = schema.form(
+          builder: (data) => _TaxPayer(
+            country: data['country'] ?? '',
+            taxId: data['taxId'] as String?,
+          ),
+          initialValue: const _TaxPayer(country: 'US', taxId: 'short'),
+        );
+
+        // Schema-level path always saw the rule (this passed pre-fix too):
+        expect(form.silentValidate(), false);
+
+        // Per-field path is the one the bug killed: pre-fix this returned
+        // null because the whenRule never reached the validator chain.
+        expect(form.field<String>('taxId').validator('short'), isNotNull);
+
+        // Flip the condition off: rule no longer applies, taxId can be short.
+        form.field<String>('country').set('BR');
+        expect(form.field<String>('taxId').validator('short'), isNull);
+
+        form.dispose();
+      },
+    );
 
     test(
       'empty string on non-nullable base is substituted with null for a nullable conditional type',
@@ -1444,18 +1469,17 @@ void main() {
     });
 
     test('VObject form.validateAsync works', () async {
-      final schema = V.object<_User>(
-        configure: (o) => o
-          ..field('name', (u) => u.name, V.string().min(2))
-          ..field(
+      final schema = V
+          .object<_User>()
+          .field('name', (u) => u.name, V.string().min(2))
+          .field(
             'email',
             (u) => u.email,
             V.string().email().refineAsync(
                   (v) async => !v.endsWith('@blocked.com'),
                   message: 'blocked domain',
                 ),
-          ),
-      );
+          );
       final form = schema.form(
         builder: (data) => _User(
           name: data['name'] as String,
@@ -1826,34 +1850,33 @@ void main() {
     test(
         'VObject with every primitive + array + enum + union + async field '
         'rebuilds the typed instance via valueAsync', () async {
-      final schema = V.object<_Profile>(
-        configure: (o) => o
-          ..field('name', (u) => u.name, V.string().min(1))
-          ..field('age', (u) => u.age, V.int().between(0, 150))
-          ..field('height', (u) => u.height, V.double().positive())
-          ..field('active', (u) => u.active, V.bool().isTrue())
-          ..field('joined', (u) => u.joined, V.date().before(DateTime(2030)))
-          ..field(
+      final schema = V
+          .object<_Profile>()
+          .field('name', (u) => u.name, V.string().min(1))
+          .field('age', (u) => u.age, V.int().between(0, 150))
+          .field('height', (u) => u.height, V.double().positive())
+          .field('active', (u) => u.active, V.bool().isTrue())
+          .field('joined', (u) => u.joined, V.date().before(DateTime(2030)))
+          .field(
             'tags',
             (u) => u.tags,
             V.string().min(2).array().min(1).unique(),
           )
-          ..field('role', (u) => u.role, V.enm<_Role>(_Role.values))
-          ..field(
+          .field('role', (u) => u.role, V.enm<_Role>(_Role.values))
+          .field(
             'id',
             (u) => u.id,
             V.union([V.string().uuid(), V.int().min(1)]),
           )
           // Async: email must not be blocked.
-          ..field(
+          .field(
             'email',
             (u) => u.email,
             V.string().email().trim().toLowerCase().refineAsync(
                   (v) async => !v.endsWith('@blocked.com'),
                   message: 'blocked domain',
                 ),
-          ),
-      );
+          );
 
       final seed = _Profile(
         name: 'Alice',
@@ -2103,6 +2126,347 @@ void main() {
       },
     );
   });
+
+  group('VObject 1.4.0 APIs via VForm', () {
+    test(
+      'VObject.equalFields is enforced by silentValidate (and clears once '
+      'the two fields agree)',
+      () {
+        // Schema-level rule. silentValidate sees it; per-field errors() does
+        // NOT — equalFields/refineField/refine on VObject feed only the
+        // safeParse pipeline, not the per-field FormField.validator chain.
+        // (For VMap, the valiform `refineFormField` extension exists to do
+        // both — there is no current VObject equivalent.)
+        final schema = V
+            .object<_PasswordPair>()
+            .field('password', (p) => p.password, V.string())
+            .field('confirmPassword', (p) => p.confirmPassword, V.string())
+            .equalFields(
+              'password',
+              'confirmPassword',
+              message: 'must match',
+            );
+
+        final form = schema.form(
+          builder: (data) => _PasswordPair(
+            password: data['password'] as String,
+            confirmPassword: data['confirmPassword'] as String,
+          ),
+          initialValue: const _PasswordPair(
+            password: 'abc123',
+            confirmPassword: 'abc124',
+          ),
+        );
+
+        expect(form.silentValidate(), isFalse);
+        // Aligning the two values flips the rule to passing.
+        form.field<String>('confirmPassword').set('abc123');
+        expect(form.silentValidate(), isTrue);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'VObject.refineField is enforced by silentValidate (and clears once '
+      'the predicate is satisfied)',
+      () {
+        final schema = V
+            .object<_Booking>()
+            .field('startDate', (b) => b.startDate, V.date())
+            .field('endDate', (b) => b.endDate, V.date())
+            .refineField(
+              (b) => b.endDate.isAfter(b.startDate),
+              path: 'endDate',
+              message: 'endDate must be after startDate',
+            );
+
+        final form = schema.form(
+          builder: (data) => _Booking(
+            startDate: data['startDate'] as DateTime,
+            endDate: data['endDate'] as DateTime,
+          ),
+          initialValue: _Booking(
+            startDate: DateTime(2026, 5, 1),
+            endDate: DateTime(2026, 4, 1),
+          ),
+        );
+
+        expect(form.silentValidate(), isFalse);
+        form.field<DateTime>('endDate').set(DateTime(2026, 6, 1));
+        expect(form.silentValidate(), isTrue);
+
+        form.dispose();
+      },
+    );
+
+    test('VObject.pick narrows the form to the picked subset', () {
+      final full = V
+          .object<_User>()
+          .field('name', (u) => u.name, V.string().min(3))
+          .field('email', (u) => u.email, V.string().email());
+
+      final namesOnly = full.pick(['name']);
+
+      final form = namesOnly.form(
+        builder: (data) => _User(name: data['name'] as String, email: ''),
+        initialValue: const _User(name: 'Al', email: 'invalid'),
+      );
+
+      // Only 'name' is in the form. 'email' is gone — pick() narrowed it.
+      expect(() => form.field<String>('email'), throwsArgumentError);
+      // The narrow schema still validates the kept field as before.
+      expect(form.silentValidate(), isFalse); // 'Al' < min(3)
+
+      form.field<String>('name').set('Alice');
+      expect(form.silentValidate(), isTrue);
+
+      form.dispose();
+    });
+
+    test(
+      'preprocess() on a VMap container runs through VForm '
+      '(regression: pre-1.4.0 silently ignored container preprocess)',
+      () {
+        // The schema strips the 'meta' key before validation. Without the
+        // 1.4.0 fix the preprocess would be ignored, the 'meta' key would
+        // leak through, and strict() (or any pipeline that doesn't expect
+        // it) would surface differently. This pins the new behaviour from
+        // VForm's perspective: silentValidate runs on the parsed map after
+        // the preprocess.
+        final schema = V.map({
+          'name': V.string().min(3),
+        }).preprocess((raw) {
+          if (raw is! Map) return raw;
+          final map = Map<String, dynamic>.from(raw);
+          map.remove('meta');
+          return map;
+        });
+
+        final form = schema.form(initialValues: {'name': 'Alice'});
+        expect(form.silentValidate(), isTrue);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'static final schema pattern (V.object<Dto>().field(...)) survives '
+      'multiple .form() instantiations',
+      () {
+        // The fluent .field() API enables the canonical DTO pattern. Pin
+        // that two independent forms built off the same schema do NOT
+        // share field state (each form gets its own VFields).
+        final formA = _SignInDtoSchema.schema.form(
+          builder: (data) => _SignInDto(
+            email: data['email'] as String,
+            password: data['password'] as String,
+          ),
+        );
+        final formB = _SignInDtoSchema.schema.form(
+          builder: (data) => _SignInDto(
+            email: data['email'] as String,
+            password: data['password'] as String,
+          ),
+        );
+
+        formA.field<String>('email').set('a@example.com');
+        expect(formB.field<String>('email').value, isNull);
+
+        formA.dispose();
+        formB.dispose();
+      },
+    );
+  });
+
+  group('Form-level (root) errors', () {
+    test('rootErrors is empty when no schema-level rule exists', () {
+      final form = V.map({
+        'name': V.string().min(3),
+      }).form();
+
+      expect(form.rootErrors, isEmpty);
+
+      form.field<String>('name').set('x');
+      // Field-level error, but no root-level rule — root stays empty.
+      expect(form.silentValidate(), isFalse);
+      expect(form.rootErrors, isEmpty);
+
+      form.dispose();
+    });
+
+    test(
+      'rootErrors surfaces refine() messages when fields are valid but the '
+      'cross-field rule fails (refine + dependsOn)',
+      () {
+        final schema = V.map({
+          'startDate': V.date(),
+          'endDate': V.date(),
+        }).refine(
+          (m) => (m['endDate'] as DateTime).isAfter(m['startDate'] as DateTime),
+          message: 'endDate must be after startDate',
+          dependsOn: const {'startDate', 'endDate'},
+        );
+
+        final form = schema.form(
+          initialValues: {
+            'startDate': DateTime(2026, 5, 1),
+            'endDate': DateTime(2026, 4, 1),
+          },
+        );
+
+        expect(form.silentValidate(), isFalse);
+        expect(form.rootErrors, ['endDate must be after startDate']);
+
+        // Fix the dates → no root error.
+        form.field<DateTime>('endDate').set(DateTime(2026, 6, 1));
+        expect(form.silentValidate(), isTrue);
+        expect(form.rootErrors, isEmpty);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'rootErrors stays empty when refine has no dependsOn and a field is '
+      'invalid (conservative skip — pre-1.4.0 behaviour)',
+      () {
+        final schema = V.map({
+          'name': V.string().min(3),
+          'startDate': V.date(),
+          'endDate': V.date(),
+        }).refine(
+          (m) => (m['endDate'] as DateTime).isAfter(m['startDate'] as DateTime),
+          message: 'endDate must be after startDate',
+        );
+
+        final form = schema.form(
+          initialValues: {
+            'name': 'Jo', // too short
+            'startDate': DateTime(2026, 5, 1),
+            'endDate': DateTime(2026, 4, 1),
+          },
+        );
+
+        // Field error fires, but the un-scoped refine is skipped because a
+        // sibling field failed — so the root rule never runs.
+        expect(form.silentValidate(), isFalse);
+        expect(form.rootErrors, isEmpty);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'rootErrors and field errors aggregate when refine declares dependsOn',
+      () {
+        final schema = V.map({
+          'name': V.string().min(3),
+          'startDate': V.date(),
+          'endDate': V.date(),
+        }).refine(
+          (m) => (m['endDate'] as DateTime).isAfter(m['startDate'] as DateTime),
+          message: 'endDate must be after startDate',
+          dependsOn: const {'startDate', 'endDate'},
+        );
+
+        final form = schema.form(
+          initialValues: {
+            'name': 'Jo',
+            'startDate': DateTime(2026, 5, 1),
+            'endDate': DateTime(2026, 4, 1),
+          },
+        );
+
+        expect(form.silentValidate(), isFalse);
+        // Field error AND root error both surface (1.4.0 aggregation).
+        expect(form.errors()?.keys, contains('name'));
+        expect(form.rootErrors, ['endDate must be after startDate']);
+
+        form.dispose();
+      },
+    );
+
+    test('VObject form surfaces rootErrors from VObject.refine + dependsOn',
+        () {
+      final schema = V
+          .object<_Booking>()
+          .field('startDate', (b) => b.startDate, V.date())
+          .field('endDate', (b) => b.endDate, V.date())
+          .refine(
+        (b) => b.endDate.isAfter(b.startDate),
+        message: 'endDate must be after startDate',
+        dependsOn: const {'startDate', 'endDate'},
+      );
+
+      final form = schema.form(
+        builder: (data) => _Booking(
+          startDate: data['startDate'] as DateTime,
+          endDate: data['endDate'] as DateTime,
+        ),
+        initialValue: _Booking(
+          startDate: DateTime(2026, 5, 1),
+          endDate: DateTime(2026, 4, 1),
+        ),
+      );
+
+      expect(form.silentValidate(), isFalse);
+      expect(form.rootErrors, ['endDate must be after startDate']);
+
+      form.dispose();
+    });
+
+    test('rootErrors does not require a prior silentValidate call', () {
+      // Self-contained getter: re-runs the schema each access, so the
+      // banner stays in sync with the parsed values without the consumer
+      // having to remember to call silentValidate first.
+      final schema = V.map({
+        'startDate': V.date(),
+        'endDate': V.date(),
+      }).refine(
+        (m) => (m['endDate'] as DateTime).isAfter(m['startDate'] as DateTime),
+        message: 'endDate must be after startDate',
+        dependsOn: const {'startDate', 'endDate'},
+      );
+
+      final form = schema.form(
+        initialValues: {
+          'startDate': DateTime(2026, 5, 1),
+          'endDate': DateTime(2026, 4, 1),
+        },
+      );
+
+      expect(form.rootErrors, ['endDate must be after startDate']);
+
+      form.dispose();
+    });
+
+    test('rootErrors throws on async schema; rootErrorsAsync works', () async {
+      final schema = V.map({
+        'name': V.string().refineAsync(
+              (v) async => v.length >= 3,
+              message: 'too short',
+            ),
+        'echo': V.string(),
+      }).refine(
+        (m) => m['name'] == m['echo'],
+        message: 'name and echo must match',
+        dependsOn: const {'name', 'echo'},
+      );
+
+      final form = schema.form(initialValues: {'name': 'Alice', 'echo': 'X'});
+
+      expect(
+        () => form.rootErrors,
+        throwsA(isA<VAsyncRequiredException>()),
+      );
+
+      // Async path is self-contained: no prior silentValidateAsync needed.
+      expect(await form.rootErrorsAsync, ['name and echo must match']);
+
+      form.dispose();
+    });
+  });
 }
 
 class _SubmitThenResetHarness extends StatefulWidget {
@@ -2242,6 +2606,41 @@ class _User {
   final String email;
 
   const _User({required this.name, required this.email});
+}
+
+class _TaxPayer {
+  final String country;
+  final String? taxId;
+
+  const _TaxPayer({required this.country, this.taxId});
+}
+
+class _Booking {
+  final DateTime startDate;
+  final DateTime endDate;
+
+  const _Booking({required this.startDate, required this.endDate});
+}
+
+class _PasswordPair {
+  final String password;
+  final String confirmPassword;
+
+  const _PasswordPair({required this.password, required this.confirmPassword});
+}
+
+class _SignInDto {
+  final String email;
+  final String password;
+
+  const _SignInDto({required this.email, required this.password});
+}
+
+class _SignInDtoSchema {
+  static final VObject<_SignInDto> schema = V
+      .object<_SignInDto>()
+      .field('email', (d) => d.email, V.string().email())
+      .field('password', (d) => d.password, V.string().min(6));
 }
 
 class _Profile {

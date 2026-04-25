@@ -11,8 +11,10 @@ import 'package:validart/validart.dart';
 class VForm<T> {
   final GlobalKey<FormState> _formKey;
   final Map<String, VField> _fields = {};
-  final bool Function(Map<String, dynamic>) _silentValidatorSync;
-  final Future<bool> Function(Map<String, dynamic>) _silentValidatorAsync;
+  final (bool, List<String>) Function(Map<String, dynamic>)
+      _silentValidatorSync;
+  final Future<(bool, List<String>)> Function(Map<String, dynamic>)
+      _silentValidatorAsync;
   final T Function(Map<String, dynamic>) _valueBuilder;
   final List<void Function(T value)> _valueChangedListeners = [];
   final bool _schemaHasAsync;
@@ -30,8 +32,10 @@ class VForm<T> {
   VForm._({
     required Map<String, VType> schema,
     required bool schemaHasAsync,
-    required bool Function(Map<String, dynamic>) silentValidatorSync,
-    required Future<bool> Function(Map<String, dynamic>) silentValidatorAsync,
+    required (bool, List<String>) Function(Map<String, dynamic>)
+        silentValidatorSync,
+    required Future<(bool, List<String>)> Function(Map<String, dynamic>)
+        silentValidatorAsync,
     required T Function(Map<String, dynamic>) valueBuilder,
     GlobalKey<FormState>? formKey,
     Map<String, dynamic>? initialValues,
@@ -136,8 +140,9 @@ class VForm<T> {
     return VForm._(
       schema: map.schema,
       schemaHasAsync: map.hasAsync,
-      silentValidatorSync: (raw) => map.validate(raw),
-      silentValidatorAsync: (raw) => map.validateAsync(raw),
+      silentValidatorSync: (raw) => _runWithRoot(map.safeParse(raw)),
+      silentValidatorAsync: (raw) async =>
+          _runWithRoot(await map.safeParseAsync(raw)),
       valueBuilder: (raw) => raw as T,
       formKey: formKey,
       initialValues: initialValues,
@@ -165,13 +170,27 @@ class VForm<T> {
     return VForm._(
       schema: object.schema,
       schemaHasAsync: object.hasAsync,
-      silentValidatorSync: (raw) => object.validate(builder(raw)),
-      silentValidatorAsync: (raw) => object.validateAsync(builder(raw)),
+      silentValidatorSync: (raw) =>
+          _runWithRoot(object.safeParse(builder(raw))),
+      silentValidatorAsync: (raw) async =>
+          _runWithRoot(await object.safeParseAsync(builder(raw))),
       valueBuilder: builder,
       formKey: formKey,
       initialValues: initialValues,
+      whenRules: object.whenRules,
       onValueChanged: onValueChanged,
     );
+  }
+
+  /// Unpacks a [VResult] into the `(valid, rootMessages)` tuple consumed by
+  /// the silent validators — `VSuccess` contributes nothing to `rootErrors`,
+  /// while `VFailure.rootMessages()` captures schema-level errors with no
+  /// specific field path (i.e. emitted by `refine(..., dependsOn: {...})`
+  /// without a per-field `path`).
+  static (bool, List<String>) _runWithRoot(VResult result) {
+    if (result is VSuccess) return (true, const <String>[]);
+
+    return (false, (result as VFailure).rootMessages());
   }
 
   void _notifyValueChanged() {
@@ -410,6 +429,62 @@ class VForm<T> {
     return result.isEmpty ? null : result;
   }
 
+  /// Form-level error messages emitted by schema validators with no specific
+  /// field path — typically `refine(..., dependsOn: {...})` rules on the
+  /// `VMap` / `VObject` (e.g. cross-field date-range or total checks).
+  ///
+  /// Render these as a banner above the form; field-keyed errors come from
+  /// [errors]. Always reflects the current parsed values: each access
+  /// re-runs the schema-level `safeParse`, so mounting a [ListenableBuilder]
+  /// on [listenable] keeps the banner in sync without a manual
+  /// [silentValidate] call.
+  ///
+  /// ```dart
+  /// final form = V.map({
+  ///   'startDate': V.date(),
+  ///   'endDate': V.date(),
+  /// }).refine(
+  ///   (m) => (m['endDate'] as DateTime).isAfter(m['startDate'] as DateTime),
+  ///   message: 'endDate must be after startDate',
+  ///   dependsOn: const {'startDate', 'endDate'},
+  /// ).form();
+  ///
+  /// // After invalid input:
+  /// form.rootErrors; // ['endDate must be after startDate']
+  /// ```
+  ///
+  /// Throws [VAsyncRequiredException] when [hasAsync] is `true` — use
+  /// [rootErrorsAsync].
+  List<String> get rootErrors {
+    if (_hasAsync) {
+      throw const VAsyncRequiredException(
+        methodName: 'VForm.rootErrors',
+        suggestion: 'rootErrorsAsync',
+      );
+    }
+
+    final (_, root) = _silentValidatorSync(
+      _fields.map((key, field) => MapEntry(key, field.parsedValue)),
+    );
+
+    return root;
+  }
+
+  /// Async variant of [rootErrors]: awaits each field's async pipeline
+  /// before re-running the schema-level `safeParseAsync` to capture any
+  /// `refineAsync(..., dependsOn: {...})` failures.
+  Future<List<String>> get rootErrorsAsync async {
+    final parsed = <String, dynamic>{};
+
+    for (final entry in _fields.entries) {
+      parsed[entry.key] = await entry.value.parsedValueAsync;
+    }
+
+    final (_, root) = await _silentValidatorAsync(parsed);
+
+    return root;
+  }
+
   /// Clears the imperative error on [field].
   void clearError(String field) {
     _requireField(field).clearError();
@@ -502,7 +577,7 @@ class VForm<T> {
       }
     }
 
-    final schemaValid = _silentValidatorSync(
+    final (schemaValid, _) = _silentValidatorSync(
       _fields.map((key, field) => MapEntry(key, field.parsedValue)),
     );
 
@@ -525,7 +600,7 @@ class VForm<T> {
       parsed[entry.key] = await entry.value.parsedValueAsync;
     }
 
-    final schemaValid = await _silentValidatorAsync(parsed);
+    final (schemaValid, _) = await _silentValidatorAsync(parsed);
 
     return allValid && schemaValid;
   }
