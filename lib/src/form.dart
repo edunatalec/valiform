@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 import 'package:valiform/src/field.dart';
-import 'package:valiform/src/valiform.dart';
 import 'package:validart/validart.dart';
 
 /// A form manager that integrates validation, state management, and input handling.
@@ -11,14 +10,26 @@ import 'package:validart/validart.dart';
 class VForm<T> {
   final GlobalKey<FormState> _formKey;
   final Map<String, VField> _fields = {};
-  final (bool, List<String>) Function(Map<String, dynamic>)
-      _silentValidatorSync;
-  final Future<(bool, List<String>)> Function(Map<String, dynamic>)
-      _silentValidatorAsync;
+  final (bool, List<String>, Map<String, String>) Function(
+    Map<String, dynamic>,
+  ) _silentValidatorSync;
+  final Future<(bool, List<String>, Map<String, String>)> Function(
+    Map<String, dynamic>,
+  ) _silentValidatorAsync;
   final T Function(Map<String, dynamic>) _valueBuilder;
   final List<void Function(T value)> _valueChangedListeners = [];
   final bool _schemaHasAsync;
   late final bool _hasAsync;
+
+  /// Snapshot of the schema-level errors that have a non-empty path,
+  /// keyed by the top-level field name. Refreshed by every call to
+  /// [validate] / [silentValidate] (and async equivalents). Read by
+  /// each [VField] via the `schemaErrorLookup` closure so the error
+  /// emitted by `refineField` / nested-path `refine` shows up in
+  /// `field.error`, `field.validator`, `form.errors()`, and the
+  /// `FormField.validator` chain — matching the behavior of
+  /// `refineFormField`.
+  Map<String, String> _schemaFieldErrors = const {};
 
   /// Whether any field in this form depends on async validation — either
   /// its type contains `refineAsync`/`preprocessAsync`/`transformAsync`,
@@ -32,14 +43,15 @@ class VForm<T> {
   VForm._({
     required Map<String, VType> schema,
     required bool schemaHasAsync,
-    required (bool, List<String>) Function(Map<String, dynamic>)
-        silentValidatorSync,
-    required Future<(bool, List<String>)> Function(Map<String, dynamic>)
-        silentValidatorAsync,
+    required (bool, List<String>, Map<String, String>) Function(
+      Map<String, dynamic>,
+    ) silentValidatorSync,
+    required Future<(bool, List<String>, Map<String, String>)> Function(
+      Map<String, dynamic>,
+    ) silentValidatorAsync,
     required T Function(Map<String, dynamic>) valueBuilder,
     GlobalKey<FormState>? formKey,
     Map<String, dynamic>? initialValues,
-    List<VFieldValidator> crossValidators = const [],
     List<({String field, Object? equals, Map<String, VType> then})> whenRules =
         const [],
     Map<String, dynamic> Function(Map<String, dynamic>)?
@@ -56,13 +68,11 @@ class VForm<T> {
       final key = entry.key;
       final type = entry.value;
 
-      final validators = crossValidators
-          .where((v) => v.path == key)
-          .map((v) => () {
-                if (!v.check(rawValue)) return v.message ?? V.t(VCode.custom);
-                return null;
-              })
-          .toList();
+      // Per-field schema-level error closures: when rules + (after the
+      // refineFormField removal) the schema-error demux populates
+      // _schemaFieldErrors which is consulted by VField.schemaErrorLookup
+      // — no need to maintain a parallel `crossValidators` list.
+      final validators = <String? Function()>[];
 
       final asyncValidators = <Future<String?> Function()>[];
 
@@ -152,6 +162,22 @@ class VForm<T> {
               return processed[fieldKey];
             };
 
+      // Schema error lookup, scoped to this field.
+      //
+      // Sync path: re-runs the schema validator on demand each time the
+      // per-field validator is called, so the snapshot always reflects
+      // the current sibling values. Without this, the snapshot would go
+      // stale the moment any other field changed (e.g. flipping a
+      // `when` condition off should drop the conditional error
+      // immediately). Cost is O(N) per keystroke — same shape as the
+      // container preprocess closure, and gated on the schema actually
+      // having validation power: pure schemas with no refine /
+      // refineField / equalFields / whenRules return an empty
+      // fieldErrors map and the lookup degrades to a no-op.
+      //
+      // Async path: a sync per-field validator can't await the schema,
+      // so we fall through to `_schemaFieldErrors`, which is a snapshot
+      // refreshed by every `validateAsync` / `silentValidateAsync` call.
       _fields[key] = _createField(
         type: type,
         initialValue: resolvedInitial,
@@ -159,6 +185,18 @@ class VForm<T> {
         asyncValidators: asyncValidators,
         preprocessor: preSync,
         preprocessorAsync: preAsync,
+        schemaErrorLookup: () {
+          if (!_hasAsync) {
+            // Pass raw values (with empty strings normalized to null so
+            // defaultValue / nullable handling engages): the underlying
+            // safeParse applies container preprocess + per-field pipeline
+            // on its own. Sending parsed would double-process and would
+            // hide raw values from `refineFieldRaw`.
+            final (_, _, fieldErrors) = _silentValidatorSync(_rawSnapshot());
+            return fieldErrors[fieldKey];
+          }
+          return _schemaFieldErrors[fieldKey];
+        },
       );
     }
 
@@ -180,8 +218,6 @@ class VForm<T> {
     Map<String, dynamic>? initialValues,
     void Function(T value)? onValueChanged,
   }) {
-    final crossValidators = formFieldValidators[map] ?? [];
-
     // Gate the snapshot/preprocess plumbing on actually-needed work.
     // Schemas without container preprocess pay zero overhead.
     final containerPreprocessSync = map.hasPreprocessors
@@ -208,7 +244,6 @@ class VForm<T> {
       valueBuilder: (raw) => raw as T,
       formKey: formKey,
       initialValues: initialValues,
-      crossValidators: crossValidators,
       whenRules: map.whenRules,
       containerPreprocessSync: containerPreprocessSync,
       containerPreprocessAsync: containerPreprocessAsync,
@@ -269,15 +304,60 @@ class VForm<T> {
     );
   }
 
-  /// Unpacks a [VResult] into the `(valid, rootMessages)` tuple consumed by
-  /// the silent validators — `VSuccess` contributes nothing to `rootErrors`,
-  /// while `VFailure.rootMessages()` captures schema-level errors with no
-  /// specific field path (i.e. emitted by `refine(..., dependsOn: {...})`
-  /// without a per-field `path`).
-  static (bool, List<String>) _runWithRoot(VResult result) {
-    if (result is VSuccess) return (true, const <String>[]);
+  /// Snapshot of the raw field values, with empty strings normalized to
+  /// `null`. The normalization lets validart's `_resolveNull` engage so
+  /// `defaultValue` / `nullable` handling kicks in when the user clears
+  /// a text field — without it, `''` would bypass those gates and the
+  /// pipeline would run against the empty string.
+  ///
+  /// `refineFieldRaw` callbacks see the post-normalization map (so an
+  /// empty text field shows as `null`, not `''`); the rest of the
+  /// pipeline (container preprocess → per-field iteration) is applied
+  /// by the underlying `safeParse`.
+  Map<String, dynamic> _rawSnapshot() {
+    return _fields.map((key, field) {
+      final v = field.value;
+      return MapEntry(key, v is String && v.isEmpty ? null : v);
+    });
+  }
 
-    return (false, (result as VFailure).rootMessages());
+  /// Unpacks a [VResult] into a `(valid, rootMessages, fieldMessages)`
+  /// tuple consumed by the silent validators.
+  ///
+  /// `rootMessages` are the messages of every error with an empty path
+  /// (emitted by `refine(...)` / `equalFields` applied at the schema
+  /// root). `fieldMessages` is keyed by the top-level field name and
+  /// holds the first message of every error with a non-empty path
+  /// (emitted by `refineField(check, path: 'x')`, nested-path `refine`,
+  /// or any other schema construct that targets a specific field).
+  /// Together, the two partitions cover every error in the [VFailure]
+  /// — root errors render in a banner, field errors render inline.
+  static (bool, List<String>, Map<String, String>) _runWithRoot(
+    VResult result,
+  ) {
+    if (result is VSuccess) {
+      return (true, const <String>[], const <String, String>{});
+    }
+
+    final f = result as VFailure;
+    final rootMessages = <String>[];
+    final fieldMessages = <String, String>{};
+
+    for (final err in f.errors) {
+      if (err.path.isEmpty) {
+        rootMessages.add(err.message);
+      } else {
+        // Take the top-level segment as the field key. Nested paths
+        // (e.g. ['address', 'zip']) collapse to their root field
+        // ('address') — the inline UI lives at the FormField level,
+        // and the full path is still available via `form.vErrors()`
+        // for callers that need it.
+        final key = err.path.first.toString();
+        fieldMessages.putIfAbsent(key, () => err.message);
+      }
+    }
+
+    return (false, rootMessages, fieldMessages);
   }
 
   void _notifyValueChanged() {
@@ -550,8 +630,8 @@ class VForm<T> {
       );
     }
 
-    final (_, root) = _silentValidatorSync(
-      _fields.map((key, field) => MapEntry(key, field.parsedValue)),
+    final (_, root, _) = _silentValidatorSync(
+      _rawSnapshot(),
     );
 
     return root;
@@ -561,13 +641,7 @@ class VForm<T> {
   /// before re-running the schema-level `safeParseAsync` to capture any
   /// `refineAsync(..., dependsOn: {...})` failures.
   Future<List<String>> get rootErrorsAsync async {
-    final parsed = <String, dynamic>{};
-
-    for (final entry in _fields.entries) {
-      parsed[entry.key] = await entry.value.parsedValueAsync;
-    }
-
-    final (_, root) = await _silentValidatorAsync(parsed);
+    final (_, root, _) = await _silentValidatorAsync(_rawSnapshot());
 
     return root;
   }
@@ -606,7 +680,24 @@ class VForm<T> {
       );
     }
 
-    return _formKey.currentState?.validate() ?? false;
+    // Run the schema validator FIRST so we can refresh _schemaFieldErrors
+    // before FormState.validate() walks each FormField. That way the
+    // per-field validators see up-to-date schema errors via the
+    // schemaErrorLookup closure and surface them inline.
+    final (schemaValid, _, fieldErrors) = _silentValidatorSync(
+      _rawSnapshot(),
+    );
+    _schemaFieldErrors = fieldErrors;
+
+    final fieldsValid = _formKey.currentState?.validate() ?? false;
+
+    // Per-field validation alone is not enough: schema-level rules
+    // (`refine`, `equalFields`, `refineField`, `dependsOn`) emit errors
+    // that don't go through any FormField. Without checking them here,
+    // `validate()` would return `true` for inputs the schema rejects —
+    // a foot-gun that previously forced consumers to write
+    // `if (form.validate() && form.silentValidate())`.
+    return fieldsValid && schemaValid;
   }
 
   /// Async variant of [validate]: runs the full validation pipeline,
@@ -629,11 +720,21 @@ class VForm<T> {
       }
     }
 
-    // Also repaint the UI so the persisted errors surface through
-    // FormField.validator.
+    // Per-field check alone misses schema-level rules — see the comment
+    // on the sync `validate()` for the rationale. Refresh the schema
+    // error snapshot before the final FormState.validate() repaint so
+    // path-keyed schema errors surface inline. Pass raw values: the
+    // underlying safeParseAsync applies container preprocess + per-field
+    // pipeline on its own (and refineFieldRaw observes the raw input).
+    final (schemaValid, _, fieldErrors) =
+        await _silentValidatorAsync(_rawSnapshot());
+    _schemaFieldErrors = fieldErrors;
+
+    // Repaint the UI so persisted errors AND schema-level field errors
+    // surface through FormField.validator.
     _formKey.currentState?.validate();
 
-    return allValid;
+    return allValid && schemaValid;
   }
 
   /// Validates without triggering UI error messages.
@@ -656,6 +757,13 @@ class VForm<T> {
       );
     }
 
+    // Schema validator first so per-field validators below pick up the
+    // refreshed schema field errors via schemaErrorLookup.
+    final (schemaValid, _, fieldErrors) = _silentValidatorSync(
+      _rawSnapshot(),
+    );
+    _schemaFieldErrors = fieldErrors;
+
     bool allValid = true;
 
     for (final field in _fields.values) {
@@ -664,30 +772,22 @@ class VForm<T> {
       }
     }
 
-    final (schemaValid, _) = _silentValidatorSync(
-      _fields.map((key, field) => MapEntry(key, field.parsedValue)),
-    );
-
     return allValid && schemaValid;
   }
 
   /// Async variant of [silentValidate]: runs full pipeline without
   /// touching the UI. Does NOT consume one-shot manual errors.
   Future<bool> silentValidateAsync() async {
+    final (schemaValid, _, fieldErrors) =
+        await _silentValidatorAsync(_rawSnapshot());
+    _schemaFieldErrors = fieldErrors;
+
     bool allValid = true;
 
     for (final field in _fields.values) {
       final message = await field.errorAsync;
       if (message != null) allValid = false;
     }
-
-    final parsed = <String, dynamic>{};
-
-    for (final entry in _fields.entries) {
-      parsed[entry.key] = await entry.value.parsedValueAsync;
-    }
-
-    final (schemaValid, _) = await _silentValidatorAsync(parsed);
 
     return allValid && schemaValid;
   }
@@ -708,6 +808,7 @@ class VForm<T> {
     List<Future<String?> Function()> asyncValidators = const [],
     Object? Function(Object?)? preprocessor,
     Future<Object?> Function(Object?)? preprocessorAsync,
+    String? Function()? schemaErrorLookup,
   }) {
     return type.mapType(<F>(VType<F> t) {
       return VField<F>(
@@ -718,6 +819,7 @@ class VForm<T> {
         preprocessor: preprocessor == null ? null : (raw) => preprocessor(raw),
         preprocessorAsync:
             preprocessorAsync == null ? null : (raw) => preprocessorAsync(raw),
+        schemaErrorLookup: schemaErrorLookup,
       );
     });
   }

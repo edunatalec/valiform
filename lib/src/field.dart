@@ -21,6 +21,7 @@ class VField<T> {
   final List<Future<String?> Function()> _asyncValidators;
   final Object? Function(T?)? _preprocessor;
   final Future<Object?> Function(T?)? _preprocessorAsync;
+  final String? Function()? _schemaErrorLookup;
   late final bool _acceptsNull = _type.isNullable;
 
   /// Attach this key to the corresponding `TextFormField` (or any
@@ -55,13 +56,15 @@ class VField<T> {
     T? initialValue,
     Object? Function(T?)? preprocessor,
     Future<Object?> Function(T?)? preprocessorAsync,
+    String? Function()? schemaErrorLookup,
   })  : _type = type,
         _initialValue = initialValue,
         _value = ValueNotifier<T?>(initialValue),
         _validators = validators,
         _asyncValidators = asyncValidators,
         _preprocessor = preprocessor,
-        _preprocessorAsync = preprocessorAsync;
+        _preprocessorAsync = preprocessorAsync,
+        _schemaErrorLookup = schemaErrorLookup;
 
   /// Listenable for tracking field value changes.
   Listenable get listenable => _value;
@@ -498,6 +501,7 @@ class VField<T> {
 
     extraError ??= asyncExtra;
 
+    final schemaError = _schemaErrorLookup?.call();
     final manual = _manualError;
     final forced = _forceManualError;
 
@@ -509,6 +513,10 @@ class VField<T> {
 
     if (extraError != null) {
       return [VError(code: VCode.custom, message: extraError)];
+    }
+
+    if (schemaError != null) {
+      return [VError(code: VCode.custom, message: schemaError)];
     }
 
     if (manual != null) {
@@ -533,6 +541,13 @@ class VField<T> {
       }
     }
 
+    // Schema-level field error (e.g. emitted by `refineField(path: 'x')`
+    // or any nested-path `refine`). The VForm refreshes the snapshot in
+    // every validate*/silentValidate* call before invoking the per-field
+    // validator chain, so this lookup is always against the latest
+    // schema snapshot.
+    final schemaError = _schemaErrorLookup?.call();
+
     final manual = _manualError;
     final forced = _forceManualError;
 
@@ -543,7 +558,7 @@ class VField<T> {
 
     if (forced && manual != null) return manual;
 
-    return stdError ?? extraError ?? manual;
+    return stdError ?? extraError ?? schemaError ?? manual;
   }
 
   Future<String?> _runValidatorsAsync(T? value) async {
@@ -570,12 +585,13 @@ class VField<T> {
       }
     }
 
+    final schemaError = _schemaErrorLookup?.call();
     final manual = _manualError;
     final forced = _forceManualError;
 
     if (forced && manual != null) return manual;
 
-    return stdError ?? extraError ?? manual;
+    return stdError ?? extraError ?? schemaError ?? manual;
   }
 
   /// Disposes of the field, freeing resources.

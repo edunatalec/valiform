@@ -264,7 +264,7 @@ void main() {
             'password': V.string().password(),
             'confirmPassword': V.string().password(),
           })
-          .refineFormField(
+          .refineField(
             (data) => data['password'] == data['confirmPassword'],
             path: 'confirmPassword',
           )
@@ -1744,8 +1744,7 @@ void main() {
   group('Integration: all types mixed with async/when', () {
     test(
         'VMap with every primitive + array + nested + enum + union + literal '
-        '+ when (sync & async) + refineFormField validates end-to-end',
-        () async {
+        '+ when (sync & async) + refineField validates end-to-end', () async {
       final form = V
           .map({
             'name': V.string().min(1),
@@ -1766,7 +1765,7 @@ void main() {
             'username': V.string().nullable(),
           })
           // Cross-field sync validator: name echoes into confirmation.
-          .refineFormField(
+          .refineField(
             (data) => data['name'] == data['confirmation'],
             path: 'confirmation',
             message: 'must match name',
@@ -1838,11 +1837,17 @@ void main() {
       final ageError = form.field<int>('age');
       expect(ageError.manualError, 'person must be 18+');
 
-      // Break the cross-field refineFormField too.
+      // Break the cross-field refineField too. The error now flows
+      // through the schema-error demux (not manualError, which was the
+      // old refineFormField channel) — so we check field.error /
+      // field.errorAsync instead.
       form.field<int>('age').set(25);
       form.field<String>('confirmation').set('someone else');
       expect(await form.validateAsync(), isFalse);
-      expect(form.field<String>('confirmation').manualError, 'must match name');
+      expect(
+        await form.field<String>('confirmation').errorAsync,
+        'must match name',
+      );
 
       form.dispose();
     });
@@ -2129,14 +2134,11 @@ void main() {
 
   group('VObject 1.4.0 APIs via VForm', () {
     test(
-      'VObject.equalFields is enforced by silentValidate (and clears once '
-      'the two fields agree)',
+      'VObject.equalFields surfaces a root-level error (path empty) and is '
+      'enforced by silentValidate',
       () {
-        // Schema-level rule. silentValidate sees it; per-field errors() does
-        // NOT — equalFields/refineField/refine on VObject feed only the
-        // safeParse pipeline, not the per-field FormField.validator chain.
-        // (For VMap, the valiform `refineFormField` extension exists to do
-        // both — there is no current VObject equivalent.)
+        // equalFields emits with path: [] → reaches form.rootErrors but NOT
+        // form.errors() (which is field-keyed).
         final schema = V
             .object<_PasswordPair>()
             .field('password', (p) => p.password, V.string())
@@ -2159,18 +2161,29 @@ void main() {
         );
 
         expect(form.silentValidate(), isFalse);
+        expect(form.rootErrors, ['must match']);
+
         // Aligning the two values flips the rule to passing.
         form.field<String>('confirmPassword').set('abc123');
         expect(form.silentValidate(), isTrue);
+        expect(form.rootErrors, isEmpty);
 
         form.dispose();
       },
     );
 
     test(
-      'VObject.refineField is enforced by silentValidate (and clears once '
-      'the predicate is satisfied)',
+      'VObject.refineField surfaces inline on the declared field path '
+      '(reaches field.error, form.errors(), and FormField.validator)',
       () {
+        // refineField declares path: 'endDate' → the schema's path-keyed
+        // error is demuxed by VForm and propagated to the endDate
+        // VField via schemaErrorLookup. So the message shows up
+        // EVERYWHERE the per-field error surface lives:
+        //   - field.error
+        //   - form.errors()
+        //   - field.validator(...) (Flutter's FormField channel)
+        //   - field.vError
         final schema = V
             .object<_Booking>()
             .field('startDate', (b) => b.startDate, V.date())
@@ -2193,8 +2206,56 @@ void main() {
         );
 
         expect(form.silentValidate(), isFalse);
+        // Inline surfaces — the whole point of having a path:
+        expect(
+          form.field<DateTime>('endDate').error,
+          'endDate must be after startDate',
+        );
+        expect(
+          form.field<DateTime>('endDate').validator(DateTime(2026, 4, 1)),
+          'endDate must be after startDate',
+        );
+        expect(form.errors()?['endDate'], 'endDate must be after startDate');
+
+        // refineField has a path → does NOT leak into rootErrors:
+        expect(form.rootErrors, isEmpty);
+
+        // Fix the dates → all error surfaces clear.
         form.field<DateTime>('endDate').set(DateTime(2026, 6, 1));
         expect(form.silentValidate(), isTrue);
+        expect(form.field<DateTime>('endDate').error, isNull);
+        expect(form.errors(), isNull);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'VMap.refineField surfaces the error inline on the declared path '
+      '(parity with VObject.refineField)',
+      () {
+        // `VMap.refineField(check, path: 'x')` is the path-keyed sibling
+        // of `refine`. The schema's path-keyed error is demuxed by
+        // VForm and propagated to the target VField, just like in the
+        // VObject case above.
+        final schema = V.map({
+          'a': V.string().min(1),
+          'b': V.string().min(1),
+        }).refineField(
+          (m) => m['a'] != m['b'],
+          path: 'b',
+          message: 'a and b must differ',
+        );
+
+        final form = schema.form(initialValues: {'a': 'x', 'b': 'x'});
+
+        expect(form.silentValidate(), isFalse);
+        expect(form.field<String>('b').error, 'a and b must differ');
+        expect(form.rootErrors, isEmpty);
+
+        form.field<String>('b').set('y');
+        expect(form.silentValidate(), isTrue);
+        expect(form.field<String>('b').error, isNull);
 
         form.dispose();
       },
@@ -2550,6 +2611,87 @@ void main() {
       },
     );
 
+    testWidgets(
+      'form.validate() returns false when every field is valid '
+      'individually but a schema-level rule fails (root error)',
+      (tester) async {
+        // Pin: validate() must agree with silentValidate(). Before this
+        // fix, validate() delegated only to FormState.validate() (per-field
+        // FormField.validator), which has no view of schema-level rules
+        // like refine(..., dependsOn: {...}) or equalFields. The submit
+        // path therefore accepted data the schema rejected — exactly the
+        // workaround root_errors_page.dart needed (`validate() &&
+        // silentValidate()`).
+        final form = V.map({
+          'startDate': V.date(),
+          'endDate': V.date(),
+        }).refine(
+          (m) => (m['endDate'] as DateTime).isAfter(m['startDate'] as DateTime),
+          message: 'endDate must be after startDate',
+          dependsOn: const {'startDate', 'endDate'},
+        ).form(
+          initialValues: {
+            'startDate': DateTime(2026, 5, 1),
+            'endDate': DateTime(2026, 4, 1),
+          },
+        );
+
+        // Mount under a Form widget so FormState.validate() has something
+        // to walk — without it the per-field path returns true vacuously.
+        await tester.pumpWidget(MaterialApp(
+          home: Scaffold(
+            body: Form(key: form.key, child: const SizedBox.shrink()),
+          ),
+        ));
+
+        // Each field is valid in isolation:
+        expect(form.field<DateTime>('startDate').error, isNull);
+        expect(form.field<DateTime>('endDate').error, isNull);
+
+        // But the schema-level refine fails — validate() now reflects
+        // that, in agreement with silentValidate() and rootErrors.
+        expect(form.silentValidate(), isFalse);
+        expect(form.rootErrors, ['endDate must be after startDate']);
+        expect(form.validate(), isFalse);
+
+        // Fix the dates → all three agree on true.
+        form.field<DateTime>('endDate').set(DateTime(2026, 6, 1));
+        expect(form.silentValidate(), isTrue);
+        expect(form.validate(), isTrue);
+        expect(form.rootErrors, isEmpty);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'form.validateAsync() returns false when every field is valid but a '
+      'schema-level async refine fails',
+      () async {
+        final form = V.map({
+          'a': V.string().min(1),
+          'b': V.string().min(1),
+        }).refineAsync(
+          (m) async => m['a'] != m['b'],
+          message: 'a and b must differ',
+          dependsOn: const {'a', 'b'},
+        ).form(initialValues: {'a': 'x', 'b': 'x'});
+
+        expect(form.hasAsync, isTrue);
+        // Both fields pass per-field. Without the fix, validateAsync would
+        // return true here — the schema-level refineAsync is silently
+        // ignored.
+        expect(await form.validateAsync(), isFalse);
+        expect(await form.rootErrorsAsync, ['a and b must differ']);
+
+        // Differ them — clears.
+        form.field<String>('b').set('y');
+        expect(await form.validateAsync(), isTrue);
+
+        form.dispose();
+      },
+    );
+
     test(
       'rootErrors and field errors aggregate when refine declares dependsOn',
       () {
@@ -2636,17 +2778,17 @@ void main() {
 
     test(
       'rootErrors reflects the underlying VError path: equalFields emits '
-      'root-level (no path) → shown in banner; refineField/refineFormField '
+      'root-level (no path) → shown in banner; refineField / refineFieldRaw '
       'declare a path → stay out of rootErrors',
       () {
         // Contract pin around how validart 1.4.0's rootMessages() partitions
         // errors. The valiform banner consumer needs to know which schema
         // primitives surface there and which don't:
         //
-        //  - equalFields(a, b)             → path: []     → rootErrors  ✓
-        //  - refineField(check, path: 'x') → path: ['x'] → NOT root
-        //  - refineFormField(check, path:) → path: ['x'] → NOT root
-        //  - refine(check)                 → path: []    → rootErrors  ✓ (covered above)
+        //  - equalFields(a, b)              → path: []     → rootErrors  ✓
+        //  - refineField(check, path: 'x')  → path: ['x'] → NOT root
+        //  - refineFieldRaw(check, path:'x')→ path: ['x'] → NOT root
+        //  - refine(check)                  → path: []    → rootErrors  ✓
         //
         // Without this pin, a future refactor that "promotes" path-pinned
         // errors to root would silently double-render messages in the UI.
@@ -2786,10 +2928,99 @@ void main() {
     });
   });
 
+  group('refineFieldRaw via VForm', () {
+    test(
+      'refineFieldRaw error reaches field.error / form.errors() / '
+      'field.validator (parity with refineField inline surface)',
+      () {
+        // Same demux as refineField — the raw rule's path-keyed error
+        // gets propagated by VForm to the corresponding VField.
+        final schema = V.map({
+          'name': V.string(),
+        }).refineFieldRaw(
+          (data) => data['name'] != 'forbidden',
+          path: 'name',
+          message: 'forbidden raw',
+        );
+
+        final form = schema.form(initialValues: {'name': 'forbidden'});
+
+        expect(form.silentValidate(), isFalse);
+        expect(form.field<String>('name').error, 'forbidden raw');
+        expect(form.errors()?['name'], 'forbidden raw');
+        expect(
+            form.field<String>('name').validator('forbidden'), 'forbidden raw');
+        expect(form.rootErrors, isEmpty);
+
+        form.field<String>('name').set('ok');
+        expect(form.silentValidate(), isTrue);
+        expect(form.field<String>('name').error, isNull);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'refineFieldRaw vs refineField via VForm: same callback, different '
+      'verdicts when a field has a transform',
+      () {
+        // The schema lowercases `email` via `.toLowerCase()`. A raw rule
+        // sees the input as the user typed it; a parsed rule sees it
+        // post-transform. Same lambda → different verdicts.
+        final schema = V
+            .map({'email': V.string().toLowerCase()})
+            .refineFieldRaw(
+              (data) => data['email'] == 'A@B.COM',
+              path: 'email',
+              message: 'raw must match A@B.COM',
+            )
+            .refineField(
+              (data) => data['email'] == 'A@B.COM',
+              path: 'email',
+              message: 'parsed must match A@B.COM',
+            );
+
+        final form = schema.form(initialValues: {'email': 'A@B.COM'});
+
+        // Raw rule passes (callback sees 'A@B.COM' literal). Parsed
+        // rule fails (callback sees 'a@b.com' after lowercase). The
+        // demux puts the parsed rule's message under 'email' inline.
+        expect(form.silentValidate(), isFalse);
+        expect(form.field<String>('email').error, 'parsed must match A@B.COM');
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'refineFieldRaw runs even when an unrelated field fails per-field '
+      '(no dependsOn gating)',
+      () {
+        final schema = V.map({
+          'a': V.string().min(5),
+          'b': V.string(),
+        }).refineFieldRaw(
+          (data) => data['b'] == 'ok',
+          path: 'b',
+          message: 'b raw must be ok',
+        );
+
+        final form = schema.form(initialValues: {'a': 'no', 'b': 'no'});
+
+        // 'a' fails per-field validation; the raw rule still runs and
+        // surfaces inline on 'b' alongside the field error on 'a'.
+        expect(form.silentValidate(), isFalse);
+        expect(form.field<String>('b').error, 'b raw must be ok');
+
+        form.dispose();
+      },
+    );
+  });
+
   group('Chaos: full pipeline (sync) — every mechanism in a single form', () {
     test(
       'VMap: container preprocess + field preprocess + transforms + '
-      'validators + when + refineFormField + refine(dependsOn) all coexist '
+      'validators + when + refineField + refine(dependsOn) all coexist '
       'and reach the per-field path coherently',
       () {
         // Schema combines ALL the moving parts that interact in a real form:
@@ -2805,7 +3036,7 @@ void main() {
         //  - per-field validators:
         //      name.min(2), email.email(), state.min(2)
         //  - .when(): when country == 'US', taxId must have length 9
-        //  - refineFormField (legacy cross-field): not needed here — covered
+        //  - refineField (parsed cross-field): not needed here — covered
         //    elsewhere — but the form still has refine + dependsOn.
         //
         // The test walks through input states and pins that the per-field
@@ -2817,9 +3048,12 @@ void main() {
         final schema = V.map({
           'country': V.string(),
           'state': V.string().min(2),
-          'name': V.string().preprocess(
-            (v) => v is String ? v.trim() : v,
-          ).min(2),
+          'name': V
+              .string()
+              .preprocess(
+                (v) => v is String ? v.trim() : v,
+              )
+              .min(2),
           'email': V.string().email().toLowerCase(),
           'taxId': V.string().nullable(),
         }).preprocess((raw) {
@@ -2860,7 +3094,8 @@ void main() {
         expect(form.field<String>('state').parsedValue, 'TX',
             reason: 'parsedValue mirrors the post-container value');
         expect(form.field<String>('name').validator('  Alice  '), isNull,
-            reason: 'field-level preprocess trims; trimmed length passes min(2)');
+            reason:
+                'field-level preprocess trims; trimmed length passes min(2)');
         expect(form.field<String>('name').parsedValue, 'Alice');
         expect(form.field<String>('email').parsedValue, 'alice@example.com',
             reason: 'field-level transform lowercases');
@@ -2934,9 +3169,12 @@ void main() {
             .field(
               'name',
               (u) => u.name,
-              V.string().preprocess(
-                (v) => v is String ? v.trim() : v,
-              ).min(2),
+              V
+                  .string()
+                  .preprocess(
+                    (v) => v is String ? v.trim() : v,
+                  )
+                  .min(2),
             )
             .field('email', (u) => u.email, V.string().email().toLowerCase())
             .field('password', (u) => u.password, V.string().min(8))
@@ -2944,33 +3182,36 @@ void main() {
             .field('taxId', (u) => u.taxId, V.string().nullable())
             .field('age', (u) => u.age, V.int().min(0))
             .preprocess((raw) {
-          if (raw is! _ChaosUser) return raw;
-          if (raw.country == 'US') {
-            return _ChaosUser(
-              country: raw.country,
-              state: raw.state.toUpperCase(),
-              name: raw.name,
-              email: raw.email,
-              password: raw.password,
-              confirmPassword: raw.confirmPassword,
-              taxId: raw.taxId,
-              age: raw.age,
+              if (raw is! _ChaosUser) return raw;
+              if (raw.country == 'US') {
+                return _ChaosUser(
+                  country: raw.country,
+                  state: raw.state.toUpperCase(),
+                  name: raw.name,
+                  email: raw.email,
+                  password: raw.password,
+                  confirmPassword: raw.confirmPassword,
+                  taxId: raw.taxId,
+                  age: raw.age,
+                );
+              }
+              return raw;
+            })
+            .when(
+              'country',
+              equals: 'US',
+              then: {'taxId': V.string().min(9)},
+            )
+            .equalFields(
+              'password',
+              'confirmPassword',
+              message: 'passwords must match',
+            )
+            .refineField(
+              (u) => u.age >= 18,
+              path: 'age',
+              message: 'must be 18+',
             );
-          }
-          return raw;
-        }).when(
-          'country',
-          equals: 'US',
-          then: {'taxId': V.string().min(9)},
-        ).equalFields(
-          'password',
-          'confirmPassword',
-          message: 'passwords must match',
-        ).refineField(
-          (u) => u.age >= 18,
-          path: 'age',
-          message: 'must be 18+',
-        );
 
         final form = schema.form(
           builder: (data) => _ChaosUser(
@@ -3047,14 +3288,18 @@ void main() {
       'when async target — validateAsync orchestrates the whole pipeline',
       () async {
         final schema = V.map({
-          'username': V.string().preprocessAsync(
-            // Field-level async preprocess: lowercase via fake remote call.
-            (v) async => v is String ? v.toLowerCase() : v,
-          ).min(3).refineAsync(
-            // Field-level async validator: simulates a "username taken" check.
-            (v) async => v != 'taken',
-            message: 'already taken',
-          ),
+          'username': V
+              .string()
+              .preprocessAsync(
+                // Field-level async preprocess: lowercase via fake remote call.
+                (v) async => v is String ? v.toLowerCase() : v,
+              )
+              .min(3)
+              .refineAsync(
+                // Field-level async validator: simulates a "username taken" check.
+                (v) async => v != 'taken',
+                message: 'already taken',
+              ),
           'tier': V.string(),
           'extra': V.string().nullable(),
         }).preprocessAsync((raw) async {
@@ -3072,9 +3317,9 @@ void main() {
           // Async target inside .when() — only runs when tier='pro'.
           then: {
             'extra': V.string().refineAsync(
-              (v) async => v.length >= 5,
-              message: 'extra must be >=5 when pro',
-            ),
+                  (v) async => v.length >= 5,
+                  message: 'extra must be >=5 when pro',
+                ),
           },
         );
 
