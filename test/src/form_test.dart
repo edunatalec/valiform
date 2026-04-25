@@ -2278,36 +2278,166 @@ void main() {
       form.dispose();
     });
 
-    // NOTE: VObject's container-level preprocess() (a 1.4.0 fix) runs only
-    // through the schema-level safeParse path (silentValidator), NOT through
-    // the per-field validators wired into each VField. Because
-    // VForm.silentValidate combines both, a preprocessor that "fixes" a
-    // bad value won't rescue the per-field check. The VMap regression test
-    // above is the right integration scope; covering VObject preprocess at
-    // the VForm level would require pushing the rewritten instance back
-    // into individual fields, which is out of scope.
-
     test(
-      'preprocess() on a VMap container runs through VForm '
-      '(regression: pre-1.4.0 silently ignored container preprocess)',
+      'VMap container preprocess reaches the per-field validator '
+      '(closes the gap where field.validator and silentValidate disagreed)',
       () {
-        // The schema strips the 'meta' key before validation. Without the
-        // 1.4.0 fix the preprocess would be ignored, the 'meta' key would
-        // leak through, and strict() (or any pipeline that doesn't expect
-        // it) would surface differently. This pins the new behaviour from
-        // VForm's perspective: silentValidate runs on the parsed map after
-        // the preprocess.
+        // Pin: preprocess on the container "fixes" a too-short name into
+        // 'Anonymous'. Pre-1.3.0 the per-field validator never saw the
+        // preprocess and reported `string.too_small` even though the
+        // schema-level safeParse considered the input valid. This test
+        // pins the post-fix behaviour: container preprocess runs first,
+        // exactly as the validart pipeline does.
         final schema = V.map({
           'name': V.string().min(3),
         }).preprocess((raw) {
-          if (raw is! Map) return raw;
-          final map = Map<String, dynamic>.from(raw);
-          map.remove('meta');
-          return map;
+          final m = Map<String, dynamic>.from(raw as Map);
+          if (m['name'] is String && (m['name'] as String).length < 3) {
+            m['name'] = 'Anonymous';
+          }
+          return m;
+        });
+
+        final form = schema.form(initialValues: {'name': 'A'});
+
+        // Per-field validator now mirrors the schema:
+        expect(form.field<String>('name').validator('A'), isNull);
+        // parsedValue reflects the post-container value:
+        expect(form.field<String>('name').parsedValue, 'Anonymous');
+        // silentValidate continues to agree:
+        expect(form.silentValidate(), isTrue);
+        // form.value also reflects the preprocessed map:
+        expect(form.value['name'], 'Anonymous');
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'VObject container preprocess reaches the per-field validator '
+      '(parity with VMap)',
+      () {
+        // Same pattern but on the typed-DTO side. The VObject preprocess
+        // rewrites a too-short `name` on the User instance; per-field
+        // validator must now see the corrected value.
+        final schema = V
+            .object<_User>()
+            .field('name', (u) => u.name, V.string().min(3))
+            .field('email', (u) => u.email, V.string().email())
+            .preprocess((raw) {
+          if (raw is! _User) return raw;
+          if (raw.name.length >= 3) return raw;
+          return _User(name: 'Anonymous', email: raw.email);
+        });
+
+        final form = schema.form(
+          builder: (data) => _User(
+            name: data['name'] as String,
+            email: data['email'] as String,
+          ),
+          initialValue: const _User(name: 'A', email: 'a@b.com'),
+        );
+
+        expect(form.field<String>('name').validator('A'), isNull);
+        expect(form.field<String>('name').parsedValue, 'Anonymous');
+        expect(form.silentValidate(), isTrue);
+        expect(form.value.name, 'Anonymous');
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'VMap container preprocess can rewrite a field based on another '
+      'field (cross-field) and the per-field validator sees the rewrite',
+      () {
+        // Canonical cross-field rewrite: when country == 'US', uppercase
+        // the state field. The state field on its own has no preprocess —
+        // it depends on country to know whether to uppercase. The point
+        // of container preprocess is exactly this kind of cross-field
+        // dependency that no per-field transform can express.
+        final schema = V.map({
+          'country': V.string(),
+          'state': V.string(),
+        }).preprocess((raw) {
+          final m = Map<String, dynamic>.from(raw as Map);
+          if (m['country'] == 'US' && m['state'] is String) {
+            m['state'] = (m['state'] as String).toUpperCase();
+          }
+          return m;
+        });
+
+        final form = schema.form(
+          initialValues: {'country': 'US', 'state': 'tx'},
+        );
+
+        // Per-field parsedValue reflects the cross-field rewrite:
+        expect(form.field<String>('state').parsedValue, 'TX');
+
+        // Flip country to BR — preprocess no longer touches state, so the
+        // per-field parsedValue mirrors the raw input.
+        form.field<String>('country').set('BR');
+        expect(form.field<String>('state').parsedValue, 'tx');
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'container without preprocess: zero overhead, unchanged behaviour',
+      () {
+        // Sanity check that the new closures are gated on hasPreprocessors.
+        // A schema without any container preprocess must behave EXACTLY
+        // as before — same parsedValue, same validator results, same
+        // silentValidate.
+        final schema = V.map({
+          'name': V.string().min(3),
         });
 
         final form = schema.form(initialValues: {'name': 'Alice'});
+
+        expect(form.field<String>('name').validator('Alice'), isNull);
+        expect(form.field<String>('name').parsedValue, 'Alice');
         expect(form.silentValidate(), isTrue);
+
+        // Empty-string normalization for nullable fields still works
+        // unchanged when the schema declares no container preprocess.
+        final nullableSchema = V.map({
+          'name': V.string().nullable().min(3),
+        });
+        final nullableForm = nullableSchema.form(initialValues: {'name': ''});
+        // Empty string normalized to null; nullable schema accepts.
+        expect(nullableForm.field<String>('name').validator(''), isNull);
+
+        form.dispose();
+        nullableForm.dispose();
+      },
+    );
+
+    test(
+      'container preprocessAsync: validateAsync applies; sync field.validator '
+      'ignores it (sync adapter limit)',
+      () async {
+        // When the container has only an ASYNC preprocess, the sync
+        // field.validator (required by FormField.validator) cannot await
+        // it and falls back to the raw value. The async path through
+        // form.validateAsync / parsedValueAsync applies the preprocess
+        // correctly — same contract as the rest of the async surface.
+        final schema = V.map({
+          'name': V.string().min(3),
+        }).preprocessAsync((raw) async {
+          final m = Map<String, dynamic>.from(raw as Map);
+          if (m['name'] is String && (m['name'] as String).length < 3) {
+            m['name'] = 'Anonymous';
+          }
+          return m;
+        });
+
+        final form = schema.form(initialValues: {'name': 'A'});
+
+        // Async path applies the preprocess:
+        expect(await form.validateAsync(), isTrue);
+        expect(await form.field<String>('name').parsedValueAsync, 'Anonymous');
 
         form.dispose();
       },
@@ -2655,6 +2785,398 @@ void main() {
       form.dispose();
     });
   });
+
+  group('Chaos: full pipeline (sync) — every mechanism in a single form', () {
+    test(
+      'VMap: container preprocess + field preprocess + transforms + '
+      'validators + when + refineFormField + refine(dependsOn) all coexist '
+      'and reach the per-field path coherently',
+      () {
+        // Schema combines ALL the moving parts that interact in a real form:
+        //
+        //  - container preprocess (cross-field):
+        //      country == 'US' → uppercase the `state` field
+        //  - container refine + dependsOn:
+        //      name and email user-part must not match (form-level rule)
+        //  - per-field preprocess INSIDE the VString:
+        //      'name' is trimmed via .preprocess()
+        //  - per-field transforms:
+        //      'email' is normalized to lowercase
+        //  - per-field validators:
+        //      name.min(2), email.email(), state.min(2)
+        //  - .when(): when country == 'US', taxId must have length 9
+        //  - refineFormField (legacy cross-field): not needed here — covered
+        //    elsewhere — but the form still has refine + dependsOn.
+        //
+        // The test walks through input states and pins that the per-field
+        // validator, parsedValue, silentValidate, rootErrors, and form.value
+        // all stay in sync as the user mutates fields. If any path drifts
+        // (e.g. container preprocess runs in safeParse but not in
+        // field.validator), the assertions below catch it.
+
+        final schema = V.map({
+          'country': V.string(),
+          'state': V.string().min(2),
+          'name': V.string().preprocess(
+            (v) => v is String ? v.trim() : v,
+          ).min(2),
+          'email': V.string().email().toLowerCase(),
+          'taxId': V.string().nullable(),
+        }).preprocess((raw) {
+          final m = Map<String, dynamic>.from(raw as Map);
+          if (m['country'] == 'US' && m['state'] is String) {
+            m['state'] = (m['state'] as String).toUpperCase();
+          }
+          return m;
+        }).when(
+          'country',
+          equals: 'US',
+          then: {'taxId': V.string().min(9)},
+        ).refine(
+          (m) {
+            final email = m['email'] as String?;
+            final name = m['name'] as String?;
+            if (email == null || name == null) return true;
+            final user = email.split('@').first;
+            return user != name;
+          },
+          message: 'name must not match email user-part',
+          dependsOn: const {'name', 'email'},
+        );
+
+        final form = schema.form(
+          initialValues: {
+            'country': 'US',
+            'state': 'tx',
+            'name': '  Alice  ',
+            'email': 'ALICE@Example.COM',
+            'taxId': '123456789',
+          },
+        );
+
+        // ─── Initial state: every layer should agree this is valid. ───
+        expect(form.field<String>('state').validator('tx'), isNull,
+            reason: 'container preprocess uppercases state for country=US');
+        expect(form.field<String>('state').parsedValue, 'TX',
+            reason: 'parsedValue mirrors the post-container value');
+        expect(form.field<String>('name').validator('  Alice  '), isNull,
+            reason: 'field-level preprocess trims; trimmed length passes min(2)');
+        expect(form.field<String>('name').parsedValue, 'Alice');
+        expect(form.field<String>('email').parsedValue, 'alice@example.com',
+            reason: 'field-level transform lowercases');
+        expect(form.field<String>('taxId').validator('123456789'), isNull,
+            reason: 'when(country=US) requires taxId.min(9), 9 chars passes');
+        expect(form.silentValidate(), isTrue);
+        expect(form.rootErrors, isEmpty);
+        expect(form.value, {
+          'country': 'US',
+          'state': 'TX',
+          'name': 'Alice',
+          'email': 'alice@example.com',
+          'taxId': '123456789',
+        });
+
+        // ─── Step 1: shorten taxId — when rule fires, validator + silent fail.
+        form.field<String>('taxId').set('short');
+        expect(form.field<String>('taxId').validator('short'), isNotNull);
+        expect(form.silentValidate(), isFalse);
+        // Root errors stay empty — failure is field-keyed (when rule path).
+        expect(form.rootErrors, isEmpty);
+
+        // ─── Step 2: flip country to BR — when rule no longer applies, AND
+        // container preprocess no longer uppercases state. taxId becomes
+        // nullable (no when rule applied), but state remains 'TX' because
+        // we already typed it that way... wait no, state's RAW is 'tx'.
+        form.field<String>('country').set('BR');
+        expect(form.field<String>('taxId').validator('short'), isNull,
+            reason: 'when rule only applies for country=US');
+        // Container preprocess pulled back: state.parsedValue mirrors raw.
+        expect(form.field<String>('state').parsedValue, 'tx');
+        // state is still valid (length >= 2):
+        expect(form.field<String>('state').validator('tx'), isNull);
+        expect(form.silentValidate(), isTrue);
+
+        // ─── Step 3: trigger the root rule (name == email user-part).
+        form.field<String>('name').set('alice');
+        // refine(dependsOn: {name, email}) now fails — both fields are
+        // valid individually, but the cross-field rule emits a root error.
+        expect(form.silentValidate(), isFalse);
+        expect(form.rootErrors, ['name must not match email user-part']);
+        // Per-field errors() stays clean (root errors don't leak into it):
+        expect(form.errors(), isNull);
+
+        // ─── Step 4: bring it back to a fully valid state.
+        form.field<String>('name').set('  Bob  ');
+        expect(form.silentValidate(), isTrue);
+        expect(form.rootErrors, isEmpty);
+        expect(form.field<String>('name').parsedValue, 'Bob');
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'VObject: same chaos as the VMap test but on a typed DTO — '
+      'container preprocess + field preprocess + transforms + when + '
+      'equalFields + refineField agree on every path',
+      () {
+        // VObject<_ChaosUser> with:
+        //  - container preprocess: country=US → uppercase state
+        //  - field-level preprocess: name trimmed inside VString
+        //  - field-level transform: email lowercased
+        //  - .when(): country=US → taxId.min(9)
+        //  - .equalFields('password', 'confirmPassword'): root error
+        //  - .refineField predicate scoped to a field path
+        final schema = V
+            .object<_ChaosUser>()
+            .field('country', (u) => u.country, V.string())
+            .field('state', (u) => u.state, V.string().min(2))
+            .field(
+              'name',
+              (u) => u.name,
+              V.string().preprocess(
+                (v) => v is String ? v.trim() : v,
+              ).min(2),
+            )
+            .field('email', (u) => u.email, V.string().email().toLowerCase())
+            .field('password', (u) => u.password, V.string().min(8))
+            .field('confirmPassword', (u) => u.confirmPassword, V.string())
+            .field('taxId', (u) => u.taxId, V.string().nullable())
+            .field('age', (u) => u.age, V.int().min(0))
+            .preprocess((raw) {
+          if (raw is! _ChaosUser) return raw;
+          if (raw.country == 'US') {
+            return _ChaosUser(
+              country: raw.country,
+              state: raw.state.toUpperCase(),
+              name: raw.name,
+              email: raw.email,
+              password: raw.password,
+              confirmPassword: raw.confirmPassword,
+              taxId: raw.taxId,
+              age: raw.age,
+            );
+          }
+          return raw;
+        }).when(
+          'country',
+          equals: 'US',
+          then: {'taxId': V.string().min(9)},
+        ).equalFields(
+          'password',
+          'confirmPassword',
+          message: 'passwords must match',
+        ).refineField(
+          (u) => u.age >= 18,
+          path: 'age',
+          message: 'must be 18+',
+        );
+
+        final form = schema.form(
+          builder: (data) => _ChaosUser(
+            country: data['country'] as String,
+            state: data['state'] as String,
+            name: data['name'] as String,
+            email: data['email'] as String,
+            password: data['password'] as String,
+            confirmPassword: data['confirmPassword'] as String,
+            taxId: data['taxId'] as String?,
+            age: data['age'] as int,
+          ),
+          initialValue: const _ChaosUser(
+            country: 'US',
+            state: 'tx',
+            name: '  Alice  ',
+            email: 'ALICE@Example.COM',
+            password: 'sup3rS3cr3t',
+            confirmPassword: 'sup3rS3cr3t',
+            taxId: '123456789',
+            age: 25,
+          ),
+        );
+
+        // ─── Initial state: everything passes through every layer. ───
+        expect(form.field<String>('state').validator('tx'), isNull);
+        expect(form.field<String>('state').parsedValue, 'TX');
+        expect(form.field<String>('name').parsedValue, 'Alice');
+        expect(form.field<String>('email').parsedValue, 'alice@example.com');
+        expect(form.silentValidate(), isTrue);
+        expect(form.rootErrors, isEmpty);
+        // Typed value built from parsed values:
+        final user = form.value;
+        expect(user.state, 'TX');
+        expect(user.name, 'Alice');
+        expect(user.email, 'alice@example.com');
+
+        // ─── Step 1: under-18 age trips refineField (path='age'). ───
+        form.field<int>('age').set(15);
+        expect(form.silentValidate(), isFalse);
+        // refineField has path → field-keyed, NOT in rootErrors.
+        expect(form.rootErrors, isEmpty);
+
+        // ─── Step 2: passwords mismatch → equalFields fires (root). ───
+        form.field<int>('age').set(25);
+        form.field<String>('confirmPassword').set('different!!');
+        expect(form.silentValidate(), isFalse);
+        expect(form.rootErrors, ['passwords must match']);
+
+        // ─── Step 3: align passwords + flip country to BR. ───
+        form.field<String>('confirmPassword').set('sup3rS3cr3t');
+        form.field<String>('country').set('BR');
+        // Container preprocess no longer uppercases state.
+        expect(form.field<String>('state').parsedValue, 'tx');
+        // when(country=US) no longer applies — taxId can be anything.
+        form.field<String>('taxId').set('short');
+        expect(form.field<String>('taxId').validator('short'), isNull);
+        expect(form.silentValidate(), isTrue);
+
+        // ─── Step 4: trip when rule again. ───
+        form.field<String>('country').set('US');
+        // taxId='short' fails when(country=US, taxId.min(9))
+        expect(form.field<String>('taxId').validator('short'), isNotNull);
+        expect(form.silentValidate(), isFalse);
+
+        form.dispose();
+      },
+    );
+  });
+
+  group('Chaos: full pipeline (async) — every async mechanism combined', () {
+    test(
+      'VMap: container preprocessAsync + field preprocessAsync + refineAsync + '
+      'when async target — validateAsync orchestrates the whole pipeline',
+      () async {
+        final schema = V.map({
+          'username': V.string().preprocessAsync(
+            // Field-level async preprocess: lowercase via fake remote call.
+            (v) async => v is String ? v.toLowerCase() : v,
+          ).min(3).refineAsync(
+            // Field-level async validator: simulates a "username taken" check.
+            (v) async => v != 'taken',
+            message: 'already taken',
+          ),
+          'tier': V.string(),
+          'extra': V.string().nullable(),
+        }).preprocessAsync((raw) async {
+          // Container-level async preprocess: when tier='gold', force the
+          // 'extra' field to a default. Demonstrates cross-field rewrite
+          // happening in the async pipeline.
+          final m = Map<String, dynamic>.from(raw as Map);
+          if (m['tier'] == 'gold' && (m['extra'] == null || m['extra'] == '')) {
+            m['extra'] = 'gold-default';
+          }
+          return m;
+        }).when(
+          'tier',
+          equals: 'pro',
+          // Async target inside .when() — only runs when tier='pro'.
+          then: {
+            'extra': V.string().refineAsync(
+              (v) async => v.length >= 5,
+              message: 'extra must be >=5 when pro',
+            ),
+          },
+        );
+
+        final form = schema.form(initialValues: {
+          'username': 'ALICE',
+          'tier': 'gold',
+          'extra': '',
+        });
+
+        // The form has async pipeline → sync inspection throws.
+        expect(form.hasAsync, isTrue);
+        expect(() => form.validate(), throwsA(isA<VAsyncRequiredException>()));
+        expect(() => form.rootErrors, throwsA(isA<VAsyncRequiredException>()));
+
+        // ─── Initial async state ─────────────────────────────────────
+        // Field preprocess lowercases 'ALICE' → 'alice'; refineAsync
+        // accepts 'alice' (not 'taken'). Container preprocess sees tier
+        // == 'gold' AND extra == '' → rewrites extra to 'gold-default'.
+        // tier is not 'pro', so the async when target never fires.
+        expect(await form.validateAsync(), isTrue);
+        expect(await form.field<String>('username').parsedValueAsync, 'alice');
+        expect(
+          await form.field<String>('extra').parsedValueAsync,
+          'gold-default',
+          reason: 'container preprocessAsync filled in the empty extra slot',
+        );
+
+        // ─── Trip the field's refineAsync: username = 'taken'. ───────
+        form.field<String>('username').set('taken');
+        expect(await form.validateAsync(), isFalse);
+        expect(form.field<String>('username').manualError, 'already taken');
+
+        // ─── Recover: username = 'bob'. Flip tier to 'pro' so async when
+        // fires; extra='ab' is short enough to fail refineAsync (length<5)
+        // but non-empty (empty would be normalized to null and trip the
+        // nullable refineAsync's null check first).
+        form.field<String>('username').set('bob');
+        form.field<String>('tier').set('pro');
+        form.field<String>('extra').set('ab');
+        expect(await form.validateAsync(), isFalse);
+        // when(tier='pro')'s refineAsync surfaces the error on extra.
+        expect(
+          form.field<String>('extra').manualError,
+          'extra must be >=5 when pro',
+        );
+
+        // ─── Make extra long enough for the async when rule. ─────────
+        form.field<String>('extra').set('hello-world');
+        expect(await form.validateAsync(), isTrue);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'VObject async: container preprocessAsync rewrites a field; '
+      'refineFieldAsync... wait, only refineAsync exists at the schema root. '
+      'Cover container.refineAsync(dependsOn:) emitting a root-level error '
+      'while everything else passes.',
+      () async {
+        final schema = V
+            .object<_AsyncDto>()
+            .field('a', (d) => d.a, V.string().min(1))
+            .field('b', (d) => d.b, V.string().min(1))
+            .preprocessAsync((raw) async {
+          if (raw is! _AsyncDto) return raw;
+          // Container preprocessAsync: trim both fields.
+          return _AsyncDto(a: raw.a.trim(), b: raw.b.trim());
+        }).refineAsync(
+          (d) async => d.a != d.b,
+          message: 'a and b must differ',
+          dependsOn: const {'a', 'b'},
+        );
+
+        final form = schema.form(
+          builder: (data) => _AsyncDto(
+            a: data['a'] as String,
+            b: data['b'] as String,
+          ),
+          initialValue: const _AsyncDto(a: '  hello  ', b: '  hello  '),
+        );
+
+        // Per-field path: each field's parsedValueAsync mirrors the
+        // post-container value.
+        expect(await form.field<String>('a').parsedValueAsync, 'hello');
+        expect(await form.field<String>('b').parsedValueAsync, 'hello');
+
+        // The async refine sees both as 'hello' after preprocess and fails.
+        // Field-level checks pass (both have length >= 1 after trim), so
+        // the failure surfaces purely as a root error.
+        expect(await form.silentValidateAsync(), isFalse);
+        expect(await form.rootErrorsAsync, ['a and b must differ']);
+
+        // Differ them — root error clears.
+        form.field<String>('a').set('  alice  ');
+        expect(await form.silentValidateAsync(), isTrue);
+        expect(await form.rootErrorsAsync, isEmpty);
+
+        form.dispose();
+      },
+    );
+  });
 }
 
 class _SubmitThenResetHarness extends StatefulWidget {
@@ -2815,6 +3337,35 @@ class _AuditedUser {
   final DateTime createdAt;
 
   const _AuditedUser({required this.name, required this.createdAt});
+}
+
+class _AsyncDto {
+  final String a;
+  final String b;
+
+  const _AsyncDto({required this.a, required this.b});
+}
+
+class _ChaosUser {
+  final String country;
+  final String state;
+  final String name;
+  final String email;
+  final String password;
+  final String confirmPassword;
+  final String? taxId;
+  final int age;
+
+  const _ChaosUser({
+    required this.country,
+    required this.state,
+    required this.name,
+    required this.email,
+    required this.password,
+    required this.confirmPassword,
+    required this.taxId,
+    required this.age,
+  });
 }
 
 class _PasswordPair {

@@ -42,6 +42,10 @@ class VForm<T> {
     List<VFieldValidator> crossValidators = const [],
     List<({String field, Object? equals, Map<String, VType> then})> whenRules =
         const [],
+    Map<String, dynamic> Function(Map<String, dynamic>)?
+        containerPreprocessSync,
+    Future<Map<String, dynamic>> Function(Map<String, dynamic>)?
+        containerPreprocessAsync,
     void Function(T value)? onValueChanged,
   })  : _formKey = formKey ?? GlobalKey<FormState>(),
         _silentValidatorSync = silentValidatorSync,
@@ -109,11 +113,52 @@ class VForm<T> {
               ? initialValues[key]
               : type.defaultValueOrNull;
 
+      // Container preprocess closures, scoped to this field.
+      //
+      // Each VField receives a closure that, given its raw value, returns
+      // the value as it would appear after the container's `preprocess()`
+      // ran. The closure snapshots all sibling fields, swaps in the
+      // candidate value for `key`, runs the container preprocess on the
+      // full snapshot, and reads back the slot for `key` from the result.
+      //
+      // This mirrors the order of `VMap.safeParse` / `VObject.safeParse`:
+      // container preprocess runs BEFORE each field's per-field pipeline.
+      // Without these closures, the per-field validator only sees the raw
+      // value and disagrees with the schema-level result whenever the
+      // container preprocess "fixes" the input.
+      //
+      // When the surrounding container has no preprocess registered, the
+      // factory passes `null` for both closures and the field falls back
+      // to the legacy passthrough — zero overhead.
+      final fieldKey = key;
+      final preSync = containerPreprocessSync == null
+          ? null
+          : (Object? rawValue) {
+              final snapshot = _fields.map(
+                (k, f) => MapEntry(k, f.value as Object?),
+              );
+              snapshot[fieldKey] = rawValue;
+              final processed = containerPreprocessSync(snapshot);
+              return processed[fieldKey];
+            };
+      final preAsync = containerPreprocessAsync == null
+          ? null
+          : (Object? rawValue) async {
+              final snapshot = _fields.map(
+                (k, f) => MapEntry(k, f.value as Object?),
+              );
+              snapshot[fieldKey] = rawValue;
+              final processed = await containerPreprocessAsync(snapshot);
+              return processed[fieldKey];
+            };
+
       _fields[key] = _createField(
         type: type,
         initialValue: resolvedInitial,
         validators: validators,
         asyncValidators: asyncValidators,
+        preprocessor: preSync,
+        preprocessorAsync: preAsync,
       );
     }
 
@@ -137,6 +182,23 @@ class VForm<T> {
   }) {
     final crossValidators = formFieldValidators[map] ?? [];
 
+    // Gate the snapshot/preprocess plumbing on actually-needed work.
+    // Schemas without container preprocess pay zero overhead.
+    final containerPreprocessSync = map.hasPreprocessors
+        ? (Map<String, dynamic> snapshot) {
+            final processed = map.runPreprocessors(snapshot);
+            if (processed is Map<String, dynamic>) return processed;
+            return snapshot;
+          }
+        : null;
+    final containerPreprocessAsync = map.hasPreprocessors
+        ? (Map<String, dynamic> snapshot) async {
+            final processed = await map.runPreprocessorsAsync(snapshot);
+            if (processed is Map<String, dynamic>) return processed;
+            return snapshot;
+          }
+        : null;
+
     return VForm._(
       schema: map.schema,
       schemaHasAsync: map.hasAsync,
@@ -148,6 +210,8 @@ class VForm<T> {
       initialValues: initialValues,
       crossValidators: crossValidators,
       whenRules: map.whenRules,
+      containerPreprocessSync: containerPreprocessSync,
+      containerPreprocessAsync: containerPreprocessAsync,
       onValueChanged: onValueChanged,
     );
   }
@@ -167,6 +231,27 @@ class VForm<T> {
     final initialValues =
         initialValue != null ? object.extract(initialValue) : null;
 
+    // Gate the snapshot/preprocess plumbing on actually-needed work.
+    // For VObject the snapshot Map needs to be reconstructed into `T` via
+    // `builder` before running the container preprocess (which expects
+    // `T`), and then decomposed back into a Map via `object.extract`.
+    final containerPreprocessSync = object.hasPreprocessors
+        ? (Map<String, dynamic> snapshot) {
+            final instance = builder(snapshot);
+            final processed = object.runPreprocessors(instance);
+            if (processed is T) return object.extract(processed);
+            return snapshot;
+          }
+        : null;
+    final containerPreprocessAsync = object.hasPreprocessors
+        ? (Map<String, dynamic> snapshot) async {
+            final instance = builder(snapshot);
+            final processed = await object.runPreprocessorsAsync(instance);
+            if (processed is T) return object.extract(processed);
+            return snapshot;
+          }
+        : null;
+
     return VForm._(
       schema: object.schema,
       schemaHasAsync: object.hasAsync,
@@ -178,6 +263,8 @@ class VForm<T> {
       formKey: formKey,
       initialValues: initialValues,
       whenRules: object.whenRules,
+      containerPreprocessSync: containerPreprocessSync,
+      containerPreprocessAsync: containerPreprocessAsync,
       onValueChanged: onValueChanged,
     );
   }
@@ -619,6 +706,8 @@ class VForm<T> {
     required dynamic initialValue,
     required List<String? Function()> validators,
     List<Future<String?> Function()> asyncValidators = const [],
+    Object? Function(Object?)? preprocessor,
+    Future<Object?> Function(Object?)? preprocessorAsync,
   }) {
     return type.mapType(<F>(VType<F> t) {
       return VField<F>(
@@ -626,6 +715,9 @@ class VForm<T> {
         initialValue: initialValue as F?,
         validators: validators,
         asyncValidators: asyncValidators,
+        preprocessor: preprocessor == null ? null : (raw) => preprocessor(raw),
+        preprocessorAsync:
+            preprocessorAsync == null ? null : (raw) => preprocessorAsync(raw),
       );
     });
   }

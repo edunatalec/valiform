@@ -19,6 +19,8 @@ class VField<T> {
   final T? _initialValue;
   final List<String? Function()> _validators;
   final List<Future<String?> Function()> _asyncValidators;
+  final Object? Function(T?)? _preprocessor;
+  final Future<Object?> Function(T?)? _preprocessorAsync;
   late final bool _acceptsNull = _type.isNullable;
 
   /// Attach this key to the corresponding `TextFormField` (or any
@@ -38,16 +40,28 @@ class VField<T> {
   bool _forceManualError = false;
 
   /// Creates a new [VField] with the given [type], [validators], and optional [initialValue].
+  ///
+  /// [preprocessor] / [preprocessorAsync] are typically wired by [VForm] when
+  /// the surrounding schema (a `VMap` or `VObject<T>`) has a container-level
+  /// `preprocess()` registered. They run **before** [_type]'s own pipeline,
+  /// mirroring the order in `safeParse`: container preprocess → field
+  /// preprocess → field validators → field transforms. The closures receive
+  /// the raw field value and return the value as it would appear after the
+  /// container preprocess ran on the full snapshot.
   VField({
     required VType<T> type,
     required List<String? Function()> validators,
     List<Future<String?> Function()> asyncValidators = const [],
     T? initialValue,
+    Object? Function(T?)? preprocessor,
+    Future<Object?> Function(T?)? preprocessorAsync,
   })  : _type = type,
         _initialValue = initialValue,
         _value = ValueNotifier<T?>(initialValue),
         _validators = validators,
-        _asyncValidators = asyncValidators;
+        _asyncValidators = asyncValidators,
+        _preprocessor = preprocessor,
+        _preprocessorAsync = preprocessorAsync;
 
   /// Listenable for tracking field value changes.
   Listenable get listenable => _value;
@@ -102,11 +116,7 @@ class VField<T> {
       );
     }
 
-    // Normalize empty strings to null so validart's `_resolveNull` can
-    // apply `defaultValue` / nullable handling — otherwise '' bypasses
-    // those and the pipeline runs against the raw empty string.
-    final input = value is String && (value as String).isEmpty ? null : value;
-    final result = _type.safeParse(input);
+    final result = _type.safeParse(_preprocess(value));
 
     if (result case VSuccess<T?>(value: final parsed)) return parsed;
 
@@ -117,12 +127,44 @@ class VField<T> {
   /// async preprocessors and transforms. Returns the raw value if parsing
   /// fails.
   Future<T?> get parsedValueAsync async {
-    final input = value is String && (value as String).isEmpty ? null : value;
-    final result = await _type.safeParseAsync(input);
+    final result = await _type.safeParseAsync(await _preprocessAsync(value));
 
     if (result case VSuccess<T?>(value: final parsed)) return parsed;
 
     return value;
+  }
+
+  /// Applies the container preprocessor (if any) to [raw] and normalizes
+  /// empty strings to `null`. The empty-string normalization lets validart's
+  /// `_resolveNull` engage so `defaultValue` / `nullable` handling works
+  /// when the user clears a text field.
+  ///
+  /// When the surrounding form has no container-level `preprocess()`, this
+  /// degenerates to the empty-string normalization only — zero overhead
+  /// beyond what was here before.
+  Object? _preprocess(T? raw) {
+    final pre = _preprocessor;
+    final Object? processed = pre != null ? pre(raw) : raw;
+    if (processed is String && processed.isEmpty) return null;
+    return processed;
+  }
+
+  /// Async variant of [_preprocess]. Prefers [_preprocessorAsync] when both
+  /// are present (so `preprocessAsync` registered on the container reaches
+  /// the field), falls back to the sync preprocessor, then to passthrough.
+  Future<Object?> _preprocessAsync(T? raw) async {
+    final preAsync = _preprocessorAsync;
+    final preSync = _preprocessor;
+    final Object? processed;
+    if (preAsync != null) {
+      processed = await preAsync(raw);
+    } else if (preSync != null) {
+      processed = preSync(raw);
+    } else {
+      processed = raw;
+    }
+    if (processed is String && processed.isEmpty) return null;
+    return processed;
   }
 
   /// Attaches a `ValueNotifier<T?>` for bidirectional synchronization.
@@ -357,8 +399,7 @@ class VField<T> {
   /// manages manual errors itself (so stale async errors don't mask a
   /// newly-valid value).
   Future<String?> computeAsyncError() async {
-    final value = this.value;
-    final processed = value is String && value.isEmpty ? null : value;
+    final processed = await _preprocessAsync(value);
 
     final stdError = (await _type.errorsAsync(processed))?.firstOrNull?.message;
     if (stdError != null) return stdError;
@@ -437,17 +478,11 @@ class VField<T> {
   List<VError>? _stdErrorsSync() {
     if (_type.hasAsync) return null;
 
-    final value = this.value;
-    final processed = value is String && value.isEmpty ? null : value;
-
-    return _type.errors(processed);
+    return _type.errors(_preprocess(value));
   }
 
   Future<List<VError>?> _stdErrorsAsync() async {
-    final value = this.value;
-    final processed = value is String && value.isEmpty ? null : value;
-
-    return _type.errorsAsync(processed);
+    return _type.errorsAsync(await _preprocessAsync(value));
   }
 
   List<VError>? _buildVError(List<VError>? stdErrors, String? asyncExtra) {
@@ -484,7 +519,7 @@ class VField<T> {
   }
 
   String? _runValidators(T? value, {required bool consume}) {
-    final processed = value is String && value.isEmpty ? null : value;
+    final processed = _preprocess(value);
     final stdError =
         _type.hasAsync ? null : _type.errors(processed)?.firstOrNull?.message;
 
@@ -512,7 +547,7 @@ class VField<T> {
   }
 
   Future<String?> _runValidatorsAsync(T? value) async {
-    final processed = value is String && value.isEmpty ? null : value;
+    final processed = await _preprocessAsync(value);
     final stdError = (await _type.errorsAsync(processed))?.firstOrNull?.message;
 
     String? extraError;
