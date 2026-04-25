@@ -11,24 +11,25 @@ class User {
 
   const User({required this.name, required this.email, required this.age});
 
+  factory User.fromMap(Map<String, dynamic> data) {
+    return User(
+      name: data['name'],
+      email: data['email'],
+      age: data['age'],
+    );
+  }
+
+  static final VObject<User> schema = V
+      .object<User>()
+      .field('name', (u) => u.name, V.string().min(3))
+      .field('email', (u) => u.email, V.string().email())
+      .field('age', (u) => u.age, V.int().min(18));
+
   @override
   String toString() => 'User(name: $name, email: $email, age: $age)';
 
   Map<String, dynamic> toJson() => {'name': name, 'email': email, 'age': age};
 }
-
-VObject<User> _userSchema() => V.object<User>(
-      configure: (o) => o
-          .field('name', (u) => u.name, V.string().min(3))
-          .field('email', (u) => u.email, V.string().email())
-          .field('age', (u) => u.age, V.int().min(18)),
-    );
-
-User _buildUser(Map<String, dynamic> data) => User(
-      name: data['name'] ?? '',
-      email: data['email'] ?? '',
-      age: data['age'] ?? 0,
-    );
 
 class ObjectFormPage extends StatefulWidget {
   const ObjectFormPage({super.key});
@@ -51,10 +52,10 @@ class _ObjectFormPageState extends State<ObjectFormPage> {
   void initState() {
     super.initState();
 
-    _form = _userSchema().form(builder: _buildUser);
+    _form = User.schema.form(builder: User.fromMap);
 
-    _defaultForm = _userSchema().form(
-      builder: _buildUser,
+    _defaultForm = User.schema.form(
+      builder: User.fromMap,
       initialValue: const User(
         name: 'John',
         email: 'john@example.com',

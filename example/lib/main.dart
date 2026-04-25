@@ -5,7 +5,9 @@ import 'pages/basic_map_form_page.dart';
 import 'pages/complex_form_page.dart';
 import 'pages/conditional_validation_page.dart';
 import 'pages/object_form_page.dart';
+import 'pages/object_validation_page.dart';
 import 'pages/password_match_page.dart';
+import 'pages/root_errors_page.dart';
 import 'pages/controller_sync_page.dart';
 import 'pages/reactive_form_page.dart';
 import 'pages/required_message_page.dart';
@@ -72,9 +74,20 @@ class HomePage extends StatelessWidget {
         page: ObjectFormPage(),
       ),
       _Example(
+        title: 'Object Validation',
+        subtitle:
+            'VObject equalFields, when, refineField — typed cross-field rules',
+        page: ObjectValidationPage(),
+      ),
+      _Example(
         title: 'Password Match',
         subtitle: 'Cross-field validation with refineFormField',
         page: PasswordMatchPage(),
+      ),
+      _Example(
+        title: 'Root Errors',
+        subtitle: 'form.rootErrors banner via refine + dependsOn aggregation',
+        page: RootErrorsPage(),
       ),
       _Example(
         title: 'Controller Sync',
