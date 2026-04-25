@@ -51,7 +51,12 @@ class _RootErrorsPageState extends State<RootErrorsPage> {
 
   void _submit() {
     setState(() {
-      if (_form.validate() && _form.silentValidate()) {
+      // form.validate() now considers schema-level rules (refine,
+      // equalFields, dependsOn) on top of per-field validators, so a
+      // single call is enough. Field-keyed errors land in form.errors();
+      // root errors land in form.rootErrors and the banner above renders
+      // them — they do NOT show up under any FormField.
+      if (_form.validate()) {
         _result = _form.value;
         _errors = null;
       } else {

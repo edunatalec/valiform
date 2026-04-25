@@ -30,7 +30,7 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
           'password': V.string().password(),
           'confirmPassword': V.string().password(),
         })
-        .refineFormField(
+        .refineField(
           (data) => data['password'] == data['confirmPassword'],
           path: 'confirmPassword',
           message: 'Passwords do not match',
@@ -76,11 +76,10 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
   }
 
   void _submitEqualFields() {
-    final fieldsValid = _equalFieldsForm.validate();
-    final schemaValid = fieldsValid && _equalFieldsForm.silentValidate();
-
     setState(() {
-      if (schemaValid) {
+      // form.validate() covers both per-field and schema-level rules
+      // (equalFields emits a root-level error and is included).
+      if (_equalFieldsForm.validate()) {
         _equalResult = _equalFieldsForm.value;
         _equalErrors = null;
       } else {
@@ -106,12 +105,12 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SectionTitle('Section 1: Using refineFormField'),
+                  const SectionTitle('Section 1: Using refineField'),
                   const SizedBox(height: 8),
                   const InfoCard(
-                    'refineFormField adds validation to both the VMap pipeline '
-                    'AND individual fields. The error message appears directly '
-                    'on the target field.',
+                    'refineField attaches a path-keyed cross-field check to '
+                    'the schema. Because the path is declared, VForm demuxes '
+                    'the error and surfaces it inline under the target field.',
                   ),
                   const SizedBox(height: 16),
                   VTextField(
@@ -128,7 +127,7 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: _submitRefine,
-                    child: const Text('Submit (refineFormField)'),
+                    child: const Text('Submit (refineField)'),
                   ),
                   ResultFeedback(data: _refineResult, errors: _refineErrors),
                 ],

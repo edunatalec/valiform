@@ -51,7 +51,7 @@ class _ComplexFormPageState extends State<ComplexFormPage> {
           'username': V.string().nullable(),
         })
         // Cross-field: confirmation must match name.
-        .refineFormField(
+        .refineField(
           (data) => data['name'] == data['confirmation'],
           path: 'confirmation',
           message: 'must match name',
@@ -148,7 +148,7 @@ class _ComplexFormPageState extends State<ComplexFormPage> {
             children: [
               const InfoCard(
                 'Combines every primitive + array (unique) + nested map + '
-                'enum + union + literal + refineFormField + two .when() '
+                'enum + union + literal + refineField + two .when() '
                 'rules (one sync, one async). hasAsync is true because the '
                 'member-username branch uses refineAsync, so form.validate() '
                 'would throw — submit runs form.validateAsync() and then '
@@ -198,7 +198,7 @@ class _ComplexFormPageState extends State<ComplexFormPage> {
               const SizedBox(height: 24),
               const SectionTitle('Cross-field'),
               const InfoCard(
-                'Confirmation must equal Name (refineFormField).',
+                'Confirmation must equal Name (refineField).',
               ),
               const SizedBox(height: 12),
               VTextField(field: _confirmation, label: 'Confirm name'),

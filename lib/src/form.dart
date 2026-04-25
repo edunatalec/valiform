@@ -24,11 +24,15 @@ class VForm<T> {
   /// Snapshot of the schema-level errors that have a non-empty path,
   /// keyed by the top-level field name. Refreshed by every call to
   /// [validate] / [silentValidate] (and async equivalents). Read by
-  /// each [VField] via the `schemaErrorLookup` closure so the error
-  /// emitted by `refineField` / nested-path `refine` shows up in
-  /// `field.error`, `field.validator`, `form.errors()`, and the
-  /// `FormField.validator` chain — matching the behavior of
-  /// `refineFormField`.
+  /// each [VField] via its `schemaErrorLookup` closure so the error
+  /// emitted by `refineField` / `refineFieldRaw` / nested-path `refine`
+  /// reaches `field.error`, `field.validator`, `form.errors()`, and
+  /// the `FormField.validator` chain.
+  ///
+  /// The sync per-field path actually re-runs the schema validator
+  /// on demand (so the lookup never goes stale between the user typing
+  /// and the next validate); this snapshot is the channel for the
+  /// async path, where the sync `field.validator` cannot await.
   Map<String, String> _schemaFieldErrors = const {};
 
   /// Whether any field in this form depends on async validation — either
@@ -68,10 +72,11 @@ class VForm<T> {
       final key = entry.key;
       final type = entry.value;
 
-      // Per-field schema-level error closures: when rules + (after the
-      // refineFormField removal) the schema-error demux populates
-      // _schemaFieldErrors which is consulted by VField.schemaErrorLookup
-      // — no need to maintain a parallel `crossValidators` list.
+      // Per-field sync extra-validators populated below (currently only
+      // by sync `.when()` rules). Schema-level cross-field rules
+      // (`refineField`, nested-path `refine`) flow through the
+      // `_schemaFieldErrors` snapshot consulted by `schemaErrorLookup`,
+      // so they do NOT need to be added here.
       final validators = <String? Function()>[];
 
       final asyncValidators = <Future<String?> Function()>[];

@@ -21,6 +21,7 @@ import 'pages/errors_preview_page.dart';
 import 'pages/manual_error_page.dart';
 import 'pages/optional_fields_page.dart';
 import 'pages/preprocess_page.dart';
+import 'pages/refine_field_raw_page.dart';
 import 'pages/transforms_page.dart';
 import 'pages/v_errors_page.dart';
 
@@ -82,8 +83,13 @@ class HomePage extends StatelessWidget {
       ),
       _Example(
         title: 'Password Match',
-        subtitle: 'Cross-field validation with refineFormField',
+        subtitle: 'Cross-field validation with refineField',
         page: PasswordMatchPage(),
+      ),
+      _Example(
+        title: 'refineField vs refineFieldRaw',
+        subtitle: 'Same rule, different verdicts when a field has a transform',
+        page: RefineFieldRawPage(),
       ),
       _Example(
         title: 'Root Errors',
@@ -155,7 +161,7 @@ class HomePage extends StatelessWidget {
       _Example(
         title: 'Complex Form',
         subtitle:
-            'All types + array + nested map + enum + union + when sync/async + refineFormField',
+            'All types + array + nested map + enum + union + when sync/async + refineField',
         page: ComplexFormPage(),
       ),
       _Example(

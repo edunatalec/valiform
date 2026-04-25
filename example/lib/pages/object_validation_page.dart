@@ -128,7 +128,9 @@ class _ObjectValidationPageState extends State<ObjectValidationPage> {
 
   void _submitEqual() {
     setState(() {
-      if (_equalForm.validate() && _equalForm.silentValidate()) {
+      // form.validate() covers schema-level rules (equalFields emits a
+      // root-level error and is included).
+      if (_equalForm.validate()) {
         _equalResult = _equalForm.value.toJson();
         _equalErrors = null;
       } else {
@@ -278,9 +280,11 @@ class _ObjectValidationPageState extends State<ObjectValidationPage> {
                   const SizedBox(height: 8),
                   const InfoCard(
                     'refineField receives the entire instance but pins the '
-                    'error to a specific field path. Useful when the rule '
-                    'depends on more than one field but the message belongs '
-                    'on just one of them (e.g. endDate after startDate).',
+                    'error to a specific field path. Because the path is '
+                    'declared, the error surfaces inline under that field '
+                    '(here, endDate) — no banner needed. Useful when the '
+                    'rule depends on more than one field but the message '
+                    'belongs on just one of them.',
                   ),
                   const SizedBox(height: 16),
                   _DateField(

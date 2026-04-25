@@ -1837,10 +1837,9 @@ void main() {
       final ageError = form.field<int>('age');
       expect(ageError.manualError, 'person must be 18+');
 
-      // Break the cross-field refineField too. The error now flows
-      // through the schema-error demux (not manualError, which was the
-      // old refineFormField channel) — so we check field.error /
-      // field.errorAsync instead.
+      // Break the cross-field refineField too. The error flows through
+      // the schema-error demux (path-keyed `VFailure.errors` get demuxed
+      // onto each field) — surfaces via field.errorAsync.
       form.field<int>('age').set(25);
       form.field<String>('confirmation').set('someone else');
       expect(await form.validateAsync(), isFalse);
@@ -2926,6 +2925,42 @@ void main() {
 
       form.dispose();
     });
+
+    test(
+      '_schemaFieldErrors snapshot is refreshed between consecutive '
+      'validateAsync calls (no stale errors after fixing the input)',
+      () async {
+        // Pin the snapshot lifecycle: validateAsync must replace the
+        // previous snapshot, never merge into it. If the snapshot were
+        // stale, fixing the cross-field rule would still report the old
+        // error on the field after a second validateAsync.
+        final form = V
+            .map({
+              'a': V.string().min(1).refineAsync(
+                (v) async => true,
+                dependsOn: const {'a'},
+              ),
+              'b': V.string().min(1),
+            })
+            .refineField(
+              (m) => m['a'] != m['b'],
+              path: 'a',
+              message: 'must differ',
+            )
+            .form(initialValues: {'a': 'x', 'b': 'x'});
+
+        expect(await form.validateAsync(), isFalse);
+        expect(await form.field<String>('a').errorAsync, 'must differ');
+
+        // Fix the cross-field condition; second validateAsync must
+        // refresh the snapshot — error gone.
+        form.field<String>('b').set('y');
+        expect(await form.validateAsync(), isTrue);
+        expect(await form.field<String>('a').errorAsync, isNull);
+
+        form.dispose();
+      },
+    );
   });
 
   group('refineFieldRaw via VForm', () {
