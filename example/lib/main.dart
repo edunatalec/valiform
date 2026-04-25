@@ -20,6 +20,7 @@ import 'pages/multi_type_form_page.dart';
 import 'pages/errors_preview_page.dart';
 import 'pages/manual_error_page.dart';
 import 'pages/optional_fields_page.dart';
+import 'pages/preprocess_page.dart';
 import 'pages/transforms_page.dart';
 import 'pages/v_errors_page.dart';
 
@@ -172,6 +173,12 @@ class HomePage extends StatelessWidget {
         title: 'Transforms',
         subtitle: 'Pipeline transforms (trim, toLowerCase) — rawValue vs value',
         page: TransformsPage(),
+      ),
+      _Example(
+        title: 'Preprocess',
+        subtitle:
+            'Container vs field preprocess — cross-field rewrites for VMap and VObject',
+        page: PreprocessPage(),
       ),
       _Example(
         title: 'Errors Preview',
