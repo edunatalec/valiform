@@ -2224,6 +2224,69 @@ void main() {
       form.dispose();
     });
 
+    test('VObject.omit drops the listed fields from the form', () {
+      final full = V
+          .object<_User>()
+          .field('name', (u) => u.name, V.string().min(3))
+          .field('email', (u) => u.email, V.string().email());
+
+      final withoutEmail = full.omit(['email']);
+
+      final form = withoutEmail.form(
+        builder: (data) => _User(name: data['name'] as String, email: ''),
+        initialValue: const _User(name: 'Alice', email: 'kept-out-of-form'),
+      );
+
+      expect(() => form.field<String>('email'), throwsArgumentError);
+      expect(form.field<String>('name').value, 'Alice');
+      expect(form.silentValidate(), isTrue);
+
+      form.dispose();
+    });
+
+    test('VObject.merge concatenates fields from two schemas', () {
+      // Common pattern: an audit-fields mixin schema merged into the main
+      // schema. Both halves' fields show up in the resulting form.
+      final identity = V.object<_AuditedUser>().field(
+            'name',
+            (u) => u.name,
+            V.string().min(1),
+          );
+      final audit = V.object<_AuditedUser>().field(
+            'createdAt',
+            (u) => u.createdAt,
+            V.date(),
+          );
+
+      final merged = identity.merge(audit);
+
+      final form = merged.form(
+        builder: (data) => _AuditedUser(
+          name: data['name'] as String,
+          createdAt: data['createdAt'] as DateTime,
+        ),
+        initialValue: _AuditedUser(
+          name: 'Alice',
+          createdAt: DateTime(2026, 1, 1),
+        ),
+      );
+
+      expect(form.field<String>('name'), isA<VField<String>>());
+      expect(form.field<DateTime>('createdAt'), isA<VField<DateTime>>());
+      expect(form.silentValidate(), isTrue);
+
+      form.dispose();
+    });
+
+    // NOTE: VObject's container-level preprocess() (a 1.4.0 fix) runs only
+    // through the schema-level safeParse path (silentValidator), NOT through
+    // the per-field validators wired into each VField. Because
+    // VForm.silentValidate combines both, a preprocessor that "fixes" a
+    // bad value won't rescue the per-field check. The VMap regression test
+    // above is the right integration scope; covering VObject preprocess at
+    // the VForm level would require pushing the rewritten instance back
+    // into individual fields, which is out of scope.
+
     test(
       'preprocess() on a VMap container runs through VForm '
       '(regression: pre-1.4.0 silently ignored container preprocess)',
@@ -2441,6 +2504,131 @@ void main() {
       form.dispose();
     });
 
+    test(
+      'rootErrors reflects the underlying VError path: equalFields emits '
+      'root-level (no path) → shown in banner; refineField/refineFormField '
+      'declare a path → stay out of rootErrors',
+      () {
+        // Contract pin around how validart 1.4.0's rootMessages() partitions
+        // errors. The valiform banner consumer needs to know which schema
+        // primitives surface there and which don't:
+        //
+        //  - equalFields(a, b)             → path: []     → rootErrors  ✓
+        //  - refineField(check, path: 'x') → path: ['x'] → NOT root
+        //  - refineFormField(check, path:) → path: ['x'] → NOT root
+        //  - refine(check)                 → path: []    → rootErrors  ✓ (covered above)
+        //
+        // Without this pin, a future refactor that "promotes" path-pinned
+        // errors to root would silently double-render messages in the UI.
+
+        final equal = V
+            .map({
+              'a': V.string(),
+              'b': V.string(),
+            })
+            .equalFields('a', 'b', message: 'must match')
+            .form(
+              initialValues: {'a': 'x', 'b': 'y'},
+            );
+
+        expect(equal.silentValidate(), isFalse);
+        // equalFields => path empty => banner-eligible.
+        expect(equal.rootErrors, ['must match']);
+        equal.dispose();
+
+        final refined = V
+            .object<_Booking>()
+            .field('startDate', (b) => b.startDate, V.date())
+            .field('endDate', (b) => b.endDate, V.date())
+            .refineField(
+              (b) => b.endDate.isAfter(b.startDate),
+              path: 'endDate',
+              message: 'endDate must be after startDate',
+            )
+            .form(
+              builder: (data) => _Booking(
+                startDate: data['startDate'] as DateTime,
+                endDate: data['endDate'] as DateTime,
+              ),
+              initialValue: _Booking(
+                startDate: DateTime(2026, 5, 1),
+                endDate: DateTime(2026, 4, 1),
+              ),
+            );
+
+        expect(refined.silentValidate(), isFalse);
+        // refineField has path => NOT in rootErrors.
+        expect(refined.rootErrors, isEmpty);
+        refined.dispose();
+      },
+    );
+
+    test('form.reset() clears rootErrors back to the initial-value state', () {
+      // After typing invalid values, the banner shows the cross-field error.
+      // reset() restores the initial values; rootErrors must reflect the
+      // post-reset state without needing a manual silentValidate call.
+      final form = V.map({
+        'startDate': V.date(),
+        'endDate': V.date(),
+      }).refine(
+        (m) => (m['endDate'] as DateTime).isAfter(m['startDate'] as DateTime),
+        message: 'endDate must be after startDate',
+        dependsOn: const {'startDate', 'endDate'},
+      ).form(
+        initialValues: {
+          'startDate': DateTime(2026, 5, 1),
+          'endDate': DateTime(2026, 6, 1),
+        },
+      );
+
+      // Initial values are valid.
+      expect(form.rootErrors, isEmpty);
+
+      // User flips end before start → banner appears.
+      form.field<DateTime>('endDate').set(DateTime(2026, 4, 1));
+      expect(form.rootErrors, ['endDate must be after startDate']);
+
+      // Reset restores valid initial values → banner clears.
+      form.reset();
+      expect(form.rootErrors, isEmpty);
+
+      form.dispose();
+    });
+
+    test(
+      'VObject form: rootErrorsAsync surfaces async refine() messages '
+      '(parity with the sync VObject root case)',
+      () async {
+        // Symmetric to the sync VObject test above — but with refineAsync
+        // on the schema. Confirms the async path through VForm.object also
+        // captures schema-level root messages with no specific path.
+        final schema = V
+            .object<_Booking>()
+            .field('startDate', (b) => b.startDate, V.date())
+            .field('endDate', (b) => b.endDate, V.date())
+            .refineAsync(
+          (b) async => b.endDate.isAfter(b.startDate),
+          message: 'endDate must be after startDate',
+          dependsOn: const {'startDate', 'endDate'},
+        );
+
+        final form = schema.form(
+          builder: (data) => _Booking(
+            startDate: data['startDate'] as DateTime,
+            endDate: data['endDate'] as DateTime,
+          ),
+          initialValue: _Booking(
+            startDate: DateTime(2026, 5, 1),
+            endDate: DateTime(2026, 4, 1),
+          ),
+        );
+
+        expect(await form.rootErrorsAsync, ['endDate must be after startDate']);
+
+        form.dispose();
+      },
+    );
+
     test('rootErrors throws on async schema; rootErrorsAsync works', () async {
       final schema = V.map({
         'name': V.string().refineAsync(
@@ -2620,6 +2808,13 @@ class _Booking {
   final DateTime endDate;
 
   const _Booking({required this.startDate, required this.endDate});
+}
+
+class _AuditedUser {
+  final String name;
+  final DateTime createdAt;
+
+  const _AuditedUser({required this.name, required this.createdAt});
 }
 
 class _PasswordPair {

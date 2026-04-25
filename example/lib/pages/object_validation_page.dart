@@ -133,11 +133,8 @@ class _ObjectValidationPageState extends State<ObjectValidationPage> {
         _equalErrors = null;
       } else {
         _equalResult = null;
-        final errs = _equalForm.errors() ?? <String, String>{};
-        if (!_equalForm.silentValidate() && errs.isEmpty) {
-          errs['_form'] = 'Passwords must match';
-        }
-        _equalErrors = errs.isEmpty ? null : errs;
+        // equalFields is root-level — the banner above the fields renders it.
+        _equalErrors = _equalForm.errors();
       }
     });
   }
@@ -190,10 +187,21 @@ class _ObjectValidationPageState extends State<ObjectValidationPage> {
                   const InfoCard(
                     'VObject<SignUpDto>().equalFields(\'password\', '
                     '\'confirmPassword\') is the typed-DTO equivalent of '
-                    'the VMap shortcut. The check runs at the schema level '
-                    '(silentValidate) and emits a custom error code.',
+                    'the VMap shortcut. It emits a root-level error — '
+                    'render it via form.rootErrors as a banner.',
                   ),
                   const SizedBox(height: 16),
+                  ListenableBuilder(
+                    listenable: _equalForm.listenable,
+                    builder: (context, _) {
+                      final root = _equalForm.rootErrors;
+                      if (root.isEmpty) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: RootErrorBanner(messages: root),
+                      );
+                    },
+                  ),
                   VTextField(
                     field: equalPassword,
                     hint: 'Password',

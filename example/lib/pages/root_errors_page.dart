@@ -87,7 +87,7 @@ class _RootErrorsPageState extends State<RootErrorsPage> {
                   if (root.isEmpty) return const SizedBox.shrink();
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 16),
-                    child: _RootErrorBanner(messages: root),
+                    child: RootErrorBanner(messages: root),
                   );
                 },
               ),
@@ -114,46 +114,6 @@ class _RootErrorsPageState extends State<RootErrorsPage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _RootErrorBanner extends StatelessWidget {
-  final List<String> messages;
-
-  const _RootErrorBanner({required this.messages});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.12),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Form errors',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: Colors.red.shade900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          for (final m in messages)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                '• $m',
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
-            ),
-        ],
       ),
     );
   }

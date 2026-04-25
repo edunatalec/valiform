@@ -85,14 +85,9 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
         _equalErrors = null;
       } else {
         _equalResult = null;
-        // equalFields errors only show up in silentValidate, not on individual
-        // fields — merge a synthetic error into the map so ResultBox.failure
-        // has something to render.
-        final errs = _equalFieldsForm.errors() ?? <String, String>{};
-        if (fieldsValid && !_equalFieldsForm.silentValidate()) {
-          errs['_form'] = 'Passwords must match';
-        }
-        _equalErrors = errs.isEmpty ? null : errs;
+        // Field-keyed errors stay in errors(); the equalFields mismatch is
+        // root-level and is rendered by the RootErrorBanner above the fields.
+        _equalErrors = _equalFieldsForm.errors();
       }
     });
   }
@@ -148,11 +143,23 @@ class _PasswordMatchPageState extends State<PasswordMatchPage> {
                   const SectionTitle('Section 2: Using equalFields'),
                   const SizedBox(height: 8),
                   const InfoCard(
-                    'equalFields adds validation only to the VMap pipeline. '
-                    'Use silentValidate() to check. Errors don\'t appear on '
-                    'individual fields — handle them yourself.',
+                    'equalFields emits a root-level error (no field path). '
+                    'Render it as a banner via form.rootErrors instead of '
+                    'looking for it in form.errors() — that map only carries '
+                    'field-keyed errors.',
                   ),
                   const SizedBox(height: 16),
+                  ListenableBuilder(
+                    listenable: _equalFieldsForm.listenable,
+                    builder: (context, _) {
+                      final root = _equalFieldsForm.rootErrors;
+                      if (root.isEmpty) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: RootErrorBanner(messages: root),
+                      );
+                    },
+                  ),
                   VTextField(
                     field: _equalPassword,
                     hint: 'Password',
