@@ -345,21 +345,28 @@ class VForm<T> {
     }
 
     final f = result as VFailure;
-    final rootMessages = <String>[];
+
+    // Root messages: delegate to validart's canonical implementation —
+    // single source of truth. If validart ever changes the definition
+    // of "root error" (e.g. how `path` empty is detected), valiform
+    // follows automatically.
+    final rootMessages = f.rootMessages();
+
+    // Field messages: keep custom logic. Validart's `toMapFirst()`
+    // keys by `pathString` (joined with `.`, e.g. `'address.zip'`),
+    // but `VForm._fields` is indexed by TOP-LEVEL key only
+    // (`'address'`). Routing a nested error to the wrong key would
+    // mean it never reaches the right `VField`, so we iterate
+    // manually and take `path.first` as the routing key. The full
+    // path is still available via `form.vErrors()` for callers that
+    // need it.
     final fieldMessages = <String, String>{};
 
     for (final err in f.errors) {
-      if (err.path.isEmpty) {
-        rootMessages.add(err.message);
-      } else {
-        // Take the top-level segment as the field key. Nested paths
-        // (e.g. ['address', 'zip']) collapse to their root field
-        // ('address') — the inline UI lives at the FormField level,
-        // and the full path is still available via `form.vErrors()`
-        // for callers that need it.
-        final key = err.path.first.toString();
-        fieldMessages.putIfAbsent(key, () => err.message);
-      }
+      if (err.path.isEmpty) continue;
+
+      final key = err.path.first.toString();
+      fieldMessages.putIfAbsent(key, () => err.message);
     }
 
     return (false, rootMessages, fieldMessages);
