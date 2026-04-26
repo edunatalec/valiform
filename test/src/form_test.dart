@@ -2780,7 +2780,7 @@ void main() {
       'root-level (no path) → shown in banner; refineField / refineFieldRaw '
       'declare a path → stay out of rootErrors',
       () {
-        // Contract pin around how validart 1.4.0's rootMessages() partitions
+        // Contract pin around how validart's rootMessages() partitions
         // errors. The valiform banner consumer needs to know which schema
         // primitives surface there and which don't:
         //
@@ -3410,10 +3410,9 @@ void main() {
     );
 
     test(
-      'VObject async: container preprocessAsync rewrites a field; '
-      'refineFieldAsync... wait, only refineAsync exists at the schema root. '
-      'Cover container.refineAsync(dependsOn:) emitting a root-level error '
-      'while everything else passes.',
+      'VObject async: container preprocessAsync rewrites a field while '
+      'container refineAsync(dependsOn:) emits a root-level error; both '
+      'paths coexist',
       () async {
         final schema = V
             .object<_AsyncDto>()
