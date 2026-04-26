@@ -1,5 +1,55 @@
 # Changelog
 
+## [2.0.0] - 2026-04-25
+
+### Breaking Changes
+
+- **Removed `VMap.refineFormField` extension and the supporting `Expando` / `VFieldValidator` class.** The valiform-specific extension predates validart's `refineField` and had subtly different semantics — `refineFormField` callback received `form.rawValue` (pre-pipeline) for the per-field channel but the parsed map for `silentValidate`, leading to divergence on schemas with field-level transforms. The two semantics are now provided cleanly by validart 2.0.0:
+  - `V.map({...}).refineField(check, path: 'x')` → callback receives the **parsed** map (transforms applied). Recommended for the vast majority of cases.
+  - `V.map({...}).refineFieldRaw(check, path: 'x')` → callback receives the **raw** input (post container preprocess + type check, before per-field iteration). Reach for it when the rule depends on the original input shape (case, whitespace, pre-coercion).
+
+  Both surface inline under the target field thanks to the schema-error demux. **Migration:**
+    - `V.map({...}).refineFormField(check, path: 'x', message: '...')`
+    → `V.map({...}).refineField(check, path: 'x', message: '...')` — same result for callbacks that don't depend on case/whitespace.
+    - If your callback compared raw values that get transformed by the field-level pipeline (e.g. `data['email']` against an expected literal when the field has `.toLowerCase()`), use `refineFieldRaw` instead.
+
+  See updated `example/lib/pages/password_match_page.dart`, `complex_form_page.dart`, and the new `refine_field_raw_page.dart` for migration patterns.
+
+### Required
+
+- Bumped minimum `validart` constraint to `2.0.0`. New upstream APIs consumed:
+  - `VFailure.rootMessages()` — root-level error extraction for the new banner channel.
+  - `refine(..., dependsOn: {...})` on `VMap` / `VObject` for cross-field error aggregation.
+  - Fluent `V.object<T>().field(...)` API (the `configure:` callback no longer exists upstream).
+  - New `VObject` combinators: `equalFields`, `when`, `refineField`, `refineFieldRaw`, `pick`, `omit`, `merge`, `array`.
+  - `VType.runPreprocessors` / `runPreprocessorsAsync` / `hasPreprocessors` — public accessors used by the container-preprocess routing fix below.
+  - `VType.addRaw` — low-level hook backing `refineFieldRaw`.
+
+### Added
+
+- **`VForm.rootErrors` / `VForm.rootErrorsAsync`** — surface form-level errors emitted by schema-level `refine()` rules with no specific field path (date-range checks, totals, etc.). Self-contained getter: each access re-runs the schema-level `safeParse` against the current parsed values, so a `ListenableBuilder` on `form.listenable` keeps a banner in sync without a manual `silentValidate()` call. The async variant awaits each field's async pipeline before re-running `safeParseAsync` to catch `refineAsync(..., dependsOn:)` failures. Sync getter throws `VAsyncRequiredException` on async schemas — use `rootErrorsAsync`.
+- **`example/lib/pages/object_validation_page.dart`** — three sections demoing the new `VObject` combinators on typed DTOs: `equalFields` (password match), `when` (US tax ID conditional), `refineField` (date-range with error pinned to a single field).
+- **`example/lib/pages/root_errors_page.dart`** — `refine(..., dependsOn:)` with a banner rendering `form.rootErrors` alongside field-keyed errors. Demonstrates the aggregation introduced in validart 2.0.0 (when `dependsOn` is declared, the cross-field rule keeps running even when sibling fields fail individually).
+- **`example/lib/pages/refine_field_raw_page.dart`** — interactive demo showing `refineField` and `refineFieldRaw` side-by-side with the same predicate (`code` length must be 8) and a `.trim().toUpperCase()` transform on the field. Same input → different verdicts. Use it as a template when deciding which API to reach for.
+- New test groups in `test/src/form_test.dart` pinning the schema-error demux surface for both `refineField` and `refineFieldRaw` (path-keyed error reaches `field.error` / `form.errors()` / `field.validator`).
+
+### Fixed
+
+- **`VForm.object` now propagates `VObject.whenRules` into per-field validators**, matching the behaviour already in place for `VForm.map`. Previously, conditional rules declared on a `VObject` via `.when(...)` were silently ignored by the form layer (only the schema-level `validate(builder(raw))` saw them, but per-field `FormField.validator` did not), so `form.validate()` could return `true` for inputs the schema knew to be invalid. Pinned by a regression test in the `Conditional validation (when)` group.
+- **`form.validate()` and `form.validateAsync()` now include schema-level rules in their return value.** Previously they delegated only to `FormState.validate()` (per-field `FormField.validator`), so a schema with `refine(..., dependsOn: {...})` or `equalFields(...)` could fail at the schema level while `validate()` still returned `true` — the consumer would then `submit()` data the schema rejected. The fix re-runs the silent schema validator after the per-field pass and returns `fieldsValid && schemaValid`. Behavioural consequence: code that previously had to write `if (form.validate() && form.silentValidate())` as a workaround can now drop the second clause; code that wasn't aware of the gap will start receiving `false` correctly when a root rule fails. Bundled cleanup of `example/lib/pages/{root_errors,password_match,object_validation}_page.dart` removes the workaround. Pinned by widget tests in the `Form-level (root) errors` group.
+- **Schema-level errors with a non-empty path now surface inline under the target field.** Errors emitted by `VMap.refineField(check, path: 'x')`, `VObject<T>.refineField(check, path: 'x')`, or any nested-path schema construct previously landed only in the `safeParse` failure — `field.error`, `form.errors()`, and `FormField.validator` did not see them, so the UI showed no error even though `silentValidate()` returned `false`. `VForm` now demuxes the `VFailure` after every `validate*` / `silentValidate*` call: errors with a top-level path go to the corresponding `VField` (via a `schemaErrorLookup` closure consulted by `_runValidators`), errors with an empty path go to `form.rootErrors`. The lookup is on-demand for sync forms (re-runs the schema each time so it always reflects the current sibling values — O(N) per keystroke for schemas that actually have schema-level rules; pure schemas pay no cost). Async forms use a snapshot refreshed by `validateAsync` / `silentValidateAsync`.
+- **Container `preprocess()` now reaches the per-field validator**, mirroring the order in `VMap.safeParse` / `VObject.safeParse`: `container preprocess → field preprocess → field validators → field transforms`. Previously, container preprocess only ran inside `safeParse` direct (the schema-level path), while each `VField` knew only its own `_type` and ran its pipeline without any awareness of the parent. Result: `form.validator(value)` and `form.silentValidate()` could disagree, with the UI displaying an error that the schema had already "fixed" via preprocess. Now both paths agree. The canonical use case is cross-field rewrites — e.g. `V.map({...}).preprocess((m) => m['country'] == 'US' ? {...m, 'state': m['state'].toUpperCase()} : m)` — which no per-field transform can express because a field doesn't see its siblings. **Limit:** when the container has only `preprocessAsync`, the sync `field.validator` continues to fall through (it cannot await) — use `form.validateAsync` for the full async pipeline. Implementation: each `VField` receives a snapshot-and-preprocess closure that mounts the full sibling map, runs `container.runPreprocessors`, and reads back the field's slot. Schemas without container preprocess (the common case) pay zero overhead — gated on `VType.hasPreprocessors`.
+
+### Changed
+
+- **`example/lib/pages/object_form_page.dart`** migrated to validart 2.0.0's fluent `V.object<T>().field(...)` API. The `configure:` callback no longer exists upstream — see the validart 2.0.0 changelog for the migration.
+
+### Notes
+
+- All other behavior from valiform 1.x stays compatible. `VForm`, `VField`, `attachController`, `attachTextController`, `validate` / `validateAsync` semantics — all unchanged outside of the bullets above.
+- **Internal:** `VForm`'s silent validators changed signature from `bool Function(...)` / `Future<bool> Function(...)` to `(bool, List<String>, Map<String, String>) Function(...)` / `Future<(bool, List<String>, Map<String, String>)> Function(...)` so they can carry the validity flag, root messages, and the schema field-error demux in a single pass. Public API unchanged — only relevant if you were extending `VForm` directly (which is unusual; `VForm` is `final` in spirit).
+- **Internal:** `_runWithRoot` (the schema-error demux helper) delegates root-message extraction to `VFailure.rootMessages()` instead of duplicating the loop. Field-message demux stays custom because it routes by top-level segment (`path.first`) to match `VForm._fields`'s top-level indexing — `VFailure.toMapFirst()` keys by `pathString` (joined with `.`) which would mis-route nested errors.
+
 ## [1.2.0] - 2026-04-23
 
 ### Changed
