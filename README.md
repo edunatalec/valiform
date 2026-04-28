@@ -246,6 +246,8 @@ final user = form.value; // User instance
 
 > **`form.value` is optimistic — it does not validate first.** It calls your builder with whatever is currently in the fields (empty fields come through as `null`). If `User` has non-nullable parameters, passing `null` to the constructor throws `TypeError` at runtime. **This is specific to `VObject` forms** — a `VMap` form returns a `Map<String, dynamic>` directly, so `null`s fit and nothing breaks.
 >
+> Note: the crash is exclusive to `form.value`. **`form.validate()` and `form.silentValidate()` themselves never invoke your builder on a partial form** — they fall back to per-field iteration whenever the builder can't construct `T`, so the canonical "validate first" pattern below is always safe.
+>
 > Three ways to stay safe on a `VObject` form:
 >
 > 1. **Validate first** (idiomatic) — read `form.value` only inside a validated branch:
