@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0] - 2026-04-27
+
+### Fixed
+
+- **`onValueChanged` no longer throws on incomplete `VForm.object` forms.** The form-level `onValueChanged` callback (and `addValueChangedListener` / `removeValueChangedListener`) now always delivers `Map<String, dynamic>` (raw field values), regardless of whether the form was created from a `VMap` or a `VObject<T>`. Previously, `VForm.object<T>` invoked the user-supplied `builder` against the partial field map on every field change, which threw `TypeError` whenever the builder dereferenced `data['key']` into a non-nullable parameter while other fields were still empty (the idiomatic Dart factory pattern). A field change does not imply the form is valid enough to construct `T`; consumers needing the typed value should call `form.value` / `form.valueAsync` after `form.validate()` returns `true`, or guard the `builder` with `??` defaults / nullable parameters.
+- The previous async-form no-op restriction on value-changed listeners is removed — `rawValue` is sync-safe regardless of the schema's async pipeline, so the same callback shape now fires on sync and async forms alike.
+
 ## [2.0.0] - 2026-04-25
 
 ### Breaking Changes
