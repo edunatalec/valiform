@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.1] - 2026-04-28
+
+### Fixed
+
+- **`VForm.object`'s `validate()` / `silentValidate()` no longer throw `TypeError` on partial / empty forms.** Previously, both methods invoked the user-supplied `builder` against the raw field snapshot _before_ running validation, which crashed whenever a builder dereferenced `data['key']` into a non-nullable parameter while another field was still null (the canonical Dart factory pattern, e.g. `User(name: data['name'], email: data['email'])` without `?? fallback`). The silent validators now wrap the canonical `object.safeParse(builder(raw))` path in a `TypeError` catch and fall back to per-field iteration over `object.schema` with raw values when the builder cannot construct `T`. Schema-level rules (`refine`, `refineField`, `refineFieldRaw`, `equalFields`, `whenRules`, container preprocess) still run on the canonical path whenever the builder succeeds, so existing schemas don't regress; partial forms now surface per-field "required" / type errors as expected instead of crashing.
+- Container preprocess closures on `VForm.object` (`object.hasPreprocessors`) likewise tolerate partial snapshots: when `builder(snapshot)` throws, preprocess is skipped for that tick and the snapshot passes through unchanged. Once every field is filled in, the canonical pipeline reapplies preprocess on the next validation cycle.
+- The fallback path re-throws the underlying `TypeError` when per-field validation passes for every field but the builder still cannot construct `T` — that combination can only mean a schema/class mismatch (e.g. a field declared `.nullable()` on the schema but non-nullable on the user's class). Surfacing the original error keeps such mismatches loud instead of silently reporting `silentValidate() == false` with an empty `errors()` map.
+
 ## [2.1.0] - 2026-04-27
 
 ### Fixed
