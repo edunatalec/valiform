@@ -17,7 +17,8 @@ class VForm<T> {
     Map<String, dynamic>,
   ) _silentValidatorAsync;
   final T Function(Map<String, dynamic>) _valueBuilder;
-  final List<void Function(T value)> _valueChangedListeners = [];
+  final List<void Function(Map<String, dynamic> rawValue)>
+      _valueChangedListeners = [];
   final bool _schemaHasAsync;
   late final bool _hasAsync;
 
@@ -62,7 +63,7 @@ class VForm<T> {
         containerPreprocessSync,
     Future<Map<String, dynamic>> Function(Map<String, dynamic>)?
         containerPreprocessAsync,
-    void Function(T value)? onValueChanged,
+    void Function(Map<String, dynamic> rawValue)? onValueChanged,
   })  : _formKey = formKey ?? GlobalKey<FormState>(),
         _silentValidatorSync = silentValidatorSync,
         _silentValidatorAsync = silentValidatorAsync,
@@ -221,7 +222,7 @@ class VForm<T> {
     VMap map, {
     GlobalKey<FormState>? formKey,
     Map<String, dynamic>? initialValues,
-    void Function(T value)? onValueChanged,
+    void Function(Map<String, dynamic> rawValue)? onValueChanged,
   }) {
     // Gate the snapshot/preprocess plumbing on actually-needed work.
     // Schemas without container preprocess pay zero overhead.
@@ -266,7 +267,7 @@ class VForm<T> {
     required T Function(Map<String, dynamic> data) builder,
     GlobalKey<FormState>? formKey,
     T? initialValue,
-    void Function(T value)? onValueChanged,
+    void Function(Map<String, dynamic> rawValue)? onValueChanged,
   }) {
     final initialValues =
         initialValue != null ? object.extract(initialValue) : null;
@@ -373,15 +374,27 @@ class VForm<T> {
   }
 
   void _notifyValueChanged() {
-    // Value change listeners require a synchronous value. In async schemas
-    // `value` would throw; skip the notification — consumers of async forms
-    // should listen on [listenable] directly and await [valueAsync].
-    if (_hasAsync) return;
+    // The form-level callback delivers `rawValue` (not the typed builder
+    // result) for two reasons:
+    //
+    // 1. A field change does not imply the form is valid enough to
+    //    construct `T`. For `VForm.object`, computing `value` would invoke
+    //    the user-supplied `builder` against a partial map and throw
+    //    `TypeError` whenever the builder dereferences `data['key']` into
+    //    a non-nullable parameter — see the dartdoc on [value].
+    // 2. `rawValue` is sync-safe regardless of whether the schema has any
+    //    async pipeline, so the listener works uniformly for sync and
+    //    async forms.
+    //
+    // Iterate over a snapshot so a listener that registers or removes
+    // another listener mid-dispatch doesn't trip a
+    // `ConcurrentModificationError`.
+    if (_valueChangedListeners.isEmpty) return;
 
-    final current = value;
+    final Map<String, dynamic> raw = rawValue;
 
-    for (final listener in _valueChangedListeners) {
-      listener(current);
+    for (final listener in List.of(_valueChangedListeners)) {
+      listener(raw);
     }
   }
 
@@ -454,13 +467,33 @@ class VForm<T> {
 
   /// Adds a listener that is called whenever any field value changes.
   ///
-  /// The listener receives the current form value of type `T`.
-  void addValueChangedListener(void Function(T value) listener) {
+  /// The listener receives the current `rawValue` (a
+  /// `Map<String, dynamic>` of every field), regardless of whether the
+  /// form was created from a `VMap` or a `VObject<T>`. A field change
+  /// does not imply the form is valid enough to construct `T`, so the
+  /// callback intentionally bypasses the typed `builder`. To consume
+  /// the typed value, validate first and read [value]:
+  ///
+  /// ```dart
+  /// form.addValueChangedListener((raw) {
+  ///   if (form.silentValidate()) {
+  ///     final user = form.value; // safe: schema validated.
+  ///     // ...
+  ///   }
+  /// });
+  /// ```
+  ///
+  /// Fires for both sync and async forms — `rawValue` is synchronous.
+  void addValueChangedListener(
+    void Function(Map<String, dynamic> rawValue) listener,
+  ) {
     _valueChangedListeners.add(listener);
   }
 
   /// Removes a previously added value changed listener.
-  void removeValueChangedListener(void Function(T value) listener) {
+  void removeValueChangedListener(
+    void Function(Map<String, dynamic> rawValue) listener,
+  ) {
     _valueChangedListeners.remove(listener);
   }
 

@@ -25,11 +25,16 @@ extension VObjectExtension<T> on VObject<T> {
   ///
   /// Requires a [builder] to construct `T` from the collected field values.
   /// Accepts an optional [initialValue] of type `T` to set initial field values.
+  ///
+  /// [onValueChanged] receives the current `rawValue` (`Map<String, dynamic>`),
+  /// not the typed `T`. A field change does not imply the form is valid
+  /// enough to construct `T`; consumers needing the typed value should
+  /// validate first and read `form.value` (or `form.valueAsync`).
   VForm<T> form({
     required T Function(Map<String, dynamic> data) builder,
     GlobalKey<FormState>? formKey,
     T? initialValue,
-    void Function(T value)? onValueChanged,
+    void Function(Map<String, dynamic> rawValue)? onValueChanged,
   }) {
     return VForm<T>.object(
       this,

@@ -717,8 +717,48 @@ void main() {
       form.dispose();
     });
 
-    test('VObject form onValueChanged returns typed object', () {
-      final users = <_User>[];
+    test(
+      'VObject form onValueChanged emits raw Map even when builder would '
+      'throw on incomplete data',
+      () {
+        // A field change does not imply the form is valid enough to
+        // construct `T`. The form-level callback delivers `rawValue` (Map)
+        // regardless of the form's typed `T`, so a builder that
+        // dereferences `data['key']` into a non-nullable parameter is
+        // never invoked during change notification — only when the
+        // consumer explicitly reads `form.value` post-validate.
+        //
+        // `received` is `<Object?>` (not `<Map<String, dynamic>>`) so this
+        // test compiles against both the pre-fix `(T) -> void` signature
+        // and the post-fix `(Map) -> void` signature. Pre-fix it fails at
+        // runtime with `TypeError` thrown from inside `_User.fromMap`
+        // when the listener path computes `form.value`; post-fix the
+        // builder is never called and the listener sees the raw map.
+        final received = <Object?>[];
+
+        final form = V
+            .object<_User>()
+            .field('name', (u) => u.name, V.string().min(3))
+            .field('email', (u) => u.email, V.string().email())
+            .form(
+              // Intentionally no `?? ''` — the builder would throw if the
+              // form ever called it on incomplete data via the listener.
+              builder: (data) =>
+                  _User(name: data['name'], email: data['email']),
+              onValueChanged: received.add,
+            );
+
+        form.field<String>('name').set('A');
+
+        expect(received.length, 1);
+        expect(received.first, {'name': 'A', 'email': null});
+
+        form.dispose();
+      },
+    );
+
+    test('VObject form onValueChanged returns raw Map', () {
+      final received = <Map<String, dynamic>>[];
 
       final form = V
           .object<_User>()
@@ -727,16 +767,89 @@ void main() {
           .form(
             builder: (data) =>
                 _User(name: data['name'] ?? '', email: data['email'] ?? ''),
-            onValueChanged: (user) => users.add(user),
+            onValueChanged: received.add,
           );
 
       form.field<String>('name').set('John');
 
-      expect(users.length, 1);
-      expect(users.first.name, 'John');
+      expect(received.length, 1);
+      expect(received.first, {'name': 'John', 'email': null});
 
       form.dispose();
     });
+
+    test(
+      'VObject onValueChanged signature is Map<String, dynamic>',
+      () {
+        // Pins the contract against accidental regression to a typed `T`
+        // callback. The strict `void Function(Map<String, dynamic>)`
+        // annotation here would fail to compile if the parameter ever
+        // narrowed back to `void Function(T)`.
+        final form =
+            V.object<_User>().field('name', (u) => u.name, V.string()).form(
+                  builder: (data) => _User(
+                    name: data['name'] ?? '',
+                    email: data['email'] ?? '',
+                  ),
+                  onValueChanged: (Map<String, dynamic> raw) {},
+                );
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'onValueChanged fires on async forms (raw map is sync-safe)',
+      () {
+        final received = <Map<String, dynamic>>[];
+
+        final form = V.map({
+          'email': V.string().email().refineAsync(
+                (v) async => true,
+                message: 'unused',
+              ),
+        }).form(onValueChanged: received.add);
+
+        expect(form.hasAsync, true);
+
+        form.field<String>('email').set('a@b.co');
+
+        expect(received.length, 1);
+        expect(received.first, {'email': 'a@b.co'});
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'multiple listeners fire in order; removeValueChangedListener mid-dispatch is safe',
+      () {
+        final form = V.map({'name': V.string()}).form();
+        final List<String> calls = <String>[];
+
+        void second(Map<String, dynamic> v) => calls.add('B');
+        void first(Map<String, dynamic> v) {
+          calls.add('A');
+          // Mid-dispatch removal — must be safe because `_notifyValueChanged`
+          // iterates over a copy of the listener list.
+          form.removeValueChangedListener(second);
+        }
+
+        form.addValueChangedListener(first);
+        form.addValueChangedListener(second);
+
+        form.field<String>('name').set('hi');
+
+        expect(calls, ['A', 'B']);
+
+        form.field<String>('name').set('bye');
+
+        // `second` was removed during the previous dispatch.
+        expect(calls, ['A', 'B', 'A']);
+
+        form.dispose();
+      },
+    );
 
     test(
       'dispose clears pending onValueChanged listeners without explicit disposer',
