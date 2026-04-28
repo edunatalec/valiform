@@ -725,6 +725,8 @@ form.addValueChangedListener(listener);
 form.removeValueChangedListener(listener);
 ```
 
+The callback always receives `Map<String, dynamic>` with the raw field values, even for forms created from `V.object<T>(...)`. A field change does not imply the form is valid enough for the `builder` to construct `T` — emitting raw values keeps the listener safe against partial state. Use `form.value` (or `form.valueAsync`) **after** `form.validate()` returns `true` when you need the typed `T`; alternatively guard the `builder` with `??` defaults or nullable parameters. Same callback shape works on sync and async schemas.
+
 ### Per-field reactive UI
 
 ```dart
