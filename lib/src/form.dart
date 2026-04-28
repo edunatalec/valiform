@@ -276,30 +276,99 @@ class VForm<T> {
     // For VObject the snapshot Map needs to be reconstructed into `T` via
     // `builder` before running the container preprocess (which expects
     // `T`), and then decomposed back into a Map via `object.extract`.
+    // Container preprocess on VObject needs `T` — but the snapshot used
+    // here can be partial (any field still null while the user types).
+    // A non-null-tolerant builder would throw `TypeError` and tank the
+    // whole field-validator chain. When that happens, treat preprocess
+    // as a no-op for this tick (return the snapshot unchanged): the user
+    // is still typing, the snapshot will eventually be complete, and
+    // preprocess will run on the canonical `safeParse` path then.
     final containerPreprocessSync = object.hasPreprocessors
         ? (Map<String, dynamic> snapshot) {
-            final instance = builder(snapshot);
+            final T instance;
+            try {
+              instance = builder(snapshot);
+            } catch (_) {
+              return snapshot;
+            }
+
             final processed = object.runPreprocessors(instance);
             if (processed is T) return object.extract(processed);
+
             return snapshot;
           }
         : null;
     final containerPreprocessAsync = object.hasPreprocessors
         ? (Map<String, dynamic> snapshot) async {
-            final instance = builder(snapshot);
+            final T instance;
+            try {
+              instance = builder(snapshot);
+            } catch (_) {
+              return snapshot;
+            }
+
             final processed = await object.runPreprocessorsAsync(instance);
             if (processed is T) return object.extract(processed);
+
             return snapshot;
           }
         : null;
 
+    // Silent validators take the canonical `object.safeParse(builder(raw))`
+    // path whenever the user's `builder` can construct a `T` from the
+    // current raw map. That preserves every schema feature (container
+    // preprocess, `refine`, `refineField`, `refineFieldRaw`, `equalFields`,
+    // `whenRules`) — most importantly, container preprocess, which can
+    // rewrite field values before per-field validation observes them.
+    //
+    // When the builder throws `TypeError` — the common shape is a builder
+    // that dereferences `data['x']` into a non-nullable parameter on a
+    // partial form — fall back to a per-field iteration over
+    // `object.schema` with raw values. Schema-level rules can't run
+    // without `T`, but per-field errors are exactly what a half-filled
+    // form needs anyway: tell the user which fields are still required.
+    //
+    // Catching `TypeError` specifically (not `Exception`) keeps the scope
+    // tight to the missing-field case; validart's safeParse never throws
+    // on validation outcomes, so the caught error is virtually always the
+    // builder's null-deref.
     return VForm._(
       schema: object.schema,
       schemaHasAsync: object.hasAsync,
-      silentValidatorSync: (raw) =>
-          _runWithRoot(object.safeParse(builder(raw))),
-      silentValidatorAsync: (raw) async =>
-          _runWithRoot(await object.safeParseAsync(builder(raw))),
+      silentValidatorSync: (raw) {
+        try {
+          return _runWithRoot(object.safeParse(builder(raw)));
+        } on TypeError {
+          final List<VError> perFieldErrors = _objectPerFieldErrorsSync(
+            object.schema,
+            raw,
+          );
+
+          // Builder failed AND every field passed per-field validation.
+          // That can only mean a schema/class mismatch (e.g. schema field
+          // is `.nullable()` but the user's class declares the parameter
+          // non-nullable). Surfacing `(false, [], {})` here would leave
+          // `silentValidate()` reporting invalid with no errors to render
+          // — a worse foot-gun than the original crash. Re-throw so the
+          // user sees the underlying TypeError instead of silent state
+          // corruption.
+          if (perFieldErrors.isEmpty) rethrow;
+
+          return _runWithRoot(VFailure<T?>(perFieldErrors));
+        }
+      },
+      silentValidatorAsync: (raw) async {
+        try {
+          return _runWithRoot(await object.safeParseAsync(builder(raw)));
+        } on TypeError {
+          final List<VError> perFieldErrors =
+              await _objectPerFieldErrorsAsync(object.schema, raw);
+
+          if (perFieldErrors.isEmpty) rethrow;
+
+          return _runWithRoot(VFailure<T?>(perFieldErrors));
+        }
+      },
       valueBuilder: builder,
       formKey: formKey,
       initialValues: initialValues,
@@ -715,6 +784,15 @@ class VForm<T> {
 
   /// Validates all form fields and returns `true` if all are valid.
   ///
+  /// Safe on partial / empty `VForm.object` forms: the user-supplied
+  /// `builder` is not invoked when any field is missing or has the wrong
+  /// type, so a builder that dereferences `data['x']` into a non-nullable
+  /// parameter (without `?? fallback`) won't throw `TypeError`. Per-field
+  /// errors surface as usual; schema-level rules (`refine`, `refineField`,
+  /// `equalFields`, `whenRules`, container preprocess) only run once
+  /// every field is individually valid — at which point constructing
+  /// `T` is guaranteed safe.
+  ///
   /// Throws [VAsyncRequiredException] when [hasAsync] is `true` — use
   /// [validateAsync].
   bool validate() {
@@ -792,6 +870,9 @@ class VForm<T> {
   /// Use `field.manualError` if you need to inspect errors without
   /// consuming state.
   ///
+  /// Same partial-form safety as [validate]: never invokes the
+  /// `VForm.object` builder when fields are missing — see [validate].
+  ///
   /// Throws [VAsyncRequiredException] when [hasAsync] is `true` — use
   /// [silentValidateAsync].
   bool silentValidate() {
@@ -844,6 +925,61 @@ class VForm<T> {
     for (final field in _fields.values) {
       field.dispose();
     }
+  }
+
+  /// Validates each field in [schema] against the corresponding raw value
+  /// in [raw], without ever constructing the typed `T` instance.
+  ///
+  /// Used by the `VForm.object` silent validators to avoid invoking the
+  /// user-supplied `builder` on partial forms (which would crash on
+  /// non-nullable parameters). Mirrors the field-iteration loop inside
+  /// `VObject.safeParse` so the resulting [VError]s look identical:
+  /// each error's `path` is prefixed with the field name. Schema-level
+  /// rules (`refine`, `refineField`, `refineFieldRaw`, `equalFields`,
+  /// `whenRules`, container preprocess) are NOT evaluated here — those
+  /// run only on the canonical `object.safeParse(builder(raw))` path,
+  /// reached when this helper returns an empty list.
+  static List<VError> _objectPerFieldErrorsSync(
+    Map<String, VType> schema,
+    Map<String, dynamic> raw,
+  ) {
+    final List<VError> errors = [];
+
+    for (final entry in schema.entries) {
+      final result = entry.value.safeParse(raw[entry.key]);
+
+      if (result is VFailure) {
+        for (final err in result.errors) {
+          errors.add(err.copyWith(path: [entry.key, ...err.path]));
+        }
+      }
+    }
+
+    return errors;
+  }
+
+  /// Async variant of [_objectPerFieldErrorsSync]. Falls back to
+  /// `safeParse` for fields whose VType is sync-only, so a mixed schema
+  /// (some async fields, some sync) still produces consistent errors.
+  static Future<List<VError>> _objectPerFieldErrorsAsync(
+    Map<String, VType> schema,
+    Map<String, dynamic> raw,
+  ) async {
+    final List<VError> errors = [];
+
+    for (final entry in schema.entries) {
+      final result = entry.value.hasAsync
+          ? await entry.value.safeParseAsync(raw[entry.key])
+          : entry.value.safeParse(raw[entry.key]);
+
+      if (result is VFailure) {
+        for (final err in result.errors) {
+          errors.add(err.copyWith(path: [entry.key, ...err.path]));
+        }
+      }
+    }
+
+    return errors;
   }
 
   static VField _createField({

@@ -511,8 +511,10 @@ void main() {
         // and Dart throws at runtime.
         //
         // This is the documented contract: either validate before reading
-        // `form.value`, or add null fallbacks in the builder, or read
-        // `form.rawValue` / individual `form.field(...)` values instead.
+        // `form.value` (validate / silentValidate are themselves safe — they
+        // never invoke the builder on a partial form), or add null fallbacks
+        // in the builder, or read `form.rawValue` / individual
+        // `form.field(...)` values instead.
         final form = V
             .object<_User>()
             .field('name', (u) => u.name, V.string().min(3))
@@ -530,6 +532,110 @@ void main() {
         // forms share this escape hatch).
         expect(form.rawValue, {'name': null, 'email': null});
         expect(form.field<String>('name').value, isNull);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'validate / silentValidate do NOT invoke builder on partial form '
+      '(regression: builder without ?? fallback used to throw TypeError)',
+      () {
+        // Pins the bug where `VForm.object`'s silent validators called the
+        // user-supplied `builder` BEFORE validating field types, so a builder
+        // that dereferenced `data['x']` into a non-nullable parameter blew
+        // up with `TypeError` whenever any field was still empty.
+        //
+        // Expected behaviour: per-field validation runs directly against
+        // `object.schema` with raw values; the builder is invoked only once
+        // every field passes per-field validation (at which point the
+        // typed value is guaranteed safe to construct).
+        final form = V
+            .object<_User>()
+            .field('name', (u) => u.name, V.string().min(3))
+            .field('email', (u) => u.email, V.string().email())
+            .form(
+              // Intentionally no `?? ''` — null on a `required String` would
+              // throw `TypeError` if the builder were invoked here.
+              builder: (data) =>
+                  _User(name: data['name'], email: data['email']),
+            );
+
+        // Empty form: silentValidate must report invalid via per-field errors,
+        // NOT crash trying to construct `_User(name: null, email: null)`.
+        expect(form.silentValidate(), false);
+        expect(form.errors(), isNotNull);
+        expect(form.errors()!['name'], isNotNull);
+        expect(form.errors()!['email'], isNotNull);
+
+        // Partial form: still safe — only `email` invalid, builder still
+        // never invoked because per-field has at least one error.
+        form.field<String>('name').set('Alice');
+        expect(form.silentValidate(), false);
+        expect(form.errors()!['name'], isNull);
+        expect(form.errors()!['email'], isNotNull);
+
+        // All fields valid → builder is now safely invoked under the hood
+        // and schema-level rules (none here, but the canonical path runs).
+        form.field<String>('email').set('alice@example.com');
+        expect(form.silentValidate(), true);
+        expect(form.errors(), isNull);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'validate() does not invoke builder on partial form (FormState path)',
+      () {
+        // Same regression as above, but exercises `form.validate()` (which
+        // also calls `_formKey.currentState?.validate()`) instead of
+        // `silentValidate`. Both share the same silent validator under the
+        // hood, but `validate()` is what most consumers call from a Submit
+        // handler — that's where the user originally hit the crash.
+        final form = V
+            .object<_User>()
+            .field('name', (u) => u.name, V.string().min(3))
+            .field('email', (u) => u.email, V.string().email())
+            .form(
+              builder: (data) =>
+                  _User(name: data['name'], email: data['email']),
+            );
+
+        expect(form.validate(), false);
+        expect(form.errors(), isNotNull);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'silentValidate re-throws TypeError when per-field passes but builder '
+      'still fails (schema/class mismatch — schema is nullable, class is not)',
+      () {
+        // Edge case from the partial-form fix: if the schema declares a
+        // field `.nullable()` but the user's class declares the parameter
+        // non-nullable, per-field validation accepts `null` (schema says
+        // it's fine) yet the builder still throws `TypeError` when
+        // dereferencing it. Returning a silent `(false, [], {})` would
+        // leave `silentValidate()` invalid with no errors to render — a
+        // worse foot-gun than the original crash.
+        //
+        // Behaviour: the silent validator re-throws the underlying
+        // TypeError so the developer sees the schema/class mismatch
+        // immediately rather than chasing a phantom invalid state.
+        final form = V
+            .object<_User>()
+            .field('name', (u) => u.name, V.string().nullable())
+            .field('email', (u) => u.email, V.string().nullable())
+            .form(
+              builder: (data) => _User(
+                name: data['name'],
+                email: data['email'],
+              ),
+            );
+
+        expect(form.silentValidate, throwsA(isA<TypeError>()));
 
         form.dispose();
       },
