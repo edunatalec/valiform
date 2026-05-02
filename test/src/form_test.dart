@@ -1183,6 +1183,304 @@ void main() {
     );
   });
 
+  group('Conditional validation (whenMatches)', () {
+    test(
+      'VMap whenMatches: predicate-driven rule reaches field.validator '
+      '(per-field channel — proves propagation, not just safeParse)',
+      () {
+        // Pins the contract that mirrors `whenRules` propagation onto
+        // `whenMatchesRules`. Without explicit propagation, the schema-error
+        // demux still routes `safeParse` errors inline, but we want the
+        // per-field validator chain itself (the path Flutter calls per
+        // keystroke) to know about the rule — same ergonomics as `when`.
+        final form = V.map({
+          'age': V.int(),
+          'license': V.string().nullable(),
+        }).whenMatches(
+          (m) => (m['age'] as int? ?? 0) >= 18,
+          dependsOn: const {'age'},
+          then: {'license': V.string().min(5)},
+        ).form();
+
+        form.field<int>('age').set(20);
+        form.field<String>('license').set('X');
+
+        // Per-field channel must catch it directly — this is the assertion
+        // that fails until `whenMatchesRules` is wired into the closure list.
+        expect(form.field<String>('license').validator('X'), isNotNull);
+
+        // Flip the predicate off: rule no longer applies, license can be empty.
+        form.field<int>('age').set(10);
+        expect(form.field<String>('license').validator(null), isNull);
+
+        form.dispose();
+      },
+    );
+
+    test('VMap whenMatches: silentValidate respects the rule', () {
+      final form = V.map({
+        'age': V.int(),
+        'license': V.string().nullable(),
+      }).whenMatches(
+        (m) => (m['age'] as int? ?? 0) >= 18,
+        dependsOn: const {'age'},
+        then: {'license': V.string().min(5)},
+      ).form();
+
+      form.field<int>('age').set(20);
+      form.field<String>('license').set('X');
+      expect(form.silentValidate(), false);
+
+      form.field<String>('license').set('VALID');
+      expect(form.silentValidate(), true);
+
+      form.field<int>('age').set(10);
+      form.field<String>('license').set(null);
+      expect(form.silentValidate(), true);
+
+      form.dispose();
+    });
+
+    test(
+      'VMap whenMatches: combined-field predicate fires only when '
+      'BOTH inputs satisfy the condition (sibling lookup via raw map)',
+      () {
+        // Guards against a regression where the closure's `rawValue` snapshot
+        // gets stale and the predicate observes a previous value of one of
+        // the dependsOn fields.
+        final form = V.map({
+          'role': V.string(),
+          'level': V.int(),
+          'auditToken': V.string().nullable(),
+        }).whenMatches(
+          (m) => m['role'] == 'admin' && (m['level'] as int? ?? 0) > 5,
+          dependsOn: const {'role', 'level'},
+          then: {'auditToken': V.string().min(8)},
+        ).form();
+
+        // role matches but level is below threshold → no requirement.
+        form.field<String>('role').set('admin');
+        form.field<int>('level').set(3);
+        expect(form.field<String>('auditToken').validator(null), isNull);
+
+        // level crosses threshold → requirement kicks in immediately.
+        form.field<int>('level').set(7);
+        expect(form.field<String>('auditToken').validator(null), isNotNull);
+
+        // role flips off → requirement drops even though level still high.
+        form.field<String>('role').set('user');
+        expect(form.field<String>('auditToken').validator(null), isNull);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'VMap whenMatches with async target: validateAsync surfaces the error '
+      'and clears it when the predicate flips off',
+      () async {
+        final form = V.map({
+          'tier': V.string(),
+          'username': V.string().nullable(),
+        }).whenMatches(
+          (m) => m['tier'] == 'pro',
+          dependsOn: const {'tier'},
+          then: {
+            'username': V.string().refineAsync(
+                  (v) async => v != 'taken',
+                  message: 'username already taken',
+                ),
+          },
+        ).form(initialValues: {'tier': 'free', 'username': 'taken'});
+
+        // Predicate off → async refine never runs.
+        expect(await form.validateAsync(), isTrue);
+
+        // Predicate on → refine fires, surfaces inline as persistent error.
+        form.field<String>('tier').set('pro');
+        expect(await form.validateAsync(), isFalse);
+        expect(
+          form.field<String>('username').manualError,
+          'username already taken',
+        );
+
+        // Fix the value → next async pass clears the error.
+        form.field<String>('username').set('available');
+        expect(await form.validateAsync(), isTrue);
+        expect(form.field<String>('username').manualError, isNull);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'VObject whenMatches: typed predicate reaches per-field validator '
+      '(parity with whenRules propagation regression)',
+      () {
+        final schema = V
+            .object<_TaxPayer>()
+            .field('country', (t) => t.country, V.string())
+            .field('taxId', (t) => t.taxId, V.string().nullable())
+            .whenMatches(
+          (entity) => entity.country == 'US' || entity.country == 'BR',
+          dependsOn: const {'country'},
+          then: {'taxId': V.string().min(9)},
+        );
+
+        final form = schema.form(
+          builder: (data) => _TaxPayer(
+            country: data['country'] ?? '',
+            taxId: data['taxId'] as String?,
+          ),
+          initialValue: const _TaxPayer(country: 'US', taxId: 'short'),
+        );
+
+        // Per-field path: the assertion that fails pre-fix.
+        expect(form.field<String>('taxId').validator('short'), isNotNull);
+
+        // Flip predicate off (country outside the predicate set).
+        form.field<String>('country').set('AR');
+        expect(form.field<String>('taxId').validator('short'), isNull);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'VObject whenMatches: partial form (builder cannot construct T) '
+      'skips the predicate gracefully — no TypeError',
+      () {
+        // Same fragility we already handle in container-preprocess: when the
+        // builder dereferences `data['x']` into a non-nullable parameter on
+        // a partial form, it throws TypeError. The whenMatches closure must
+        // catch it and treat the predicate as "not yet evaluable" rather
+        // than tank the entire field-validator chain.
+        final schema = V
+            .object<_TaxPayer>()
+            .field('country', (t) => t.country, V.string())
+            .field('taxId', (t) => t.taxId, V.string().nullable())
+            .whenMatches(
+          (entity) => entity.country == 'US',
+          dependsOn: const {'country'},
+          then: {'taxId': V.string().min(9)},
+        );
+
+        final form = schema.form(
+          // Builder throws when 'country' is null (non-nullable param).
+          builder: (data) => _TaxPayer(
+            country: data['country'] as String,
+            taxId: data['taxId'] as String?,
+          ),
+          // No initialValue → both fields start null → builder throws.
+        );
+
+        // Per-field validator must not crash. Predicate is treated as
+        // "unknown" (skipped) until the form has enough data to build T.
+        expect(
+          () => form.field<String>('taxId').validator(null),
+          returnsNormally,
+        );
+
+        // Once country is filled in, the canonical safeParse path runs
+        // and the predicate fires through the schema-error demux.
+        form.field<String>('country').set('US');
+        expect(form.field<String>('taxId').validator('short'), isNotNull);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'VObject whenMatches with async target: validateAsync surfaces the '
+      'error through manualError (load-bearing path — proves async-side '
+      'VObject adapter propagates)',
+      () async {
+        // Mirror of the VMap async test but on a typed DTO. Without async-side
+        // propagation, validateAsync() would call computeAsyncError() on
+        // each field — which knows nothing about whenMatches — and the
+        // _schemaFieldErrors snapshot alone wouldn't reach manualError.
+        final schema = V
+            .object<_TaxPayer>()
+            .field('country', (t) => t.country, V.string())
+            .field('taxId', (t) => t.taxId, V.string().nullable())
+            .whenMatches(
+          (entity) => entity.country == 'US',
+          dependsOn: const {'country'},
+          then: {
+            'taxId': V.string().refineAsync(
+                  (v) async => v != 'taken',
+                  message: 'taxId already taken',
+                ),
+          },
+        );
+
+        final form = schema.form(
+          builder: (data) => _TaxPayer(
+            country: data['country'] ?? '',
+            taxId: data['taxId'] as String?,
+          ),
+          initialValue: const _TaxPayer(country: 'BR', taxId: 'taken'),
+        );
+
+        // Predicate off (country=BR) → async refine never runs.
+        expect(await form.validateAsync(), isTrue);
+
+        // Predicate on (country=US) → refine fires, surfaces inline as
+        // persistent error via the async-side closure.
+        form.field<String>('country').set('US');
+        expect(await form.validateAsync(), isFalse);
+        expect(
+          form.field<String>('taxId').manualError,
+          'taxId already taken',
+        );
+
+        // Fix the value → next async pass clears the error.
+        form.field<String>('taxId').set('available');
+        expect(await form.validateAsync(), isTrue);
+        expect(form.field<String>('taxId').manualError, isNull);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'VObject whenMatches: silentValidate respects the rule '
+      '(parallel to the VMap silentValidate case)',
+      () {
+        final schema = V
+            .object<_TaxPayer>()
+            .field('country', (t) => t.country, V.string())
+            .field('taxId', (t) => t.taxId, V.string().nullable())
+            .whenMatches(
+          (entity) => entity.country == 'US',
+          dependsOn: const {'country'},
+          then: {'taxId': V.string().min(9)},
+        );
+
+        final form = schema.form(
+          builder: (data) => _TaxPayer(
+            country: data['country'] ?? '',
+            taxId: data['taxId'] as String?,
+          ),
+          initialValue: const _TaxPayer(country: 'US', taxId: 'short'),
+        );
+
+        // Country=US triggers the rule → taxId min(9) fails on 'short'.
+        expect(form.silentValidate(), false);
+
+        form.field<String>('taxId').set('long-enough-id');
+        expect(form.silentValidate(), true);
+
+        // Flip predicate off → rule no longer applies, taxId free.
+        form.field<String>('country').set('BR');
+        form.field<String>('taxId').set(null);
+        expect(form.silentValidate(), true);
+
+        form.dispose();
+      },
+    );
+  });
+
   group('Manual errors', () {
     late VForm<Map<String, dynamic>> form;
 

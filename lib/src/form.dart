@@ -59,6 +59,12 @@ class VForm<T> {
     Map<String, dynamic>? initialValues,
     List<({String field, Object? equals, Map<String, VType> then})> whenRules =
         const [],
+    List<
+            ({
+              bool Function(Map<String, dynamic> rawValue) condition,
+              Map<String, VType> then,
+            })>
+        whenMatchesRules = const [],
     Map<String, dynamic> Function(Map<String, dynamic>)?
         containerPreprocessSync,
     Future<Map<String, dynamic>> Function(Map<String, dynamic>)?
@@ -101,6 +107,50 @@ class VForm<T> {
         } else {
           validators.add(() {
             if (rawValue[rule.field] != rule.equals) return null;
+
+            final fieldValue = _fields[key]?.value;
+            final processed = fieldValue is String &&
+                    fieldValue.isEmpty &&
+                    conditionalType.isNullable
+                ? null
+                : fieldValue;
+
+            return conditionalType.errors(processed)?.firstOrNull?.message;
+          });
+        }
+      }
+
+      // Predicate-based conditional rules — sibling of `whenRules` for the
+      // new validart 2.1.0 `whenMatches(...)` API. Mirrors the propagation
+      // shape above so the per-field validator chain (the path Flutter
+      // calls per keystroke and the channel `validateAsync` uses to set
+      // persistent errors) sees the rule directly, instead of relying on
+      // the schema-error demux re-running the full `safeParse` for every
+      // call. Async branch is the load-bearing one — without it,
+      // `validateAsync` cannot surface a `whenMatches.then` async refine
+      // through `field.manualError`.
+      //
+      // VObject-shaped predicates (`bool Function(T)`) are adapted at the
+      // factory level so this loop only ever sees `bool Function(Map)`.
+      for (final rule in whenMatchesRules) {
+        final conditionalType = rule.then[key];
+        if (conditionalType == null) continue;
+
+        if (conditionalType.hasAsync) {
+          asyncValidators.add(() async {
+            if (!rule.condition(rawValue)) return null;
+
+            final fieldValue = _fields[key]?.value;
+            final processed =
+                fieldValue is String && fieldValue.isEmpty ? null : fieldValue;
+
+            return (await conditionalType.errorsAsync(processed))
+                ?.firstOrNull
+                ?.message;
+          });
+        } else {
+          validators.add(() {
+            if (!rule.condition(rawValue)) return null;
 
             final fieldValue = _fields[key]?.value;
             final processed = fieldValue is String &&
@@ -251,6 +301,9 @@ class VForm<T> {
       formKey: formKey,
       initialValues: initialValues,
       whenRules: map.whenRules,
+      whenMatchesRules: map.whenMatchesRules
+          .map((r) => (condition: r.condition, then: r.then))
+          .toList(),
       containerPreprocessSync: containerPreprocessSync,
       containerPreprocessAsync: containerPreprocessAsync,
       onValueChanged: onValueChanged,
@@ -373,6 +426,29 @@ class VForm<T> {
       formKey: formKey,
       initialValues: initialValues,
       whenRules: object.whenRules,
+      // Adapt the typed predicate `bool Function(T)` into `bool Function(Map)`:
+      // `whenMatchesRules` on the base constructor is map-shaped because the
+      // VMap factory feeds it raw maps. For VObject, we construct `T` via the
+      // user's `builder` before invoking the predicate. The builder may throw
+      // `TypeError` on a partial form (non-nullable param dereferenced from a
+      // null slot) — same fragility as container preprocess. Treat the
+      // predicate as "not yet evaluable" and return `false` so the per-field
+      // validator is unaffected; once every field is filled in, the canonical
+      // `safeParse` path runs the rule on the typed instance.
+      whenMatchesRules: object.whenMatchesRules.map((r) {
+        return (
+          condition: (Map<String, dynamic> raw) {
+            final T instance;
+            try {
+              instance = builder(raw);
+            } catch (_) {
+              return false;
+            }
+            return r.condition(instance);
+          },
+          then: r.then,
+        );
+      }).toList(),
       containerPreprocessSync: containerPreprocessSync,
       containerPreprocessAsync: containerPreprocessAsync,
       onValueChanged: onValueChanged,
