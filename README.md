@@ -24,6 +24,7 @@ A Flutter form validation library built on top of [Validart](https://pub.dev/pac
   - [Pipeline order — container preprocess vs field preprocess](#pipeline-order--container-preprocess-vs-field-preprocess)
 - [Optional Fields](#optional-fields)
 - [Conditional Validation (`.when()`)](#conditional-validation)
+  - [Predicate-based: `whenMatches`](#predicate-based-whenmatches)
 - [Cross-Field Validation](#cross-field-validation)
 - [Controller Sync](#controller-sync)
   - [`attachController(ValueNotifier<T?>)`](#attachcontrollervaluenotifiert)
@@ -66,8 +67,8 @@ Or in `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  valiform: ^<last-version>
-  validart: ^<last-version>
+  valiform: ^2.2.0
+  validart: ^2.1.0
 ```
 
 ## Quick Start
@@ -366,6 +367,37 @@ final form = V.map({
 
 Errors from `.when()` rules surface directly on the target fields.
 
+### Predicate-based: `whenMatches`
+
+When the trigger needs more than equality — `>`, `>=`, `oneOf`, or a combination of multiple fields — reach for `whenMatches`. The predicate receives the raw input map (or the typed `T` for `VObject`); when it returns `true`, every validator in `then` is applied to the corresponding field. Live demo: [`when_matches_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/when_matches_page.dart).
+
+```dart
+// Numeric threshold — impossible with .when(equals:).
+final form = V.map({
+  'age': V.int(),
+  'license': V.string().nullable(),
+}).whenMatches(
+  (m) => (m['age'] as int? ?? 0) >= 18,
+  dependsOn: const {'age'},
+  then: {'license': V.string().min(5)},
+).form();
+```
+
+```dart
+// Combined-field predicate — auditToken required only for senior admins.
+final form = V.map({
+  'role': V.string(),
+  'level': V.int(),
+  'auditToken': V.string().nullable(),
+}).whenMatches(
+  (m) => m['role'] == 'admin' && (m['level'] as int? ?? 0) > 5,
+  dependsOn: const {'role', 'level'},
+  then: {'auditToken': V.string().min(8)},
+).form();
+```
+
+`dependsOn` is required by validart so subsequent `refine(dependsOn: {...})` rules can reference the same fields without tripping the schema's known-keys assertion. The predicate itself is always synchronous; the validators inside `then` may be sync or async (an async target opts the form into async mode, same as `when`). Errors surface inline on the target field through the same channel as `when`.
+
 ## Cross-Field Validation
 
 Every cross-field primitive lives in validart — `refineField`, `refineFieldRaw`, `equalFields`, and `refine(..., dependsOn:)`. `VForm` passes them through unchanged; the only thing the form layer adds is **error demuxing**: path-keyed errors surface inline under the target field, path-empty errors land in [`form.rootErrors`](#form-level-root-errors).
@@ -379,12 +411,12 @@ For the full semantics of each primitive — when each callback runs, what it re
 
 **TL;DR — when to reach for which:**
 
-| Primitive | Error path | Where the UI shows it |
-|---|---|---|
-| `refineField(check, path: 'x')` | `[x]` | inline under `x` (use this by default) |
-| `refineFieldRaw(check, path: 'x')` | `[x]` | inline under `x` — callback sees raw input (use only when casing/whitespace matters before transforms) |
-| `equalFields(a, b)` | `[]` | banner via `form.rootErrors` |
-| `refine(check, dependsOn: {...})` | `[]` | banner via `form.rootErrors` |
+| Primitive                          | Error path | Where the UI shows it                                                                                  |
+| ---------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------ |
+| `refineField(check, path: 'x')`    | `[x]`      | inline under `x` (use this by default)                                                                 |
+| `refineFieldRaw(check, path: 'x')` | `[x]`      | inline under `x` — callback sees raw input (use only when casing/whitespace matters before transforms) |
+| `equalFields(a, b)`                | `[]`       | banner via `form.rootErrors`                                                                           |
+| `refine(check, dependsOn: {...})`  | `[]`       | banner via `form.rootErrors`                                                                           |
 
 Live demos: [`password_match_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/password_match_page.dart), [`refine_field_raw_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/refine_field_raw_page.dart), [`object_validation_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/object_validation_page.dart), [`root_errors_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/root_errors_page.dart).
 
@@ -599,17 +631,17 @@ final badIndexes = arrayErrors
 
 ### Which schema constructs emit root vs field-keyed errors
 
-| Construct | Path | Where it shows up |
-|---|---|---|
-| Per-field validators (`V.string().email()`, `.min(3)`, ...) | `[fieldName, ...]` | inline under the field |
-| `.when(field, equals:, then: {target: ...})` | `[target]` | inline under `target` |
-| `VMap.refineField(check, path: 'x')` | `[x]` | inline under `x` |
-| `VObject<T>.refineField(check, path: 'x')` | `[x]` | inline under `x` |
-| `VMap.refineFieldRaw(check, path: 'x')` | `[x]` | inline under `x` (callback sees raw input) |
-| `VObject<T>.refineFieldRaw(check, path: 'x')` | `[x]` | inline under `x` (callback sees raw input) |
-| **`VMap.refine(check)` / `.refine(check, dependsOn: {...})` (no path)** | `[]` (empty) | **`form.rootErrors` only — no inline UI** |
-| **`VObject<T>.refine(check, dependsOn: {...})`** | `[]` (empty) | **`form.rootErrors` only — no inline UI** |
-| **`.equalFields(a, b)` on `VMap` / `VObject<T>`** | `[]` (empty) | **`form.rootErrors` only — no inline UI** |
+| Construct                                                               | Path               | Where it shows up                          |
+| ----------------------------------------------------------------------- | ------------------ | ------------------------------------------ |
+| Per-field validators (`V.string().email()`, `.min(3)`, ...)             | `[fieldName, ...]` | inline under the field                     |
+| `.when(field, equals:, then: {target: ...})`                            | `[target]`         | inline under `target`                      |
+| `VMap.refineField(check, path: 'x')`                                    | `[x]`              | inline under `x`                           |
+| `VObject<T>.refineField(check, path: 'x')`                              | `[x]`              | inline under `x`                           |
+| `VMap.refineFieldRaw(check, path: 'x')`                                 | `[x]`              | inline under `x` (callback sees raw input) |
+| `VObject<T>.refineFieldRaw(check, path: 'x')`                           | `[x]`              | inline under `x` (callback sees raw input) |
+| **`VMap.refine(check)` / `.refine(check, dependsOn: {...})` (no path)** | `[]` (empty)       | **`form.rootErrors` only — no inline UI**  |
+| **`VObject<T>.refine(check, dependsOn: {...})`**                        | `[]` (empty)       | **`form.rootErrors` only — no inline UI**  |
+| **`.equalFields(a, b)` on `VMap` / `VObject<T>`**                       | `[]` (empty)       | **`form.rootErrors` only — no inline UI**  |
 
 VForm demuxes the validart `VFailure` for you: errors with a non-empty top-level path land on the corresponding `VField` (so they reach `field.error`, `form.errors()`, and `FormField.validator`), and errors with an empty path land in `form.rootErrors`. This means **`refineField` / `refineFieldRaw` get inline rendering for free** — you don't have to wire anything per-field.
 
@@ -694,13 +726,13 @@ Valiform exposes several ways to validate — pick based on whether you want UI 
 | ----------------------- | :--------------------------------------: | :-----------------------------: | :----------------------------------------------------------------: | ---------------------------- |
 | `form.validate()`       | ✓ (via Flutter's `FormState.validate()`) |                ✓                |                                 ✓                                  | `bool`                       |
 | `form.silentValidate()` |                    ✗                     |                ✓                |                                 ✓                                  | `bool`                       |
-| `form.errors()`         |                    ✗                     |                ✗                |                       only field-keyed errors                      | `Map<String, String>?`       |
-| `form.vErrors()`        |                    ✗                     |                ✗                |                       only field-keyed errors                      | `Map<String, List<VError>>?` |
-| `form.rootErrors`       |                    ✗                     |                ✗                |               only schema-level errors with empty path             | `List<String>`               |
-| `field.validator(v)`    |            depends on widget             |                ✓                |                only via `when` rules targeting this field          | `String?`                    |
-| `field.validate()`      |                    ✗                     |                ✗                |                          per-field only                            | `bool`                       |
-| `field.error`           |                    ✗                     |                ✗                |                          per-field only                            | `String?`                    |
-| `field.vError`          |                    ✗                     |                ✗                |                          per-field only                            | `List<VError>?`              |
+| `form.errors()`         |                    ✗                     |                ✗                |                      only field-keyed errors                       | `Map<String, String>?`       |
+| `form.vErrors()`        |                    ✗                     |                ✗                |                      only field-keyed errors                       | `Map<String, List<VError>>?` |
+| `form.rootErrors`       |                    ✗                     |                ✗                |              only schema-level errors with empty path              | `List<String>`               |
+| `field.validator(v)`    |            depends on widget             |                ✓                |             only via `when` rules targeting this field             | `String?`                    |
+| `field.validate()`      |                    ✗                     |                ✗                |                           per-field only                           | `bool`                       |
+| `field.error`           |                    ✗                     |                ✗                |                           per-field only                           | `String?`                    |
+| `field.vError`          |                    ✗                     |                ✗                |                           per-field only                           | `List<VError>?`              |
 
 **Rule of thumb:**
 
@@ -840,33 +872,34 @@ Every feature in this README has a page in the [example app](https://github.com/
 cd example && flutter run
 ```
 
-| Page                                                                                                                                        | What it shows                                                                                          |
-| ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| [`basic_map_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/basic_map_form_page.dart)                 | Simplest VMap form + initial values                                                                    |
-| [`object_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/object_form_page.dart)                       | `VObject<User>` returning a typed class                                                                |
-| [`object_validation_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/object_validation_page.dart)           | `VObject` `equalFields`, `when`, `refineField` — typed cross-field rules                               |
-| [`multi_type_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/multi_type_form_page.dart)               | All field types combined                                                                               |
-| [`checkbox_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/checkbox_form_page.dart)                   | `V.bool().isTrue()` with a checkbox                                                                    |
-| [`dropdown_enum_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/dropdown_enum_page.dart)                   | `V.enm<Country>` with dropdown                                                                         |
-| [`custom_class_field_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/custom_class_field_page.dart)         | `V.object<Category>()` inside VMap                                                                     |
-| [`array_field_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/array_field_page.dart)                       | `V.array<String>()` with tag input                                                                     |
-| [`optional_fields_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/optional_fields_page.dart)               | Every type with `.nullable()`                                                                          |
-| [`default_value_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/default_value_page.dart)                   | `defaultValue` vs `initialValues` — resolution & semantics                                             |
-| [`required_message_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/required_message_page.dart)             | `V.bool(message: ...)` vs `preprocess` for custom required error                                       |
-| [`transforms_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/transforms_page.dart)                         | Live `rawValue` vs `value` preview                                                                     |
-| [`preprocess_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/preprocess_page.dart)                         | Container vs field preprocess — cross-field rewrite for VMap and VObject, raw vs parsed in real time   |
-| [`conditional_validation_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/conditional_validation_page.dart) | `.when()` conditional rules                                                                            |
-| [`password_match_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/password_match_page.dart)                 | `refineField` vs `equalFields`                                                                         |
-| [`refine_field_raw_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/refine_field_raw_page.dart)             | `refineField` (parsed) vs `refineFieldRaw` (raw) — same rule, different verdicts under a transform     |
-| [`root_errors_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/root_errors_page.dart)                       | `form.rootErrors` banner from `refine(..., dependsOn:)` — form-level error aggregation                 |
-| [`controller_sync_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/controller_sync_page.dart)               | `TextEditingController` + `ValueNotifier<int?>` counter                                                |
-| [`async_validation_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/async_validation_page.dart)             | `refineAsync` + `form.validateAsync()` with loading state                                              |
-| [`complex_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/complex_form_page.dart)                     | Kitchen-sink: all types + nested map + array + enum + union + `.when()` sync/async + `refineField`     |
-| [`manual_error_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/manual_error_page.dart)                     | `setError`, `persist`, `force`, batch                                                                  |
-| [`errors_preview_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/errors_preview_page.dart)                 | Live `form.errors()` / `field.error` panels                                                            |
-| [`v_errors_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/v_errors_page.dart)                             | Structured `vErrors()` with `code` + `path` — array indices, i18n-ready error codes                    |
-| [`reactive_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/reactive_form_page.dart)                   | Live JSON preview via `onValueChanged`                                                                 |
-| [`locale_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/locale_page.dart)                                 | `VLocale` switching at runtime                                                                         |
+| Page                                                                                                                                        | What it shows                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| [`basic_map_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/basic_map_form_page.dart)                 | Simplest VMap form + initial values                                                                  |
+| [`object_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/object_form_page.dart)                       | `VObject<User>` returning a typed class                                                              |
+| [`object_validation_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/object_validation_page.dart)           | `VObject` `equalFields`, `when`, `refineField` — typed cross-field rules                             |
+| [`multi_type_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/multi_type_form_page.dart)               | All field types combined                                                                             |
+| [`checkbox_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/checkbox_form_page.dart)                   | `V.bool().isTrue()` with a checkbox                                                                  |
+| [`dropdown_enum_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/dropdown_enum_page.dart)                   | `V.enm<Country>` with dropdown                                                                       |
+| [`custom_class_field_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/custom_class_field_page.dart)         | `V.object<Category>()` inside VMap                                                                   |
+| [`array_field_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/array_field_page.dart)                       | `V.array<String>()` with tag input                                                                   |
+| [`optional_fields_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/optional_fields_page.dart)               | Every type with `.nullable()`                                                                        |
+| [`default_value_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/default_value_page.dart)                   | `defaultValue` vs `initialValues` — resolution & semantics                                           |
+| [`required_message_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/required_message_page.dart)             | `V.bool(message: ...)` vs `preprocess` for custom required error                                     |
+| [`transforms_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/transforms_page.dart)                         | Live `rawValue` vs `value` preview                                                                   |
+| [`preprocess_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/preprocess_page.dart)                         | Container vs field preprocess — cross-field rewrite for VMap and VObject, raw vs parsed in real time |
+| [`conditional_validation_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/conditional_validation_page.dart) | `.when()` conditional rules                                                                          |
+| [`when_matches_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/when_matches_page.dart)                     | `.whenMatches()` predicate-based rules — numeric thresholds and combined-field triggers              |
+| [`password_match_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/password_match_page.dart)                 | `refineField` vs `equalFields`                                                                       |
+| [`refine_field_raw_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/refine_field_raw_page.dart)             | `refineField` (parsed) vs `refineFieldRaw` (raw) — same rule, different verdicts under a transform   |
+| [`root_errors_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/root_errors_page.dart)                       | `form.rootErrors` banner from `refine(..., dependsOn:)` — form-level error aggregation               |
+| [`controller_sync_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/controller_sync_page.dart)               | `TextEditingController` + `ValueNotifier<int?>` counter                                              |
+| [`async_validation_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/async_validation_page.dart)             | `refineAsync` + `form.validateAsync()` with loading state                                            |
+| [`complex_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/complex_form_page.dart)                     | Kitchen-sink: all types + nested map + array + enum + union + `.when()` sync/async + `refineField`   |
+| [`manual_error_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/manual_error_page.dart)                     | `setError`, `persist`, `force`, batch                                                                |
+| [`errors_preview_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/errors_preview_page.dart)                 | Live `form.errors()` / `field.error` panels                                                          |
+| [`v_errors_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/v_errors_page.dart)                             | Structured `vErrors()` with `code` + `path` — array indices, i18n-ready error codes                  |
+| [`reactive_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/reactive_form_page.dart)                   | Live JSON preview via `onValueChanged`                                                               |
+| [`locale_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/locale_page.dart)                                 | `VLocale` switching at runtime                                                                       |
 
 ## License
 
