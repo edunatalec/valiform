@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.2.0] - 2026-05-01
+
+### Changed
+
+- **Bumped minimum `validart` constraint to `^2.1.0`.**
+
+### Added
+
+- **`whenMatches` propagation (parity with `whenRules`).** validart 2.1.0's predicate-based conditional rules — `VMap.whenMatchesRules` and `VObject<T>.whenMatchesRules` — are now wired into each target field's per-field validator chain, mirroring the existing `whenRules` propagation. Sync rules add a closure to `_validators` (fast-path `if (!condition) return null` → `conditionalType.errors(...)` only when the predicate fires); async rules add the awaiting equivalent to `_asyncValidators` so `validateAsync()` can surface `whenMatches.then` async refines through `field.manualError` / `FormField.validator` instead of relying solely on the `_schemaFieldErrors` snapshot. Without this, async forms with a `whenMatches` async target produced no inline error from `validateAsync()` — only `safeParseAsync` saw the failure. **VObject adapter:** the typed predicate `bool Function(T)` is wrapped at the factory level into `bool Function(Map)` that constructs `T` via the user's `builder` and returns `false` when the builder throws `TypeError` on a partial form (same fragility we already handle in container-preprocess routing). Pinned by a new `Conditional validation (whenMatches)` test group covering VMap sync, VMap multi-field predicate, VMap async target, VObject typed predicate, and the VObject partial-form safety case.
+- **`example/lib/pages/when_matches_page.dart`** — two side-by-side demos isolating what `whenMatches` enables over `when`: a numeric `>=` threshold (impossible with `equals:`) and a combined-field predicate (`role == 'admin' && level > 5`) that reads two fields in a single trigger.
+
 ## [2.1.1] - 2026-04-28
 
 ### Fixed
@@ -24,9 +35,9 @@
   - `V.map({...}).refineFieldRaw(check, path: 'x')` → callback receives the **raw** input (post container preprocess + type check, before per-field iteration). Reach for it when the rule depends on the original input shape (case, whitespace, pre-coercion).
 
   Both surface inline under the target field thanks to the schema-error demux. **Migration:**
-    - `V.map({...}).refineFormField(check, path: 'x', message: '...')`
+  - `V.map({...}).refineFormField(check, path: 'x', message: '...')`
     → `V.map({...}).refineField(check, path: 'x', message: '...')` — same result for callbacks that don't depend on case/whitespace.
-    - If your callback compared raw values that get transformed by the field-level pipeline (e.g. `data['email']` against an expected literal when the field has `.toLowerCase()`), use `refineFieldRaw` instead.
+  - If your callback compared raw values that get transformed by the field-level pipeline (e.g. `data['email']` against an expected literal when the field has `.toLowerCase()`), use `refineFieldRaw` instead.
 
   See updated `example/lib/pages/password_match_page.dart`, `complex_form_page.dart`, and the new `refine_field_raw_page.dart` for migration patterns.
 
