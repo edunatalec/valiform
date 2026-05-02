@@ -24,6 +24,7 @@ import 'pages/preprocess_page.dart';
 import 'pages/refine_field_raw_page.dart';
 import 'pages/transforms_page.dart';
 import 'pages/v_errors_page.dart';
+import 'pages/when_matches_page.dart';
 
 void main() {
   runApp(const ValiformExampleApp());
@@ -142,6 +143,12 @@ class HomePage extends StatelessWidget {
         title: 'Conditional Validation',
         subtitle: 'Show/hide fields based on another field value with .when()',
         page: ConditionalValidationPage(),
+      ),
+      _Example(
+        title: 'whenMatches',
+        subtitle:
+            'Predicate-based conditional rules — combine fields, use >/>=/oneOf',
+        page: WhenMatchesPage(),
       ),
       _Example(
         title: 'Multi Language',
