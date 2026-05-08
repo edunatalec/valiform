@@ -67,8 +67,8 @@ Or in `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  valiform: ^2.2.0
-  validart: ^2.1.0
+  valiform: ^2.2.1
+  validart: ^2.2.0
 ```
 
 ## Quick Start
@@ -869,7 +869,9 @@ Error messages are localized through Validart's locale system — switch locale 
 Every feature in this README has a page in the [example app](https://github.com/edunatalec/valiform/tree/master/example). Run it to interact with each pattern live:
 
 ```sh
-cd example && flutter run
+cd example
+flutter create .   # generate platform folders the first time
+flutter run
 ```
 
 | Page                                                                                                                                        | What it shows                                                                                        |
