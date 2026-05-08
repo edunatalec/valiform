@@ -27,11 +27,11 @@ import 'pages/v_errors_page.dart';
 import 'pages/when_matches_page.dart';
 
 void main() {
-  runApp(const ValiformExampleApp());
+  runApp(const MyApp());
 }
 
-class ValiformExampleApp extends StatelessWidget {
-  const ValiformExampleApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
