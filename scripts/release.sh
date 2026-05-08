@@ -12,9 +12,6 @@ step() {
 step "Installing dependencies"
 flutter pub get
 
-step "Running tests"
-flutter test
-
 VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
 VALIDART_VERSION=$(grep -E '^\s+validart: \^' pubspec.yaml | head -n1 | sed -E 's/.*\^([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
 
@@ -49,6 +46,9 @@ if [ "$README_VALIDART_VERSION" != "$VALIDART_VERSION" ]; then
 fi
 
 echo "README pinned at valiform ^${README_VALIFORM_VERSION}, validart ^${README_VALIDART_VERSION} ✓"
+
+step "Running tests"
+flutter test
 
 step "Validating package (dry-run)"
 flutter pub publish --dry-run
