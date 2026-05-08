@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.1] - 2026-05-08
+
+### Changed
+
+- **Bumped minimum `validart` constraint to `^2.2.0`.**
+- **`example/` trimmed to its portable core (`lib/`, `pubspec.yaml`, `analysis_options.yaml`).**
+
 ## [2.2.0] - 2026-05-01
 
 ### Changed
