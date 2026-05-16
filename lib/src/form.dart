@@ -426,50 +426,57 @@ class VForm<T> {
       formKey: formKey,
       initialValues: initialValues,
       whenRules: object.whenRules,
-      // Adapt the typed predicate `bool Function(T)` into `bool Function(Map)`:
-      // `whenMatchesRules` on the base constructor is map-shaped because the
-      // VMap factory feeds it raw maps. For VObject, we construct `T` via the
-      // user's `builder` before invoking the predicate. The builder may throw
-      // `TypeError` on a partial form (non-nullable param dereferenced from a
-      // null slot) — same fragility as container preprocess. Treat the
-      // predicate as "not yet evaluable" and return `false` so the per-field
-      // validator is unaffected; once every field is filled in, the canonical
-      // `safeParse` path runs the rule on the typed instance.
-      whenMatchesRules: object.whenMatchesRules.map((r) {
-        return (
-          condition: (Map<String, dynamic> raw) {
-            final T instance;
-            try {
-              instance = builder(raw);
-            } catch (_) {
-              return false;
-            }
-            return r.condition(instance);
-          },
-          then: r.then,
-        );
-      }).toList(),
+      // Two rule shapes flow into the same map-shaped slot on `VForm._`:
+      //
+      // 1. `whenMatchesRules` (entity-typed): adapt `bool Function(T)` into
+      //    `bool Function(Map)` by constructing `T` via the user's `builder`
+      //    before invoking the predicate. The builder may throw `TypeError`
+      //    on a partial form (non-nullable param dereferenced from a null
+      //    slot) — same fragility as container preprocess. Treat the
+      //    predicate as "not yet evaluable" and return `false` so the
+      //    per-field validator is unaffected; once every field is filled in,
+      //    the canonical `safeParse` path runs the rule on the typed
+      //    instance. Prefer `whenMatchesRaw` to avoid this caveat — see the
+      //    README's Conditional Validation section.
+      //
+      // 2. `whenMatchesRawRules` (raw-typed, validart 3.0.0+): the predicate
+      //    already takes the raw `Map<String, dynamic>`, so no adapter is
+      //    needed. Robust against partial forms by construction.
+      whenMatchesRules: [
+        ...object.whenMatchesRules.map((r) {
+          return (
+            condition: (Map<String, dynamic> raw) {
+              final T instance;
+              try {
+                instance = builder(raw);
+              } catch (_) {
+                return false;
+              }
+              return r.condition(instance);
+            },
+            then: r.then,
+          );
+        }),
+        ...object.whenMatchesRawRules.map(
+          (r) => (condition: r.condition, then: r.then),
+        ),
+      ],
       containerPreprocessSync: containerPreprocessSync,
       containerPreprocessAsync: containerPreprocessAsync,
       onValueChanged: onValueChanged,
     );
   }
 
-  /// Snapshot of the raw field values, with empty strings normalized to
-  /// `null`. The normalization lets validart's `_resolveNull` engage so
-  /// `defaultValue` / `nullable` handling kicks in when the user clears
-  /// a text field — without it, `''` would bypass those gates and the
-  /// pipeline would run against the empty string.
+  /// Snapshot of the raw field values fed to the silent validator and to
+  /// `refineFieldRaw` callbacks. Container preprocess and per-field
+  /// iteration are applied downstream by the underlying `safeParse`.
   ///
-  /// `refineFieldRaw` callbacks see the post-normalization map (so an
-  /// empty text field shows as `null`, not `''`); the rest of the
-  /// pipeline (container preprocess → per-field iteration) is applied
-  /// by the underlying `safeParse`.
+  /// Empty-string-to-null handling is delegated to validart: enable
+  /// `V.treatEmptyAsNull(true)` globally or declare
+  /// `VString.treatEmptyAsNull()` per-field if you want `""` to engage
+  /// `defaultValue` / `nullable` handling.
   Map<String, dynamic> _rawSnapshot() {
-    return _fields.map((key, field) {
-      final v = field.value;
-      return MapEntry(key, v is String && v.isEmpty ? null : v);
-    });
+    return _fields.map((key, field) => MapEntry(key, field.value));
   }
 
   /// Unpacks a [VResult] into a `(valid, rootMessages, fieldMessages)`

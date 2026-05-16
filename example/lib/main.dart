@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:validart/validart.dart';
+
 import 'pages/array_field_page.dart';
 import 'pages/async_validation_page.dart';
 import 'pages/basic_map_form_page.dart';
@@ -27,6 +29,10 @@ import 'pages/v_errors_page.dart';
 import 'pages/when_matches_page.dart';
 
 void main() {
+  // Treat empty `TextFormField` input as `null` so `defaultValue` and
+  // `.nullable()` engage when the user clears a field. This is the
+  // recommended setup for form-driven apps (see README).
+  V.treatEmptyAsNull(true);
   runApp(const MyApp());
 }
 

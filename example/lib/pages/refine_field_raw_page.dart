@@ -45,13 +45,14 @@ class _RefineFieldRawPageState extends State<RefineFieldRawPage> {
       message: 'code must be exactly 8 chars (parsed)',
     ).form(initialValues: {'code': '  abcdefgh  '});
 
-    _rawForm = V.map({'code': V.string().trim().toUpperCase()}).refineFieldRaw(
+    _rawForm = V.map({'code': V.string().trim().toUpperCase()}).refineField(
       (data) {
         final code = data['code'] as String?;
         return code != null && code.length == 8;
       },
       path: 'code',
       message: 'code must be exactly 8 chars (raw)',
+      stage: RefineStage.pre,
     ).form(initialValues: {'code': '  abcdefgh  '});
   }
 

@@ -436,17 +436,21 @@ void main() {
   });
 
   group('value edge cases', () {
-    test('Empty string returns null for nullable field', () {
-      final optionalField = VField<String>(
-        type: V.string().nullable(),
-        validators: [],
-      );
+    test(
+      'Empty string returns null for nullable field when treatEmptyAsNull '
+      'is declared on the schema (delegated to validart in 3.0.0)',
+      () {
+        final optionalField = VField<String>(
+          type: V.string().treatEmptyAsNull().nullable(),
+          validators: [],
+        );
 
-      optionalField.set('');
-      expect(optionalField.value, isNull);
+        optionalField.set('');
+        expect(optionalField.parsedValue, isNull);
 
-      optionalField.dispose();
-    });
+        optionalField.dispose();
+      },
+    );
 
     test('Empty string returns empty for required field', () {
       final requiredField = VField<String>(
@@ -831,16 +835,23 @@ void main() {
       f.dispose();
     });
 
-    test('empty string is treated as null for nullable async schemas',
-        () async {
-      final f = VField<String>(
-        type: V.string().nullable().refineAsync((v) async => true),
-        validators: [],
-        initialValue: '',
-      );
-      expect(f.value, isNull);
-      expect(await f.validateAsync(), isTrue);
-      f.dispose();
-    });
+    test(
+      'empty string is treated as null for nullable async schemas when '
+      'treatEmptyAsNull is declared on the schema',
+      () async {
+        final f = VField<String>(
+          type: V
+              .string()
+              .treatEmptyAsNull()
+              .nullable()
+              .refineAsync((v) async => true),
+          validators: [],
+          initialValue: '',
+        );
+        expect(await f.parsedValueAsync, isNull);
+        expect(await f.validateAsync(), isTrue);
+        f.dispose();
+      },
+    );
   });
 }

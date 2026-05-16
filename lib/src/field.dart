@@ -22,7 +22,6 @@ class VField<T> {
   final Object? Function(T?)? _preprocessor;
   final Future<Object?> Function(T?)? _preprocessorAsync;
   final String? Function()? _schemaErrorLookup;
-  late final bool _acceptsNull = _type.isNullable;
 
   /// Attach this key to the corresponding `TextFormField` (or any
   /// `FormField`) to enable single-field revalidation via [setError].
@@ -93,16 +92,12 @@ class VField<T> {
 
   /// The current raw value of the field (as stored, without transforms).
   ///
-  /// Empty strings are normalized to `null` when the field is nullable —
-  /// see [VField] class-level docs for the full rationale.
-  T? get value {
-    final val = _value.value;
-
-    if (val == null) return null;
-    if (val is String && val.isEmpty && _acceptsNull) return null;
-
-    return val;
-  }
+  /// Empty strings are returned as-is. If you want `""` to engage
+  /// `defaultValue` / `nullable` handling (the common UX for a cleared
+  /// `TextFormField`), enable `V.treatEmptyAsNull(true)` globally or
+  /// declare `VString.treatEmptyAsNull()` on the schema — validart will
+  /// normalize before the pipeline runs.
+  T? get value => _value.value;
 
   /// The current value after running through the validation pipeline
   /// (transforms like trim, toLowerCase, etc. are applied).
@@ -137,19 +132,16 @@ class VField<T> {
     return value;
   }
 
-  /// Applies the container preprocessor (if any) to [raw] and normalizes
-  /// empty strings to `null`. The empty-string normalization lets validart's
-  /// `_resolveNull` engage so `defaultValue` / `nullable` handling works
-  /// when the user clears a text field.
+  /// Applies the container preprocessor (if any) to [raw] and passes
+  /// the result on to the field's own pipeline.
   ///
-  /// When the surrounding form has no container-level `preprocess()`, this
-  /// degenerates to the empty-string normalization only — zero overhead
-  /// beyond what was here before.
+  /// Empty-string handling lives in validart now: enable
+  /// `V.treatEmptyAsNull(true)` globally or declare
+  /// `VString.treatEmptyAsNull()` on the schema if you want `""` to engage
+  /// `defaultValue` / `nullable` handling.
   Object? _preprocess(T? raw) {
     final pre = _preprocessor;
-    final Object? processed = pre != null ? pre(raw) : raw;
-    if (processed is String && processed.isEmpty) return null;
-    return processed;
+    return pre != null ? pre(raw) : raw;
   }
 
   /// Async variant of [_preprocess]. Prefers [_preprocessorAsync] when both
@@ -158,16 +150,9 @@ class VField<T> {
   Future<Object?> _preprocessAsync(T? raw) async {
     final preAsync = _preprocessorAsync;
     final preSync = _preprocessor;
-    final Object? processed;
-    if (preAsync != null) {
-      processed = await preAsync(raw);
-    } else if (preSync != null) {
-      processed = preSync(raw);
-    } else {
-      processed = raw;
-    }
-    if (processed is String && processed.isEmpty) return null;
-    return processed;
+    if (preAsync != null) return await preAsync(raw);
+    if (preSync != null) return preSync(raw);
+    return raw;
   }
 
   /// Attaches a `ValueNotifier<T?>` for bidirectional synchronization.

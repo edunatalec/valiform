@@ -1479,6 +1479,135 @@ void main() {
         form.dispose();
       },
     );
+
+    test(
+      'VObject whenMatchesRaw: raw predicate reaches per-field validator '
+      '(no builder dependency, safe on partial forms)',
+      () {
+        // whenMatchesRaw takes the raw map directly — no T construction,
+        // no TypeError fragility even before any field is filled.
+        final schema = V
+            .object<_TaxPayer>()
+            .field('country', (t) => t.country, V.string())
+            .field('taxId', (t) => t.taxId, V.string().nullable())
+            .whenMatchesRaw(
+          (data) => data['country'] == 'US' || data['country'] == 'BR',
+          dependsOn: const {'country'},
+          then: {'taxId': V.string().min(9)},
+        );
+
+        // No initialValue — fields start null. With whenMatches entity,
+        // a strict builder would throw; here whenMatchesRaw is unaffected.
+        final form = schema.form(
+          builder: (data) => _TaxPayer(
+            country: data['country'] as String,
+            taxId: data['taxId'] as String?,
+          ),
+        );
+
+        // Country=null → predicate false → no extra rule applied.
+        expect(form.field<String>('taxId').validator('short'), isNull);
+
+        // Country=US → predicate true → taxId min(9) fires.
+        form.field<String>('country').set('US');
+        expect(form.field<String>('taxId').validator('short'), isNotNull);
+
+        // Country outside the predicate set → rule no longer applies.
+        form.field<String>('country').set('AR');
+        expect(form.field<String>('taxId').validator('short'), isNull);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'VObject mixed: whenMatches (entity) + whenMatchesRaw (raw) coexist '
+      'on the same form, both reach the per-field validator',
+      () {
+        final schema = V
+            .object<_TaxPayer>()
+            .field('country', (t) => t.country, V.string())
+            .field('taxId', (t) => t.taxId, V.string().nullable())
+            // Entity rule: country == 'US' demands taxId min(9).
+            .whenMatches(
+          (entity) => entity.country == 'US',
+          dependsOn: const {'country'},
+          then: {'taxId': V.string().min(9)},
+        )
+            // Raw rule: country == 'BR' demands taxId max(11).
+            .whenMatchesRaw(
+          (data) => data['country'] == 'BR',
+          dependsOn: const {'country'},
+          then: {'taxId': V.string().max(11)},
+        );
+
+        final form = schema.form(
+          builder: (data) => _TaxPayer(
+            country: data['country'] ?? '',
+            taxId: data['taxId'] as String?,
+          ),
+          initialValue: const _TaxPayer(country: 'US', taxId: 'short'),
+        );
+
+        // US path (entity rule fires) — short fails min(9).
+        expect(form.field<String>('taxId').validator('short'), isNotNull);
+
+        // BR path (raw rule fires) — a 12-char value fails max(11). The
+        // whenMatches closures read _fields[key].value, so set first.
+        form.field<String>('country').set('BR');
+        form.field<String>('taxId').set('long-value-1');
+        expect(
+          form.field<String>('taxId').validator('long-value-1'),
+          isNotNull,
+        );
+
+        // BR with short value — passes max(11), doesn't trip entity rule.
+        form.field<String>('taxId').set('short');
+        expect(form.field<String>('taxId').validator('short'), isNull);
+
+        form.dispose();
+      },
+    );
+  });
+
+  group('refineFieldRaw via VObject', () {
+    test(
+      'VObject refineFieldRaw surfaces inline on the declared field path '
+      '(parity with refineField typed)',
+      () {
+        // refineFieldRaw works on partial forms without depending on the
+        // builder — recommended pattern for VForm.object cross-field rules.
+        final schema = V
+            .object<_TaxPayer>()
+            .field('country', (t) => t.country, V.string())
+            .field('taxId', (t) => t.taxId, V.string().nullable())
+            .refineFieldRaw(
+              (data) => data['country'] != 'US' || data['taxId'] != null,
+              path: 'taxId',
+              dependsOn: const {'country'},
+              message: 'taxId is required for US',
+            );
+
+        final form = schema.form(
+          builder: (data) => _TaxPayer(
+            country: data['country'] ?? '',
+            taxId: data['taxId'] as String?,
+          ),
+          initialValue: const _TaxPayer(country: 'US', taxId: null),
+        );
+
+        expect(form.silentValidate(), isFalse);
+        expect(form.field<String>('taxId').error, 'taxId is required for US');
+        expect(form.errors()?['taxId'], 'taxId is required for US');
+        expect(form.rootErrors, isEmpty);
+
+        form.field<String>('taxId').set('123456789');
+        expect(form.silentValidate(), isTrue);
+        expect(form.field<String>('taxId').error, isNull);
+
+        form.dispose();
+      },
+    );
   });
 
   group('Manual errors', () {
@@ -2477,7 +2606,7 @@ void main() {
         'explicit initialValues win over schema defaultValue and reset() '
         'restores the explicit value', () {
       final form = V.map({
-        'name': V.string().defaultValue('Guest'),
+        'name': V.string().treatEmptyAsNull().defaultValue('Guest'),
       }).form(initialValues: {'name': 'Alice'});
 
       final field = form.field<String>('name');
@@ -2487,7 +2616,9 @@ void main() {
       field.reset();
       expect(field.value, 'Alice');
 
-      // parsedValue still falls back to the default on empty input.
+      // parsedValue still falls back to the default on empty input —
+      // treatEmptyAsNull on the schema turns `''` into `null` before
+      // _resolveNull engages.
       field.set('');
       expect(field.parsedValue, 'Guest');
 
@@ -2517,21 +2648,22 @@ void main() {
 
     test(
         'defaultValue on the schema flows into form.value / parsedValue '
-        'when the field is empty — regression for empty-string not being '
-        'normalized to null before safeParse', () {
+        'when the field is empty — relies on schema-level treatEmptyAsNull '
+        'in validart 3.0.0+', () {
       final form = V.map({
-        'name': V.string().min(1).defaultValue('John'),
+        'name': V.string().treatEmptyAsNull().min(1).defaultValue('John'),
       }).form();
 
       final field = form.field<String>('name');
 
       // User types and then clears — the stored raw value is an empty
-      // string, not null. parsedValue must still surface the default.
+      // string, not null. validart's treatEmptyAsNull rewrites '' → null
+      // before _resolveNull, so parsedValue surfaces the default.
       field.set('Alice');
       field.set('');
 
       expect(field.value, equals(''));
-      expect(field.parsedValue, 'John'); // ← bug: returns '' today
+      expect(field.parsedValue, 'John');
       expect(form.value['name'], 'John');
 
       // Validator must also see the field as valid (default applied).
@@ -2977,10 +3109,10 @@ void main() {
         expect(form.field<String>('name').parsedValue, 'Alice');
         expect(form.silentValidate(), isTrue);
 
-        // Empty-string normalization for nullable fields still works
-        // unchanged when the schema declares no container preprocess.
+        // Empty-string normalization for nullable fields works when the
+        // schema opts in via treatEmptyAsNull (validart 3.0.0+).
         final nullableSchema = V.map({
-          'name': V.string().nullable().min(3),
+          'name': V.string().treatEmptyAsNull().nullable().min(3),
         });
         final nullableForm = nullableSchema.form(initialValues: {'name': ''});
         // Empty string normalized to null; nullable schema accepts.
@@ -3489,10 +3621,11 @@ void main() {
         // gets propagated by VForm to the corresponding VField.
         final schema = V.map({
           'name': V.string(),
-        }).refineFieldRaw(
+        }).refineField(
           (data) => data['name'] != 'forbidden',
           path: 'name',
           message: 'forbidden raw',
+          stage: RefineStage.pre,
         );
 
         final form = schema.form(initialValues: {'name': 'forbidden'});
@@ -3521,10 +3654,11 @@ void main() {
         // post-transform. Same lambda → different verdicts.
         final schema = V
             .map({'email': V.string().toLowerCase()})
-            .refineFieldRaw(
+            .refineField(
               (data) => data['email'] == 'A@B.COM',
               path: 'email',
               message: 'raw must match A@B.COM',
+              stage: RefineStage.pre,
             )
             .refineField(
               (data) => data['email'] == 'A@B.COM',
@@ -3551,10 +3685,11 @@ void main() {
         final schema = V.map({
           'a': V.string().min(5),
           'b': V.string(),
-        }).refineFieldRaw(
+        }).refineField(
           (data) => data['b'] == 'ok',
           path: 'b',
           message: 'b raw must be ok',
+          stage: RefineStage.pre,
         );
 
         final form = schema.form(initialValues: {'a': 'no', 'b': 'no'});
