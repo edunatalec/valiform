@@ -1,8 +1,8 @@
 name: valiform
 description: >
-  A Flutter form validation library built on Validart. Provides reactive state
-  management, typed fields, and seamless Form widget integration.
-version: 2.2.1
+  Schema-driven Flutter forms on top of Validart. Typed VField<T>,
+  ValueNotifier-based reactive state, sync + async cross-field validation.
+version: 3.0.0
 repository: https://github.com/edunatalec/valiform
 
 environment:
@@ -13,11 +13,12 @@ dependencies:
   flutter:
     sdk: flutter
 
-  validart: ^2.2.0
+  validart: ^3.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
   flutter_lints: ^6.0.0
 
 flutter:
