@@ -741,29 +741,34 @@ class VForm<T> {
 
   /// Bulk-updates field values from [data].
   ///
-  /// Accepts either:
-  /// - A `Map<String, dynamic>` keyed by field name (works on every form).
-  /// - A `T` instance (only on `VForm.object<T>`) — decomposed back into a
-  ///   map via the schema's `VObject.extract` and then applied.
+  /// **Accepted shapes depend on the form factory used:**
   ///
-  /// Keys present in [data] that don't match a declared field are
-  /// **ignored silently** — same forgiving shape as validart's
-  /// `safeParseRaw`. Fields missing from [data] are left untouched, so
-  /// this doubles as a "partial update" call:
+  /// - On `VForm.map` (every form created from `V.map({...}).form()`):
+  ///   **only** a `Map<String, dynamic>` is accepted. There is no `T`
+  ///   instance to pass — the form's value type already IS `Map<String, dynamic>`.
+  /// - On `VForm.object<T>` (every form created from `V.object<T>().form()`):
+  ///   **both** shapes are accepted — pass a `Map<String, dynamic>` for a
+  ///   partial update keyed by field name, or pass a typed `T` instance and
+  ///   valiform decomposes it back into a map via the schema's
+  ///   `VObject.extract`.
+  ///
+  /// In both cases, keys present in [data] that don't match a declared
+  /// field are **ignored silently** (same forgiving shape as validart's
+  /// `safeParseRaw`). Fields missing from [data] are left untouched, so
+  /// this doubles as a "partial update" call.
   ///
   /// ```dart
-  /// form.set({'email': 'new@example.com'}); // updates only email
-  /// ```
+  /// // VForm.map — only the Map shape is accepted
+  /// form.set({'email': 'new@example.com'});
   ///
-  /// On `VForm.object<User>` both shapes are accepted:
-  ///
-  /// ```dart
+  /// // VForm.object<User> — both shapes are accepted
   /// form.set(User(name: 'Alice', email: 'a@b.com')); // typed
-  /// form.set({'name': 'Alice', 'email': 'a@b.com'}); // map
+  /// form.set({'name': 'Alice', 'email': 'a@b.com'}); // partial map
   /// ```
   ///
-  /// Throws [ArgumentError] if [data] is neither a `Map<String, dynamic>`
-  /// nor a `T` (on object forms).
+  /// [data] is typed as `Object` because the accepted shape depends on
+  /// the factory used. Passing anything other than a `Map<String, dynamic>`
+  /// (or a `T` on object forms) throws [ArgumentError] at runtime.
   void set(Object data) {
     final Map<String, dynamic> map;
 
