@@ -17,6 +17,14 @@ class VForm<T> {
     Map<String, dynamic>,
   ) _silentValidatorAsync;
   final T Function(Map<String, dynamic>) _valueBuilder;
+
+  /// Decomposes a typed `T` instance back into a `Map<String, dynamic>`
+  /// keyed by field name. Set by `VForm.object` (delegates to
+  /// `VObject.extract`); `null` for `VForm.map` because `T` is already
+  /// `Map<String, dynamic>` there.
+  ///
+  /// Used by [set] to accept a typed `T` argument on `VObject` forms.
+  final Map<String, dynamic> Function(T)? _extract;
   final List<void Function(Map<String, dynamic> rawValue)>
       _valueChangedListeners = [];
   final bool _schemaHasAsync;
@@ -55,6 +63,7 @@ class VForm<T> {
       Map<String, dynamic>,
     ) silentValidatorAsync,
     required T Function(Map<String, dynamic>) valueBuilder,
+    Map<String, dynamic> Function(T)? extract,
     GlobalKey<FormState>? formKey,
     Map<String, dynamic>? initialValues,
     List<({String field, Object? equals, Map<String, VType> then})> whenRules =
@@ -74,6 +83,7 @@ class VForm<T> {
         _silentValidatorSync = silentValidatorSync,
         _silentValidatorAsync = silentValidatorAsync,
         _valueBuilder = valueBuilder,
+        _extract = extract,
         _schemaHasAsync = schemaHasAsync {
     for (final entry in schema.entries) {
       final key = entry.key;
@@ -423,6 +433,7 @@ class VForm<T> {
         }
       },
       valueBuilder: builder,
+      extract: object.extract,
       formKey: formKey,
       initialValues: initialValues,
       whenRules: object.whenRules,
@@ -667,6 +678,52 @@ class VForm<T> {
 
     for (final field in _fields.values) {
       field.reset();
+    }
+  }
+
+  /// Bulk-updates field values from [data].
+  ///
+  /// Accepts either:
+  /// - A `Map<String, dynamic>` keyed by field name (works on every form).
+  /// - A `T` instance (only on `VForm.object<T>`) — decomposed back into a
+  ///   map via the schema's `VObject.extract` and then applied.
+  ///
+  /// Keys present in [data] that don't match a declared field are
+  /// **ignored silently** — same forgiving shape as validart's
+  /// `safeParseRaw`. Fields missing from [data] are left untouched, so
+  /// this doubles as a "partial update" call:
+  ///
+  /// ```dart
+  /// form.set({'email': 'new@example.com'}); // updates only email
+  /// ```
+  ///
+  /// On `VForm.object<User>` both shapes are accepted:
+  ///
+  /// ```dart
+  /// form.set(User(name: 'Alice', email: 'a@b.com')); // typed
+  /// form.set({'name': 'Alice', 'email': 'a@b.com'}); // map
+  /// ```
+  ///
+  /// Throws [ArgumentError] if [data] is neither a `Map<String, dynamic>`
+  /// nor a `T` (on object forms).
+  void set(Object data) {
+    final Map<String, dynamic> map;
+
+    final extract = _extract;
+    if (data is Map<String, dynamic>) {
+      map = data;
+    } else if (extract != null && data is T) {
+      map = extract(data as T);
+    } else {
+      throw ArgumentError(
+        'VForm.set expects Map<String, dynamic>'
+        '${_extract != null ? ' or $T' : ''}'
+        ', got ${data.runtimeType}',
+      );
+    }
+
+    for (final entry in map.entries) {
+      _fields[entry.key]?.set(entry.value);
     }
   }
 

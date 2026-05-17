@@ -1610,6 +1610,128 @@ void main() {
     );
   });
 
+  group('form.set', () {
+    test(
+        'VMap form: accepts Map<String, dynamic> and updates only the '
+        'fields present (partial update)', () {
+      final form = V.map({
+        'name': V.string(),
+        'email': V.string().email(),
+        'age': V.int().min(0).nullable(),
+      }).form(initialValues: {'name': 'Alice', 'email': 'a@b.com', 'age': 30});
+
+      form.set({'email': 'updated@b.com'});
+
+      expect(form.field<String>('name').value, 'Alice');
+      expect(form.field<String>('email').value, 'updated@b.com');
+      expect(form.field<int>('age').value, 30);
+
+      form.set({'name': 'Bob', 'age': null});
+      expect(form.field<String>('name').value, 'Bob');
+      expect(form.field<int>('age').value, isNull);
+      expect(form.field<String>('email').value, 'updated@b.com');
+
+      form.dispose();
+    });
+
+    test(
+        'VMap form: unknown keys are ignored silently '
+        '(forgiving like safeParseRaw)', () {
+      final form = V.map({'name': V.string()}).form();
+
+      form.set({'name': 'Alice', 'unknown_key': 'ignored'});
+
+      expect(form.field<String>('name').value, 'Alice');
+
+      form.dispose();
+    });
+
+    test('VObject form: accepts Map<String, dynamic>', () {
+      final form = V
+          .object<_TaxPayer>()
+          .field('country', (t) => t.country, V.string())
+          .field('taxId', (t) => t.taxId, V.string().nullable())
+          .form(
+            builder: (data) => _TaxPayer(
+              country: data['country'] ?? '',
+              taxId: data['taxId'] as String?,
+            ),
+            initialValue: const _TaxPayer(country: 'BR', taxId: null),
+          );
+
+      form.set({'country': 'US', 'taxId': '123456789'});
+
+      expect(form.field<String>('country').value, 'US');
+      expect(form.field<String>('taxId').value, '123456789');
+
+      form.dispose();
+    });
+
+    test(
+        'VObject form: accepts a typed T instance and decomposes it via '
+        'VObject.extract', () {
+      final form = V
+          .object<_TaxPayer>()
+          .field('country', (t) => t.country, V.string())
+          .field('taxId', (t) => t.taxId, V.string().nullable())
+          .form(
+            builder: (data) => _TaxPayer(
+              country: data['country'] ?? '',
+              taxId: data['taxId'] as String?,
+            ),
+            initialValue: const _TaxPayer(country: 'BR', taxId: null),
+          );
+
+      form.set(const _TaxPayer(country: 'US', taxId: '987654321'));
+
+      expect(form.field<String>('country').value, 'US');
+      expect(form.field<String>('taxId').value, '987654321');
+
+      form.dispose();
+    });
+
+    test('VObject form: rejects argument that is neither Map nor T', () {
+      final form = V
+          .object<_TaxPayer>()
+          .field('country', (t) => t.country, V.string())
+          .form(
+            builder: (data) => _TaxPayer(
+              country: data['country'] ?? '',
+              taxId: null,
+            ),
+          );
+
+      expect(() => form.set(42), throwsA(isA<ArgumentError>()));
+      expect(() => form.set('string'), throwsA(isA<ArgumentError>()));
+
+      form.dispose();
+    });
+
+    test('VMap form: rejects argument that is not a Map<String, dynamic>', () {
+      final form = V.map({'name': V.string()}).form();
+
+      expect(() => form.set(42), throwsA(isA<ArgumentError>()));
+
+      form.dispose();
+    });
+
+    test('form.set triggers listenable so reactive widgets rebuild', () {
+      final form = V.map({
+        'name': V.string(),
+      }).form(initialValues: {'name': 'Alice'});
+
+      int notifications = 0;
+      form.listenable.addListener(() => notifications++);
+
+      form.set({'name': 'Bob'});
+
+      expect(notifications, 1);
+      expect(form.field<String>('name').value, 'Bob');
+
+      form.dispose();
+    });
+  });
+
   group('Manual errors', () {
     late VForm<Map<String, dynamic>> form;
 
