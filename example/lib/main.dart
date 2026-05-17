@@ -25,6 +25,7 @@ import 'pages/errors_preview_page.dart';
 import 'pages/manual_error_page.dart';
 import 'pages/optional_fields_page.dart';
 import 'pages/preprocess_page.dart';
+import 'pages/programmatic_updates_page.dart';
 import 'pages/refine_field_raw_page.dart';
 import 'pages/transforms_page.dart';
 import 'pages/v_errors_page.dart';
@@ -194,6 +195,12 @@ class HomePage extends StatelessWidget {
         subtitle:
             'Imperative setError/clearError for backend and business rule errors',
         page: ManualErrorPage(),
+      ),
+      _Example(
+        title: 'Programmatic Updates',
+        subtitle:
+            'form.set(Map | T) + field.set — which widgets reflect, which need a controller',
+        page: ProgrammaticUpdatesPage(),
       ),
       _Example(
         title: 'Transforms',
