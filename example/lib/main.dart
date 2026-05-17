@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:validart/validart.dart';
 
 import 'pages/array_field_page.dart';
+import 'pages/async_race_page.dart';
 import 'pages/async_validation_page.dart';
 import 'pages/basic_map_form_page.dart';
 import 'pages/complex_form_page.dart';
 import 'pages/conditional_validation_page.dart';
+import 'pages/live_pipeline_page.dart';
 import 'pages/object_form_page.dart';
 import 'pages/object_validation_page.dart';
 import 'pages/password_match_page.dart';
@@ -172,6 +174,11 @@ class HomePage extends StatelessWidget {
         page: AsyncValidationPage(),
       ),
       _Example(
+        title: 'Async Race Condition',
+        subtitle: 'Out-of-order async responses — naïve vs token-guarded',
+        page: AsyncRacePage(),
+      ),
+      _Example(
         title: 'Complex Form',
         subtitle:
             'All types + array + nested map + enum + union + when sync/async + refineField',
@@ -192,6 +199,12 @@ class HomePage extends StatelessWidget {
         title: 'Transforms',
         subtitle: 'Pipeline transforms (trim, toLowerCase) — rawValue vs value',
         page: TransformsPage(),
+      ),
+      _Example(
+        title: 'Live Pipeline',
+        subtitle:
+            'Per-keystroke trace: preprocess → trim → toLowerCase → min → transform',
+        page: LivePipelinePage(),
       ),
       _Example(
         title: 'Preprocess',
