@@ -382,10 +382,38 @@ class VField<T> {
   Future<bool> validateAsync() async =>
       (await _runValidatorsAsync(value)) == null;
 
-  /// Internal: runs only schema + extra validators asynchronously,
-  /// ignoring any `manualError`. Used by `VForm.validateAsync` which
-  /// manages manual errors itself (so stale async errors don't mask a
-  /// newly-valid value).
+  /// Runs the full async pipeline (schema async steps + sync extras +
+  /// async extras) and returns the first error message, or `null` when
+  /// the field is valid.
+  ///
+  /// Unlike [errorAsync], this **ignores** the current [_manualError].
+  /// That makes it the primitive for surfacing `refineAsync` results
+  /// per-keystroke under `AutovalidateMode.always`: the synchronous
+  /// `field.validator` cannot await, so the typical wiring is:
+  ///
+  /// ```dart
+  /// TextFormField(
+  ///   key: field.key,
+  ///   validator: field.validator,           // covers sync rules
+  ///   onChanged: (value) async {
+  ///     field.onChanged(value);
+  ///     final err = await field.computeAsyncError();
+  ///     if (!mounted) return;
+  ///     if (err == null) field.clearError();
+  ///     else field.setError(err, persist: true);
+  ///   },
+  /// );
+  /// ```
+  ///
+  /// `errorAsync` would loop in that pattern (it reads back the same
+  /// `_manualError` that [setError] just wrote). Used internally by
+  /// [VForm.validateAsync] for the same reason — managing manual errors
+  /// itself so stale async messages don't mask a newly-valid value.
+  ///
+  /// Firing async work on every keystroke needs its own race protection
+  /// (request token, debounce, dedup, HTTP cancel). See the README's
+  /// "Async with `AutovalidateMode.always`" section for the strategies
+  /// and the `async_race_page.dart` demo for a side-by-side comparison.
   Future<String?> computeAsyncError() async {
     final processed = await _preprocessAsync(value);
 
