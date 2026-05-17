@@ -1732,6 +1732,189 @@ void main() {
     });
   });
 
+  group('V.treatEmptyAsNull(true) normalizes empty strings everywhere', () {
+    setUp(() => V.treatEmptyAsNull(true));
+    tearDown(() => V.treatEmptyAsNull(false));
+
+    test('field.value returns null for "" when the global flag is on', () {
+      final form = V.map({'name': V.string().min(1)}).form();
+
+      form.field<String>('name').set('alice');
+      form.field<String>('name').set('');
+
+      expect(form.field<String>('name').value, isNull);
+
+      form.dispose();
+    });
+
+    test('form.rawValue returns null for empty string fields', () {
+      final form = V.map({
+        'name': V.string().min(1),
+        'note': V.string().nullable(),
+      }).form();
+
+      form.field<String>('name').set('alice');
+      form.field<String>('name').set('');
+      form.field<String>('note').set('');
+
+      expect(form.rawValue['name'], isNull);
+      expect(form.rawValue['note'], isNull);
+
+      form.dispose();
+    });
+
+    test(
+      'form.value returns null for cleared non-nullable string field — '
+      'parsedValue fallback respects the global flag too',
+      () {
+        final form = V.map({'name': V.string().min(1)}).form();
+
+        form.field<String>('name').set('alice');
+        form.field<String>('name').set('');
+
+        expect(form.value['name'], isNull);
+
+        form.dispose();
+      },
+    );
+
+    test('flag off: empty string passes through unchanged', () {
+      V.treatEmptyAsNull(false);
+
+      final form = V.map({'name': V.string().min(1)}).form();
+      form.field<String>('name').set('');
+
+      expect(form.field<String>('name').value, '');
+      expect(form.rawValue['name'], '');
+
+      form.dispose();
+    });
+  });
+
+  group('per-field VString.treatEmptyAsNull() gates getters too', () {
+    // Global flag stays OFF for this group; the per-field opt-in must
+    // be enough on its own.
+    setUp(() => V.treatEmptyAsNull(false));
+
+    test('field.value returns null for "" on a per-field opted-in schema', () {
+      final form = V.map({
+        'opted': V.string().treatEmptyAsNull().nullable(),
+        'plain': V.string().nullable(),
+      }).form();
+
+      form.field<String>('opted').set('alice');
+      form.field<String>('opted').set('');
+      form.field<String>('plain').set('');
+
+      expect(
+        form.field<String>('opted').value,
+        isNull,
+        reason: 'per-field opt-in should normalize at the getter',
+      );
+      expect(
+        form.field<String>('plain').value,
+        '',
+        reason: 'plain field without the opt-in keeps raw ""',
+      );
+
+      form.dispose();
+    });
+
+    test('per-field opt-out (enabled: false) overrides global on', () {
+      V.treatEmptyAsNull(true);
+
+      final form = V.map({
+        'optedOut': V.string().treatEmptyAsNull(enabled: false).nullable(),
+        'inherits': V.string().nullable(),
+      }).form();
+
+      form.field<String>('optedOut').set('');
+      form.field<String>('inherits').set('');
+
+      expect(
+        form.field<String>('optedOut').value,
+        '',
+        reason: 'local opt-out wins over the global flag',
+      );
+      expect(
+        form.field<String>('inherits').value,
+        isNull,
+        reason: 'field without an override follows the global flag',
+      );
+
+      V.treatEmptyAsNull(false);
+      form.dispose();
+    });
+  });
+
+  group('treatEmptyAsNull reaches when / whenMatches predicates', () {
+    setUp(() => V.treatEmptyAsNull(true));
+    tearDown(() => V.treatEmptyAsNull(false));
+
+    test(
+      'whenMatches: predicate sees null (not "") when a nullable string '
+      'field is cleared after being filled',
+      () {
+        final schema = V.map({
+          'contactType': V.string().nullable(),
+          'value': V.string().nullable(),
+        }).whenMatches(
+          (data) => data['contactType'] == null,
+          dependsOn: const {'contactType'},
+          then: {'value': V.string().min(3)},
+        );
+
+        final form = schema.form(
+          initialValues: {'contactType': 'email', 'value': null},
+        );
+
+        // Pre-fill then clear — raw becomes "".
+        form.field<String>('contactType').set('email');
+        form.field<String>('contactType').set('');
+
+        // Predicate must see null (treatEmptyAsNull on) → rule fires →
+        // 'value' must satisfy min(3).
+        expect(
+          form.field<String>('value').validator(null),
+          isNotNull,
+          reason: 'rule should fire because predicate sees null',
+        );
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'when: rawValue lookup sees null (not "") after a cleared field — '
+      'parity with whenMatches',
+      () {
+        final schema = V.map({
+          'contactType': V.string().nullable(),
+          'value': V.string().nullable(),
+        }).when(
+          'contactType',
+          equals: null,
+          then: {'value': V.string().min(3)},
+        );
+
+        final form = schema.form(
+          initialValues: {'contactType': 'email', 'value': null},
+        );
+
+        form.field<String>('contactType').set('email');
+        form.field<String>('contactType').set('');
+
+        expect(
+          form.field<String>('value').validator(null),
+          isNotNull,
+          reason: 'when(equals: null) should fire after the field is cleared',
+        );
+
+        form.dispose();
+      },
+    );
+  });
+
   group('Manual errors', () {
     late VForm<Map<String, dynamic>> form;
 
@@ -2778,13 +2961,16 @@ void main() {
 
       final field = form.field<String>('name');
 
-      // User types and then clears — the stored raw value is an empty
-      // string, not null. validart's treatEmptyAsNull rewrites '' → null
-      // before _resolveNull, so parsedValue surfaces the default.
+      // User types and then clears — with .treatEmptyAsNull() declared on
+      // the schema, VField.value now also normalizes '' → null at the
+      // getter boundary (mirrors validart's pipeline behaviour). The
+      // ValueNotifier still holds '' for the controller's sake, but
+      // every read through valiform observes null. parsedValue then
+      // surfaces the schema's defaultValue.
       field.set('Alice');
       field.set('');
 
-      expect(field.value, equals(''));
+      expect(field.value, isNull);
       expect(field.parsedValue, 'John');
       expect(form.value['name'], 'John');
 

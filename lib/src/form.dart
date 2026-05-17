@@ -18,6 +18,14 @@ class VForm<T> {
   ) _silentValidatorAsync;
   final T Function(Map<String, dynamic>) _valueBuilder;
 
+  /// Per-field schema types kept around so [_predicateSnapshot] can run
+  /// each field's `runPreprocessors(value)` before feeding the result to
+  /// `when` / `whenMatches` predicates. Without this, a cleared
+  /// `TextFormField` (raw `""`) would reach the predicate as `""` even
+  /// when the schema declares `treatEmptyAsNull` — predicates that ask
+  /// `data['x'] == null` would silently fail.
+  final Map<String, VType> _schema;
+
   /// Decomposes a typed `T` instance back into a `Map<String, dynamic>`
   /// keyed by field name. Set by `VForm.object` (delegates to
   /// `VObject.extract`); `null` for `VForm.map` because `T` is already
@@ -84,6 +92,7 @@ class VForm<T> {
         _silentValidatorAsync = silentValidatorAsync,
         _valueBuilder = valueBuilder,
         _extract = extract,
+        _schema = schema,
         _schemaHasAsync = schemaHasAsync {
     for (final entry in schema.entries) {
       final key = entry.key;
@@ -104,28 +113,20 @@ class VForm<T> {
 
         if (conditionalType.hasAsync) {
           asyncValidators.add(() async {
-            if (rawValue[rule.field] != rule.equals) return null;
+            final snap = await _predicateSnapshotAsync();
+            if (snap[rule.field] != rule.equals) return null;
 
             final fieldValue = _fields[key]?.value;
-            final processed =
-                fieldValue is String && fieldValue.isEmpty ? null : fieldValue;
-
-            return (await conditionalType.errorsAsync(processed))
+            return (await conditionalType.errorsAsync(fieldValue))
                 ?.firstOrNull
                 ?.message;
           });
         } else {
           validators.add(() {
-            if (rawValue[rule.field] != rule.equals) return null;
+            if (_predicateSnapshot()[rule.field] != rule.equals) return null;
 
             final fieldValue = _fields[key]?.value;
-            final processed = fieldValue is String &&
-                    fieldValue.isEmpty &&
-                    conditionalType.isNullable
-                ? null
-                : fieldValue;
-
-            return conditionalType.errors(processed)?.firstOrNull?.message;
+            return conditionalType.errors(fieldValue)?.firstOrNull?.message;
           });
         }
       }
@@ -148,28 +149,19 @@ class VForm<T> {
 
         if (conditionalType.hasAsync) {
           asyncValidators.add(() async {
-            if (!rule.condition(rawValue)) return null;
+            if (!rule.condition(await _predicateSnapshotAsync())) return null;
 
             final fieldValue = _fields[key]?.value;
-            final processed =
-                fieldValue is String && fieldValue.isEmpty ? null : fieldValue;
-
-            return (await conditionalType.errorsAsync(processed))
+            return (await conditionalType.errorsAsync(fieldValue))
                 ?.firstOrNull
                 ?.message;
           });
         } else {
           validators.add(() {
-            if (!rule.condition(rawValue)) return null;
+            if (!rule.condition(_predicateSnapshot())) return null;
 
             final fieldValue = _fields[key]?.value;
-            final processed = fieldValue is String &&
-                    fieldValue.isEmpty &&
-                    conditionalType.isNullable
-                ? null
-                : fieldValue;
-
-            return conditionalType.errors(processed)?.firstOrNull?.message;
+            return conditionalType.errors(fieldValue)?.firstOrNull?.message;
           });
         }
       }
@@ -488,6 +480,53 @@ class VForm<T> {
   /// `defaultValue` / `nullable` handling.
   Map<String, dynamic> _rawSnapshot() {
     return _fields.map((key, field) => MapEntry(key, field.value));
+  }
+
+  /// Snapshot of the raw field values with **only** each type's
+  /// `runPreprocessors` applied — feeds `when` / `whenMatches` predicates.
+  ///
+  /// This is the bridge between raw widget input (`""` from a cleared
+  /// `TextFormField`) and what predicates expect to see when the schema
+  /// declares `treatEmptyAsNull` (or any user `.preprocess(...)`): `null`.
+  /// Without this, a predicate like `data['contactType'] == null` would
+  /// silently miss every cleared input. We deliberately do NOT run the
+  /// validators / transforms here — predicates should observe the
+  /// pre-validation shape so they fire even when sibling fields are still
+  /// invalid (e.g. predicting required-ness of a dependent field).
+  ///
+  /// O(N) per call; called from inside `when` / `whenMatches` closures,
+  /// which themselves only run on the per-field validator path. Forms
+  /// without `when` / `whenMatches` rules pay nothing for this.
+  ///
+  /// Tolerant on async siblings: any field whose `type.hasAsync` is true
+  /// (i.e. has a `preprocessAsync` or `refineAsync` step) is passed
+  /// through raw, because calling sync `runPreprocessors` on such a
+  /// type would throw `VAsyncRequiredException`. The sync predicate
+  /// then sees that sibling as raw; for full async correctness, use
+  /// [_predicateSnapshotAsync] from an async closure.
+  Map<String, dynamic> _predicateSnapshot() {
+    return _fields.map((key, field) {
+      final type = _schema[key];
+      if (type == null || type.hasAsync) return MapEntry(key, field.value);
+      return MapEntry(key, type.runPreprocessors(field.value));
+    });
+  }
+
+  /// Async sibling of [_predicateSnapshot]: applies each type's
+  /// `runPreprocessorsAsync`, so a `preprocessAsync` step on any sibling
+  /// is observed by the predicate. Used from async `when` / `whenMatches`
+  /// closures.
+  Future<Map<String, dynamic>> _predicateSnapshotAsync() async {
+    final result = <String, dynamic>{};
+    for (final entry in _fields.entries) {
+      final type = _schema[entry.key];
+      if (type == null) {
+        result[entry.key] = entry.value.value;
+      } else {
+        result[entry.key] = await type.runPreprocessorsAsync(entry.value.value);
+      }
+    }
+    return result;
   }
 
   /// Unpacks a [VResult] into a `(valid, rootMessages, fieldMessages)`

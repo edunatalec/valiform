@@ -92,12 +92,37 @@ class VField<T> {
 
   /// The current raw value of the field (as stored, without transforms).
   ///
-  /// Empty strings are returned as-is. If you want `""` to engage
-  /// `defaultValue` / `nullable` handling (the common UX for a cleared
-  /// `TextFormField`), enable `V.treatEmptyAsNull(true)` globally or
-  /// declare `VString.treatEmptyAsNull()` on the schema — validart will
-  /// normalize before the pipeline runs.
-  T? get value => _value.value;
+  /// When the underlying schema reports `treatsEmptyAsNull == true`,
+  /// an empty string is rewritten to `null` at the getter boundary. The
+  /// underlying `ValueNotifier` still holds `""` (so an attached
+  /// `TextEditingController` keeps the user's cleared text), but every
+  /// consumer that reads `field.value` — including derived getters
+  /// `form.rawValue`, `form.value`, `_rawSnapshot`, `_predicateSnapshot`,
+  /// and `parsedValue`'s fallback path — observes `null`. This is the
+  /// "empty everywhere is null" contract that pairs with validart's
+  /// pipeline-level treatment, so the same UX applies whether a value
+  /// reaches the consumer via the schema or via a raw getter.
+  ///
+  /// The check goes through validart's `VString.treatsEmptyAsNull`,
+  /// which resolves the **effective** flag (per-field override wins
+  /// over the global `V.treatEmptyAsNull(true)`). That means:
+  ///
+  /// - `V.treatEmptyAsNull(true)` globally → every `VField<String>` returns `null` for `""`.
+  /// - `V.string().treatEmptyAsNull().nullable()` per-field → only that field returns `null` for `""`.
+  /// - `V.string().treatEmptyAsNull(enabled: false)` on a specific field → opts out of the global flag.
+  ///
+  /// Non-string fields are unaffected.
+  T? get value {
+    final val = _value.value;
+    if (val is String && val.isEmpty) {
+      // Cast through VType<dynamic> first because `_type is VString` cannot
+      // promote a `VType<T>` whose `T` is unknown — covariance check
+      // refuses the implicit cast even though VString extends VType<String>.
+      final VType<dynamic> type = _type;
+      if (type is VString && type.treatsEmptyAsNull) return null;
+    }
+    return val;
+  }
 
   /// The current value after running through the validation pipeline
   /// (transforms like trim, toLowerCase, etc. are applied).
