@@ -315,17 +315,36 @@ class VForm<T> {
   /// Creates a `VForm` from a `VObject<T>` schema.
   ///
   /// Requires a [builder] function to construct `T` from the field values.
-  /// Accepts an optional [initialValue] of type `T` to set initial field values.
   /// The resulting form's [value] returns an instance of `T`.
+  ///
+  /// Two ways to pre-fill the form, pick one:
+  /// - [initialValue]: a complete `T` instance — decomposed via
+  ///   `VObject.extract` into per-field values. Useful when you already
+  ///   have an entity (editing an existing record).
+  /// - [initialValues]: a partial `Map<String, dynamic>` keyed by field
+  ///   name — only the listed fields are pre-filled; absent fields stay
+  ///   `null`. Useful when seeding a form from scratch without inventing
+  ///   placeholder values for required fields just to satisfy `T`'s
+  ///   constructor. Unknown keys are ignored silently (same forgiving
+  ///   shape as [set]).
+  ///
+  /// Passing both is an assertion error — they target the same slot.
   factory VForm.object(
     VObject<T> object, {
     required T Function(Map<String, dynamic> data) builder,
     GlobalKey<FormState>? formKey,
     T? initialValue,
+    Map<String, dynamic>? initialValues,
     void Function(Map<String, dynamic> rawValue)? onValueChanged,
   }) {
-    final initialValues =
-        initialValue != null ? object.extract(initialValue) : null;
+    assert(
+      initialValue == null || initialValues == null,
+      'VForm.object: pass either initialValue (T instance) or initialValues '
+      '(Map<String, dynamic>), not both — they target the same per-field slot.',
+    );
+
+    final Map<String, dynamic>? resolvedInitial = initialValues ??
+        (initialValue != null ? object.extract(initialValue) : null);
 
     // Gate the snapshot/preprocess plumbing on actually-needed work.
     // For VObject the snapshot Map needs to be reconstructed into `T` via
@@ -427,7 +446,7 @@ class VForm<T> {
       valueBuilder: builder,
       extract: object.extract,
       formKey: formKey,
-      initialValues: initialValues,
+      initialValues: resolvedInitial,
       whenRules: object.whenRules,
       // Two rule shapes flow into the same map-shaped slot on `VForm._`:
       //

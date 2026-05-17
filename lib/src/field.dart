@@ -57,13 +57,30 @@ class VField<T> {
     Future<Object?> Function(T?)? preprocessorAsync,
     String? Function()? schemaErrorLookup,
   })  : _type = type,
-        _initialValue = initialValue,
-        _value = ValueNotifier<T?>(initialValue),
+        // Apply the same write-path normalization to the initial value so the
+        // "empty everywhere is null" contract holds from construction. Without
+        // this, callers that hydrate the form with `''` (e.g. a seed DTO that
+        // defaults string fields to empty) would land `''` in the notifier and
+        // see `field.value == ''` until the user types — inconsistent with
+        // every other write path.
+        _initialValue = _normalizeEmptyToNullFor(type, initialValue),
+        _value =
+            ValueNotifier<T?>(_normalizeEmptyToNullFor(type, initialValue)),
         _validators = validators,
         _asyncValidators = asyncValidators,
         _preprocessor = preprocessor,
         _preprocessorAsync = preprocessorAsync,
         _schemaErrorLookup = schemaErrorLookup;
+
+  /// Static sibling of [_normalizeEmptyToNull] usable in constructor
+  /// initializer lists (cannot call instance methods there).
+  static T? _normalizeEmptyToNullFor<T>(VType<T> type, T? value) {
+    if (value is String && value.isEmpty) {
+      final VType<dynamic> t = type;
+      if (t is VString && t.treatsEmptyAsNull) return null;
+    }
+    return value;
+  }
 
   /// Listenable for tracking field value changes.
   Listenable get listenable => _value;
@@ -92,37 +109,26 @@ class VField<T> {
 
   /// The current raw value of the field (as stored, without transforms).
   ///
-  /// When the underlying schema reports `treatsEmptyAsNull == true`,
-  /// an empty string is rewritten to `null` at the getter boundary. The
-  /// underlying `ValueNotifier` still holds `""` (so an attached
-  /// `TextEditingController` keeps the user's cleared text), but every
-  /// consumer that reads `field.value` — including derived getters
-  /// `form.rawValue`, `form.value`, `_rawSnapshot`, `_predicateSnapshot`,
-  /// and `parsedValue`'s fallback path — observes `null`. This is the
-  /// "empty everywhere is null" contract that pairs with validart's
-  /// pipeline-level treatment, so the same UX applies whether a value
-  /// reaches the consumer via the schema or via a raw getter.
+  /// Pure delegation to the underlying `ValueNotifier` — no normalization
+  /// at read time. When the schema reports `treatsEmptyAsNull == true`,
+  /// `""` is rewritten to `null` on every **write** path
+  /// ([set] / [onChanged] / [onSaved] / attached controllers), so the
+  /// `ValueNotifier` itself holds `null`. The getter then just reads it
+  /// back. This keeps every observer in sync — listeners attached to
+  /// `field.listenable`, the `field.value` getter, and any
+  /// `ValueNotifier<T?>` attached via [attachController] all see the
+  /// same value at all times.
   ///
-  /// The check goes through validart's `VString.treatsEmptyAsNull`,
-  /// which resolves the **effective** flag (per-field override wins
-  /// over the global `V.treatEmptyAsNull(true)`). That means:
-  ///
-  /// - `V.treatEmptyAsNull(true)` globally → every `VField<String>` returns `null` for `""`.
-  /// - `V.string().treatEmptyAsNull().nullable()` per-field → only that field returns `null` for `""`.
-  /// - `V.string().treatEmptyAsNull(enabled: false)` on a specific field → opts out of the global flag.
-  ///
-  /// Non-string fields are unaffected.
-  T? get value {
-    final val = _value.value;
-    if (val is String && val.isEmpty) {
-      // Cast through VType<dynamic> first because `_type is VString` cannot
-      // promote a `VType<T>` whose `T` is unknown — covariance check
-      // refuses the implicit cast even though VString extends VType<String>.
-      final VType<dynamic> type = _type;
-      if (type is VString && type.treatsEmptyAsNull) return null;
-    }
-    return val;
-  }
+  /// The effective flag is resolved via validart's
+  /// `VString.treatsEmptyAsNull` (per-field override wins over the
+  /// global `V.treatEmptyAsNull(true)`).
+  T? get value => _value.value;
+
+  /// Returns [value] with `""` → `null` rewriting when the schema is a
+  /// `VString` whose effective `treatsEmptyAsNull` is true. Applied on
+  /// every write path so the `ValueNotifier` and all observers stay in
+  /// sync — see [value]'s dartdoc for the contract.
+  T? _normalizeEmptyToNull(T? value) => _normalizeEmptyToNullFor(_type, value);
 
   /// The current value after running through the validation pipeline
   /// (transforms like trim, toLowerCase, etc. are applied).
@@ -272,7 +278,7 @@ class VField<T> {
   void _onControllerChanged() {
     if (_syncing) return;
 
-    final T? newValue = _attachedController!.value;
+    final T? newValue = _normalizeEmptyToNull(_attachedController!.value);
     if (_value.value == newValue) return;
 
     _syncing = true;
@@ -292,7 +298,8 @@ class VField<T> {
   void _onTextControllerChanged() {
     if (_syncing) return;
 
-    final newValue = _attachedTextController!.text as T;
+    final T? newValue =
+        _normalizeEmptyToNull(_attachedTextController!.text as T);
     if (_value.value == newValue) return;
 
     _syncing = true;
@@ -313,7 +320,7 @@ class VField<T> {
 
   /// Updates the value of the field programmatically.
   void set(T? value) {
-    _value.value = value;
+    _value.value = _normalizeEmptyToNull(value);
   }
 
   /// Handles value changes from UI components.
@@ -322,12 +329,12 @@ class VField<T> {
   /// passes a nullable value (e.g. `DropdownButtonFormField`), not just
   /// `TextFormField`.
   void onChanged(T? value) {
-    _value.value = value;
+    _value.value = _normalizeEmptyToNull(value);
   }
 
   /// Handles `onSaved` callback in form fields.
   void onSaved(T? value) {
-    _value.value = value;
+    _value.value = _normalizeEmptyToNull(value);
   }
 
   /// Resets the field to its initial value.

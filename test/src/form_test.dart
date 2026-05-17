@@ -1791,6 +1791,131 @@ void main() {
     });
   });
 
+  group('treatEmptyAsNull also normalizes the initial value', () {
+    test(
+      'initialValues with "" land as null in the notifier when the global '
+      'flag is on (consistent with write-path normalization)',
+      () {
+        V.treatEmptyAsNull(true);
+        addTearDown(() => V.treatEmptyAsNull(false));
+
+        final form = V.map({
+          'name': V.string().min(1),
+        }).form(initialValues: {'name': ''});
+
+        expect(
+          form.field<String>('name').value,
+          isNull,
+          reason: 'initial "" must normalize to null at construction',
+        );
+        expect(form.field<String>('name').initialValue, isNull);
+
+        // reset() must also restore null (not "")
+        form.field<String>('name').set('typed');
+        form.field<String>('name').reset();
+        expect(form.field<String>('name').value, isNull);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'initialValues with "" land as null when the per-field opt-in is '
+      'declared (no global flag)',
+      () {
+        final form = V.map({
+          'name': V.string().treatEmptyAsNull().nullable(),
+        }).form(initialValues: {'name': ''});
+
+        expect(form.field<String>('name').value, isNull);
+        expect(form.field<String>('name').initialValue, isNull);
+
+        form.dispose();
+      },
+    );
+  });
+
+  group('treatEmptyAsNull: ValueNotifier == field.value (no divergence)', () {
+    // Earlier design normalized at the getter, which made `_value.value` and
+    // `field.value` disagree. Now normalization happens on write — the
+    // ValueNotifier itself holds null, so direct listeners and the getter
+    // observe the same thing.
+
+    test(
+      'listener attached to field.listenable receives null (not "") when '
+      'the user clears the input under the global flag',
+      () {
+        V.treatEmptyAsNull(true);
+        addTearDown(() => V.treatEmptyAsNull(false));
+
+        final form = V.map({'name': V.string().min(1)}).form();
+        final field = form.field<String>('name');
+
+        Object? observed = 'untouched';
+        field.listenable.addListener(() => observed = field.value);
+
+        field.set('alice');
+        expect(observed, 'alice');
+
+        field.set('');
+        expect(
+          observed,
+          isNull,
+          reason: 'listener must see the same null the getter exposes',
+        );
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'listener receives null when the per-field opt-in is declared on '
+      'the schema (no global flag)',
+      () {
+        final form =
+            V.map({'name': V.string().treatEmptyAsNull().nullable()}).form();
+        final field = form.field<String>('name');
+
+        Object? observed = 'untouched';
+        field.listenable.addListener(() => observed = field.value);
+
+        field.set('alice');
+        field.set('');
+
+        expect(observed, isNull);
+
+        form.dispose();
+      },
+    );
+
+    test(
+      'attached ValueNotifier<String?> sees null when the schema treats '
+      'empty as null',
+      () {
+        V.treatEmptyAsNull(true);
+        addTearDown(() => V.treatEmptyAsNull(false));
+
+        final form = V.map({'name': V.string().min(1)}).form();
+        final field = form.field<String>('name');
+        final notifier = ValueNotifier<String?>(null);
+        field.attachController(notifier);
+
+        field.set('alice');
+        expect(notifier.value, 'alice');
+
+        field.set('');
+        expect(
+          notifier.value,
+          isNull,
+          reason:
+              'normalization happens on write, so the attached notifier also sees null',
+        );
+
+        form.dispose();
+      },
+    );
+  });
+
   group('per-field VString.treatEmptyAsNull() gates getters too', () {
     // Global flag stays OFF for this group; the per-field opt-in must
     // be enough on its own.
@@ -1913,6 +2038,104 @@ void main() {
         form.dispose();
       },
     );
+  });
+
+  group('VForm.object: partial initialValues Map', () {
+    test(
+      'initialValues map pre-fills only the listed fields; absent fields '
+      'stay null without forcing a fake T instance',
+      () {
+        final form = V
+            .object<_TaxPayer>()
+            .field('country', (t) => t.country, V.string())
+            .field('taxId', (t) => t.taxId, V.string().nullable())
+            .form(
+          builder: (data) => _TaxPayer(
+            country: data['country'] ?? '',
+            taxId: data['taxId'] as String?,
+          ),
+          initialValues: {'country': 'US'},
+        );
+
+        expect(form.field<String>('country').value, 'US');
+        expect(form.field<String>('taxId').value, isNull);
+
+        form.dispose();
+      },
+    );
+
+    test('initialValue (T) still works alongside the new initialValues map',
+        () {
+      final form = V
+          .object<_TaxPayer>()
+          .field('country', (t) => t.country, V.string())
+          .field('taxId', (t) => t.taxId, V.string().nullable())
+          .form(
+            builder: (data) => _TaxPayer(
+              country: data['country'] ?? '',
+              taxId: data['taxId'] as String?,
+            ),
+            initialValue: const _TaxPayer(country: 'BR', taxId: '12345'),
+          );
+
+      expect(form.field<String>('country').value, 'BR');
+      expect(form.field<String>('taxId').value, '12345');
+
+      form.dispose();
+    });
+
+    test('passing both initialValue and initialValues triggers an assert', () {
+      expect(
+        () => V
+            .object<_TaxPayer>()
+            .field('country', (t) => t.country, V.string())
+            .field('taxId', (t) => t.taxId, V.string().nullable())
+            .form(
+          builder: (data) => _TaxPayer(
+            country: data['country'] ?? '',
+            taxId: data['taxId'] as String?,
+          ),
+          initialValue: const _TaxPayer(country: 'BR', taxId: '12345'),
+          initialValues: {'country': 'US'},
+        ),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
+    test('initialValues map with unknown keys is forgiving (keys ignored)', () {
+      final form = V
+          .object<_TaxPayer>()
+          .field('country', (t) => t.country, V.string())
+          .form(
+        builder: (data) => _TaxPayer(
+          country: data['country'] ?? '',
+          taxId: null,
+        ),
+        initialValues: {'country': 'US', 'unknownKey': 'ignored'},
+      );
+
+      expect(form.field<String>('country').value, 'US');
+
+      form.dispose();
+    });
+
+    test('omitting both leaves an empty form (all fields null)', () {
+      final form = V
+          .object<_TaxPayer>()
+          .field('country', (t) => t.country, V.string())
+          .field('taxId', (t) => t.taxId, V.string().nullable())
+          .form(
+            builder: (data) => _TaxPayer(
+              country: data['country'] ?? '',
+              taxId: data['taxId'] as String?,
+            ),
+          );
+
+      expect(form.field<String>('country').value, isNull);
+      expect(form.field<String>('taxId').value, isNull);
+
+      form.dispose();
+    });
   });
 
   group('Manual errors', () {
