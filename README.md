@@ -72,8 +72,8 @@ Or in `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  valiform: ^3.0.0
-  validart: ^3.0.0
+  valiform: ^3.0.1
+  validart: ^3.0.1
 ```
 
 ## Recommended setup

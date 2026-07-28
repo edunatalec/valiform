@@ -2,18 +2,18 @@ name: valiform
 description: >
   Schema-driven Flutter forms on top of Validart. Typed VField<T>,
   ValueNotifier-based reactive state, sync + async cross-field validation.
-version: 3.0.0
+version: 3.0.1
 repository: https://github.com/edunatalec/valiform
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
-  flutter: '>=1.17.0'
+  flutter: '>=3.10.0'
 
 dependencies:
   flutter:
     sdk: flutter
 
-  validart: ^3.0.0
+  validart: ^3.0.1
 
 dev_dependencies:
   flutter_test:

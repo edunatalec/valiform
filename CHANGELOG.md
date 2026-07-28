@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.0.1] - 2026-07-28
+
+### Changed
+
+- The `flutter` environment constraint now declares the real floor (`>=3.10.0`, the Flutter release paired with the Dart `>=3.0.0` minimum) instead of the meaningless template default `>=1.17.0`. The Dart constraint is unchanged.
+- Adopted the stricter shared analysis options (strict casts, plus async, import, immutability and bug-prone lints); source and tests adjusted to the new rules — no behavior change.
+- Raised the minimum `validart` constraint to `^3.0.1`.
+
 ## [3.0.0] - 2026-05-16
 
 ### Breaking Changes
