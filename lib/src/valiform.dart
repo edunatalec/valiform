@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
-import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
+
+import '../valiform.dart';
 
 /// Extension on `VMap` for creating a form directly.
 extension VMapExtension on VMap {

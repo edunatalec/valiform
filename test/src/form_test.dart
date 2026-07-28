@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
+import 'package:valiform/valiform.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -434,8 +434,10 @@ void main() {
           .field('name', (u) => u.name, V.string().min(3))
           .field('email', (u) => u.email, V.string().email())
           .form(
-            builder: (data) =>
-                _User(name: data['name'] ?? '', email: data['email'] ?? ''),
+            builder: (data) => _User(
+              name: data['name'] as String? ?? '',
+              email: data['email'] as String? ?? '',
+            ),
           );
 
       name = form.field<String>('name');
@@ -489,8 +491,10 @@ void main() {
           .field('name', (u) => u.name, V.string().min(3))
           .field('email', (u) => u.email, V.string().email())
           .form(
-            builder: (data) =>
-                _User(name: data['name'] ?? '', email: data['email'] ?? ''),
+            builder: (data) => _User(
+              name: data['name'] as String? ?? '',
+              email: data['email'] as String? ?? '',
+            ),
             initialValue:
                 const _User(name: 'Default', email: 'default@test.com'),
           );
@@ -521,8 +525,10 @@ void main() {
             .field('email', (u) => u.email, V.string().email())
             .form(
               // Intentionally no `?? ''` — we want the TypeError to surface.
-              builder: (data) =>
-                  _User(name: data['name'], email: data['email']),
+              builder: (data) => _User(
+                name: data['name'] as String,
+                email: data['email'] as String,
+              ),
             );
 
         expect(() => form.value, throwsA(isA<TypeError>()));
@@ -557,8 +563,10 @@ void main() {
             .form(
               // Intentionally no `?? ''` — null on a `required String` would
               // throw `TypeError` if the builder were invoked here.
-              builder: (data) =>
-                  _User(name: data['name'], email: data['email']),
+              builder: (data) => _User(
+                name: data['name'] as String,
+                email: data['email'] as String,
+              ),
             );
 
         // Empty form: silentValidate must report invalid via per-field errors,
@@ -598,8 +606,10 @@ void main() {
             .field('name', (u) => u.name, V.string().min(3))
             .field('email', (u) => u.email, V.string().email())
             .form(
-              builder: (data) =>
-                  _User(name: data['name'], email: data['email']),
+              builder: (data) => _User(
+                name: data['name'] as String,
+                email: data['email'] as String,
+              ),
             );
 
         expect(form.validate(), false);
@@ -630,8 +640,8 @@ void main() {
             .field('email', (u) => u.email, V.string().nullable())
             .form(
               builder: (data) => _User(
-                name: data['name'],
-                email: data['email'],
+                name: data['name'] as String,
+                email: data['email'] as String,
               ),
             );
 
@@ -651,8 +661,10 @@ void main() {
             .field('name', (u) => u.name, V.string().min(3))
             .field('email', (u) => u.email, V.string().email())
             .form(
-              builder: (data) =>
-                  _User(name: data['name'], email: data['email']),
+              builder: (data) => _User(
+                name: data['name'] as String,
+                email: data['email'] as String,
+              ),
             );
 
         form.field<String>('name').set('Alice');
@@ -682,8 +694,8 @@ void main() {
           )
           .form(
             builder: (data) => _User(
-              name: data['name'] ?? '',
-              email: data['email'] ?? '',
+              name: data['name'] as String? ?? '',
+              email: data['email'] as String? ?? '',
             ),
           );
 
@@ -715,8 +727,10 @@ void main() {
             )
             .field('email', (u) => u.email, V.string().email())
             .form(
-              builder: (data) =>
-                  _User(name: data['name'] ?? '', email: data['email'] ?? ''),
+              builder: (data) => _User(
+                name: data['name'] as String? ?? '',
+                email: data['email'] as String? ?? '',
+              ),
             );
 
         expect(form.field<String>('name').value, 'Guest');
@@ -735,8 +749,10 @@ void main() {
           )
           .field('email', (u) => u.email, V.string().email())
           .form(
-            builder: (data) =>
-                _User(name: data['name'] ?? '', email: data['email'] ?? ''),
+            builder: (data) => _User(
+              name: data['name'] as String? ?? '',
+              email: data['email'] as String? ?? '',
+            ),
             initialValue: const _User(name: 'Alice', email: 'alice@x.com'),
           );
 
@@ -757,8 +773,10 @@ void main() {
             )
             .field('email', (u) => u.email, V.string().email())
             .form(
-              builder: (data) =>
-                  _User(name: data['name'] ?? '', email: data['email'] ?? ''),
+              builder: (data) => _User(
+                name: data['name'] as String? ?? '',
+                email: data['email'] as String? ?? '',
+              ),
               initialValue: const _User(name: 'Alice', email: 'alice@x.com'),
             );
 
@@ -778,7 +796,7 @@ void main() {
 
       final form = V.map({
         'name': V.string(),
-      }).form(onValueChanged: (value) => values.add(value));
+      }).form(onValueChanged: values.add);
 
       form.field<String>('name').set('hello');
 
@@ -794,7 +812,7 @@ void main() {
       }).form();
 
       final values = <Map<String, dynamic>>[];
-      form.addValueChangedListener((value) => values.add(value));
+      form.addValueChangedListener(values.add);
 
       form.field<String>('name').set('world');
 
@@ -849,8 +867,10 @@ void main() {
             .form(
               // Intentionally no `?? ''` — the builder would throw if the
               // form ever called it on incomplete data via the listener.
-              builder: (data) =>
-                  _User(name: data['name'], email: data['email']),
+              builder: (data) => _User(
+                name: data['name'] as String,
+                email: data['email'] as String,
+              ),
               onValueChanged: received.add,
             );
 
@@ -871,8 +891,10 @@ void main() {
           .field('name', (u) => u.name, V.string())
           .field('email', (u) => u.email, V.string())
           .form(
-            builder: (data) =>
-                _User(name: data['name'] ?? '', email: data['email'] ?? ''),
+            builder: (data) => _User(
+              name: data['name'] as String? ?? '',
+              email: data['email'] as String? ?? '',
+            ),
             onValueChanged: received.add,
           );
 
@@ -894,8 +916,8 @@ void main() {
         final form =
             V.object<_User>().field('name', (u) => u.name, V.string()).form(
                   builder: (data) => _User(
-                    name: data['name'] ?? '',
-                    email: data['email'] ?? '',
+                    name: data['name'] as String? ?? '',
+                    email: data['email'] as String? ?? '',
                   ),
                   onValueChanged: (Map<String, dynamic> raw) {},
                 );
@@ -1041,8 +1063,10 @@ void main() {
           .field('name', (u) => u.name, V.string().trim())
           .field('email', (u) => u.email, V.string().trim())
           .form(
-            builder: (data) =>
-                _User(name: data['name'] ?? '', email: data['email'] ?? ''),
+            builder: (data) => _User(
+              name: data['name'] as String? ?? '',
+              email: data['email'] as String? ?? '',
+            ),
           );
 
       form.field<String>('name').set('  John  ');
@@ -1063,9 +1087,13 @@ void main() {
       form = V.map({
         'type': V.string(),
         'document': V.string().nullable(),
-      }).when('type', equals: 'company', then: {
-        'document': V.string().min(14),
-      }).form();
+      }).when(
+        'type',
+        equals: 'company',
+        then: {
+          'document': V.string().min(14),
+        },
+      ).form();
     });
 
     tearDown(() {
@@ -1132,7 +1160,7 @@ void main() {
 
         final form = schema.form(
           builder: (data) => _TaxPayer(
-            country: data['country'] ?? '',
+            country: data['country'] as String? ?? '',
             taxId: data['taxId'] as String?,
           ),
           initialValue: const _TaxPayer(country: 'US', taxId: 'short'),
@@ -1329,7 +1357,7 @@ void main() {
 
         final form = schema.form(
           builder: (data) => _TaxPayer(
-            country: data['country'] ?? '',
+            country: data['country'] as String? ?? '',
             taxId: data['taxId'] as String?,
           ),
           initialValue: const _TaxPayer(country: 'US', taxId: 'short'),
@@ -1416,7 +1444,7 @@ void main() {
 
         final form = schema.form(
           builder: (data) => _TaxPayer(
-            country: data['country'] ?? '',
+            country: data['country'] as String? ?? '',
             taxId: data['taxId'] as String?,
           ),
           initialValue: const _TaxPayer(country: 'BR', taxId: 'taken'),
@@ -1459,7 +1487,7 @@ void main() {
 
         final form = schema.form(
           builder: (data) => _TaxPayer(
-            country: data['country'] ?? '',
+            country: data['country'] as String? ?? '',
             taxId: data['taxId'] as String?,
           ),
           initialValue: const _TaxPayer(country: 'US', taxId: 'short'),
@@ -1543,7 +1571,7 @@ void main() {
 
         final form = schema.form(
           builder: (data) => _TaxPayer(
-            country: data['country'] ?? '',
+            country: data['country'] as String? ?? '',
             taxId: data['taxId'] as String?,
           ),
           initialValue: const _TaxPayer(country: 'US', taxId: 'short'),
@@ -1590,7 +1618,7 @@ void main() {
 
         final form = schema.form(
           builder: (data) => _TaxPayer(
-            country: data['country'] ?? '',
+            country: data['country'] as String? ?? '',
             taxId: data['taxId'] as String?,
           ),
           initialValue: const _TaxPayer(country: 'US', taxId: null),
@@ -1653,7 +1681,7 @@ void main() {
           .field('taxId', (t) => t.taxId, V.string().nullable())
           .form(
             builder: (data) => _TaxPayer(
-              country: data['country'] ?? '',
+              country: data['country'] as String? ?? '',
               taxId: data['taxId'] as String?,
             ),
             initialValue: const _TaxPayer(country: 'BR', taxId: null),
@@ -1676,7 +1704,7 @@ void main() {
           .field('taxId', (t) => t.taxId, V.string().nullable())
           .form(
             builder: (data) => _TaxPayer(
-              country: data['country'] ?? '',
+              country: data['country'] as String? ?? '',
               taxId: data['taxId'] as String?,
             ),
             initialValue: const _TaxPayer(country: 'BR', taxId: null),
@@ -1696,7 +1724,7 @@ void main() {
           .field('country', (t) => t.country, V.string())
           .form(
             builder: (data) => _TaxPayer(
-              country: data['country'] ?? '',
+              country: data['country'] as String? ?? '',
               taxId: null,
             ),
           );
@@ -2051,7 +2079,7 @@ void main() {
             .field('taxId', (t) => t.taxId, V.string().nullable())
             .form(
           builder: (data) => _TaxPayer(
-            country: data['country'] ?? '',
+            country: data['country'] as String? ?? '',
             taxId: data['taxId'] as String?,
           ),
           initialValues: {'country': 'US'},
@@ -2072,7 +2100,7 @@ void main() {
           .field('taxId', (t) => t.taxId, V.string().nullable())
           .form(
             builder: (data) => _TaxPayer(
-              country: data['country'] ?? '',
+              country: data['country'] as String? ?? '',
               taxId: data['taxId'] as String?,
             ),
             initialValue: const _TaxPayer(country: 'BR', taxId: '12345'),
@@ -2092,7 +2120,7 @@ void main() {
             .field('taxId', (t) => t.taxId, V.string().nullable())
             .form(
           builder: (data) => _TaxPayer(
-            country: data['country'] ?? '',
+            country: data['country'] as String? ?? '',
             taxId: data['taxId'] as String?,
           ),
           initialValue: const _TaxPayer(country: 'BR', taxId: '12345'),
@@ -2108,7 +2136,7 @@ void main() {
           .field('country', (t) => t.country, V.string())
           .form(
         builder: (data) => _TaxPayer(
-          country: data['country'] ?? '',
+          country: data['country'] as String? ?? '',
           taxId: null,
         ),
         initialValues: {'country': 'US', 'unknownKey': 'ignored'},
@@ -2126,7 +2154,7 @@ void main() {
           .field('taxId', (t) => t.taxId, V.string().nullable())
           .form(
             builder: (data) => _TaxPayer(
-              country: data['country'] ?? '',
+              country: data['country'] as String? ?? '',
               taxId: data['taxId'] as String?,
             ),
           );
@@ -2387,6 +2415,7 @@ void main() {
       final form = V.map({'email': V.string().email()}).form(
         initialValues: {'email': 'user@example.com'},
       );
+
       final email = form.field<String>('email');
       email.setError('server rejected', force: true);
 
@@ -2403,6 +2432,7 @@ void main() {
       final form = V.map({'email': V.string().email()}).form(
         initialValues: {'email': 'user@example.com'},
       );
+
       final email = form.field<String>('email');
       email.setError('server rejected');
 
@@ -2442,6 +2472,7 @@ void main() {
       final testForm = V.map({'email': V.string()}).form(
         initialValues: {'email': 'helo'},
       );
+
       final email = testForm.field<String>('email');
       final controller = TextEditingController(text: 'helo');
       email.attachTextController(controller, owns: false);
@@ -2480,6 +2511,7 @@ void main() {
       final testForm = V.map({'email': V.string()}).form(
         initialValues: {'email': 'hello'},
       );
+
       final email = testForm.field<String>('email');
       final controller = TextEditingController(text: 'hello');
       email.attachTextController(controller, owns: false);
@@ -2511,6 +2543,7 @@ void main() {
       final testForm = V.map({'email': V.string()}).form(
         initialValues: {'email': 'hello'},
       );
+
       final email = testForm.field<String>('email');
       final controller = TextEditingController(text: 'hello');
       email.attachTextController(controller, owns: false);
@@ -2604,6 +2637,7 @@ void main() {
       }).form(initialValues: {'username': 'taken'});
 
       expect(await form.errorsAsync(), {'username': 'already taken'});
+
       final vErrs = await form.vErrorsAsync();
       expect(vErrs, isNotNull);
       expect(vErrs!['username']!.first.message, 'already taken');
@@ -2630,10 +2664,10 @@ void main() {
       // Form-level sync methods are strict: they throw because some field
       // depends on async validation.
       expect(
-        () => form.silentValidate(),
+        form.silentValidate,
         throwsA(isA<VAsyncRequiredException>()),
       );
-      expect(() => form.errors(), throwsA(isA<VAsyncRequiredException>()));
+      expect(form.errors, throwsA(isA<VAsyncRequiredException>()));
 
       // Async path surfaces both the sync (still enforced) and the async.
       expect(await form.validateAsync(), isFalse);
@@ -2654,6 +2688,7 @@ void main() {
                   message: 'blocked domain',
                 ),
           );
+
       final form = schema.form(
         builder: (data) => _User(
           name: data['name'] as String,
@@ -2673,12 +2708,16 @@ void main() {
       final form = V.map({
         'type': V.string(),
         'taxId': V.string().nullable(),
-      }).when('type', equals: 'company', then: {
-        'taxId': V.string().refineAsync(
-              (v) async => v.length >= 5,
-              message: 'taxId too short',
-            ),
-      }).form(initialValues: {'type': 'person', 'taxId': 'x'});
+      }).when(
+        'type',
+        equals: 'company',
+        then: {
+          'taxId': V.string().refineAsync(
+                (v) async => v.length >= 5,
+                message: 'taxId too short',
+              ),
+        },
+      ).form(initialValues: {'type': 'person', 'taxId': 'x'});
 
       // condition not met → valid
       expect(await form.validateAsync(), isTrue);
@@ -2721,19 +2760,19 @@ void main() {
       }).form(initialValues: {'username': 'taken'});
 
       expect(form.hasAsync, isTrue);
-      expect(() => form.validate(), throwsA(isA<VAsyncRequiredException>()));
+      expect(form.validate, throwsA(isA<VAsyncRequiredException>()));
       expect(
-        () => form.silentValidate(),
+        form.silentValidate,
         throwsA(isA<VAsyncRequiredException>()),
       );
-      expect(() => form.errors(), throwsA(isA<VAsyncRequiredException>()));
-      expect(() => form.vErrors(), throwsA(isA<VAsyncRequiredException>()));
+      expect(form.errors, throwsA(isA<VAsyncRequiredException>()));
+      expect(form.vErrors, throwsA(isA<VAsyncRequiredException>()));
       expect(() => form.value, throwsA(isA<VAsyncRequiredException>()));
 
       // Field-level sync methods throw too — except validator(T?), the
       // unavoidable sync adapter for Flutter's FormField.
       final field = form.field<String>('username');
-      expect(() => field.validate(), throwsA(isA<VAsyncRequiredException>()));
+      expect(field.validate, throwsA(isA<VAsyncRequiredException>()));
       expect(() => field.error, throwsA(isA<VAsyncRequiredException>()));
       expect(() => field.vError, throwsA(isA<VAsyncRequiredException>()));
       expect(
@@ -2791,9 +2830,9 @@ void main() {
 
       // Form must report hasAsync even though every individual field is sync.
       expect(form.hasAsync, isTrue);
-      expect(() => form.validate(), throwsA(isA<VAsyncRequiredException>()));
+      expect(form.validate, throwsA(isA<VAsyncRequiredException>()));
       expect(
-        () => form.silentValidate(),
+        form.silentValidate,
         throwsA(isA<VAsyncRequiredException>()),
       );
       // Async path reports the schema-level failure.
@@ -2945,35 +2984,45 @@ void main() {
             message: 'must match name',
           )
           // Conditional SYNC: when type=person, age must be >= 18.
-          .when('type', equals: 'person', then: {
-            'age': V.int().min(18, message: (_) => 'person must be 18+'),
-          })
+          .when(
+            'type',
+            equals: 'person',
+            then: {
+              'age': V.int().min(18, message: (_) => 'person must be 18+'),
+            },
+          )
           // Conditional ASYNC: when type=member, username must be available.
-          .when('type', equals: 'member', then: {
-            'username': V.string().min(3).refineAsync(
-                  (v) async =>
-                      !const {'admin', 'root'}.contains(v.toLowerCase()),
-                  message: 'username taken',
-                ),
-          })
-          .form(initialValues: {
-            'name': 'Alice',
-            'age': 30,
-            'height': 1.72,
-            'active': true,
-            'joined': DateTime(2024, 6, 1),
-            'tags': ['dart', 'flutter'],
-            'address': {'zip': '12345', 'country': 'US'},
-            'role': _Role.admin,
-            'id': '550e8400-e29b-41d4-a716-446655440000',
-            'confirmation': 'Alice',
-            'type': 'person',
-            'username': null,
-          });
+          .when(
+            'type',
+            equals: 'member',
+            then: {
+              'username': V.string().min(3).refineAsync(
+                    (v) async =>
+                        !const {'admin', 'root'}.contains(v.toLowerCase()),
+                    message: 'username taken',
+                  ),
+            },
+          )
+          .form(
+            initialValues: {
+              'name': 'Alice',
+              'age': 30,
+              'height': 1.72,
+              'active': true,
+              'joined': DateTime(2024, 6, 1),
+              'tags': ['dart', 'flutter'],
+              'address': {'zip': '12345', 'country': 'US'},
+              'role': _Role.admin,
+              'id': '550e8400-e29b-41d4-a716-446655440000',
+              'confirmation': 'Alice',
+              'type': 'person',
+              'username': null,
+            },
+          );
 
       // The when('member') rule adds an async extra — form is async overall.
       expect(form.hasAsync, isTrue);
-      expect(() => form.validate(), throwsA(isA<VAsyncRequiredException>()));
+      expect(form.validate, throwsA(isA<VAsyncRequiredException>()));
       expect(() => form.value, throwsA(isA<VAsyncRequiredException>()));
 
       // Async validation passes for these happy-path initial values.
@@ -2990,7 +3039,7 @@ void main() {
       // enums (regression: V.enm must be called with an explicit <T>).
       expect(form.field<_Role>('role').value, _Role.admin);
       expect((value['address'] as Map)['country'], 'US');
-      expect((value['tags'] as List), ['dart', 'flutter']);
+      expect(value['tags'] as List, ['dart', 'flutter']);
 
       // Flip to member with a taken username — async failure bubbles up.
       form.field<String>('type').set('member');
@@ -3084,7 +3133,7 @@ void main() {
       );
 
       expect(form.hasAsync, isTrue);
-      expect(() => form.validate(), throwsA(isA<VAsyncRequiredException>()));
+      expect(form.validate, throwsA(isA<VAsyncRequiredException>()));
       expect(() => form.value, throwsA(isA<VAsyncRequiredException>()));
 
       // Happy path.
@@ -3492,6 +3541,7 @@ void main() {
             (u) => u.name,
             V.string().min(1),
           );
+
       final audit = V.object<_AuditedUser>().field(
             'createdAt',
             (u) => u.createdAt,
@@ -3645,6 +3695,7 @@ void main() {
         final nullableSchema = V.map({
           'name': V.string().treatEmptyAsNull().nullable().min(3),
         });
+
         final nullableForm = nullableSchema.form(initialValues: {'name': ''});
         // Empty string normalized to null; nullable schema accepts.
         expect(nullableForm.field<String>('name').validator(''), isNull);
@@ -3696,6 +3747,7 @@ void main() {
             password: data['password'] as String,
           ),
         );
+
         final formB = _SignInDtoSchema.schema.form(
           builder: (data) => _SignInDto(
             email: data['email'] as String,
@@ -3817,11 +3869,13 @@ void main() {
 
         // Mount under a Form widget so FormState.validate() has something
         // to walk — without it the per-field path returns true vacuously.
-        await tester.pumpWidget(MaterialApp(
-          home: Scaffold(
-            body: Form(key: form.key, child: const SizedBox.shrink()),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Form(key: form.key, child: const SizedBox.shrink()),
+            ),
           ),
-        ));
+        );
 
         // Each field is valid in isolation:
         expect(form.field<DateTime>('startDate').error, isNull);
@@ -4165,7 +4219,9 @@ void main() {
         expect(form.field<String>('name').error, 'forbidden raw');
         expect(form.errors()?['name'], 'forbidden raw');
         expect(
-            form.field<String>('name').validator('forbidden'), 'forbidden raw');
+          form.field<String>('name').validator('forbidden'),
+          'forbidden raw',
+        );
         expect(form.rootErrors, isEmpty);
 
         form.field<String>('name').set('ok');
@@ -4307,18 +4363,32 @@ void main() {
         );
 
         // ─── Initial state: every layer should agree this is valid. ───
-        expect(form.field<String>('state').validator('tx'), isNull,
-            reason: 'container preprocess uppercases state for country=US');
-        expect(form.field<String>('state').parsedValue, 'TX',
-            reason: 'parsedValue mirrors the post-container value');
-        expect(form.field<String>('name').validator('  Alice  '), isNull,
-            reason:
-                'field-level preprocess trims; trimmed length passes min(2)');
+        expect(
+          form.field<String>('state').validator('tx'),
+          isNull,
+          reason: 'container preprocess uppercases state for country=US',
+        );
+        expect(
+          form.field<String>('state').parsedValue,
+          'TX',
+          reason: 'parsedValue mirrors the post-container value',
+        );
+        expect(
+          form.field<String>('name').validator('  Alice  '),
+          isNull,
+          reason: 'field-level preprocess trims; trimmed length passes min(2)',
+        );
         expect(form.field<String>('name').parsedValue, 'Alice');
-        expect(form.field<String>('email').parsedValue, 'alice@example.com',
-            reason: 'field-level transform lowercases');
-        expect(form.field<String>('taxId').validator('123456789'), isNull,
-            reason: 'when(country=US) requires taxId.min(9), 9 chars passes');
+        expect(
+          form.field<String>('email').parsedValue,
+          'alice@example.com',
+          reason: 'field-level transform lowercases',
+        );
+        expect(
+          form.field<String>('taxId').validator('123456789'),
+          isNull,
+          reason: 'when(country=US) requires taxId.min(9), 9 chars passes',
+        );
         expect(form.silentValidate(), isTrue);
         expect(form.rootErrors, isEmpty);
         expect(form.value, {
@@ -4341,8 +4411,11 @@ void main() {
         // nullable (no when rule applied), but state remains 'TX' because
         // we already typed it that way... wait no, state's RAW is 'tx'.
         form.field<String>('country').set('BR');
-        expect(form.field<String>('taxId').validator('short'), isNull,
-            reason: 'when rule only applies for country=US');
+        expect(
+          form.field<String>('taxId').validator('short'),
+          isNull,
+          reason: 'when rule only applies for country=US',
+        );
         // Container preprocess pulled back: state.parsedValue mirrors raw.
         expect(form.field<String>('state').parsedValue, 'tx');
         // state is still valid (length >= 2):
@@ -4541,15 +4614,17 @@ void main() {
           },
         );
 
-        final form = schema.form(initialValues: {
-          'username': 'ALICE',
-          'tier': 'gold',
-          'extra': '',
-        });
+        final form = schema.form(
+          initialValues: {
+            'username': 'ALICE',
+            'tier': 'gold',
+            'extra': '',
+          },
+        );
 
         // The form has async pipeline → sync inspection throws.
         expect(form.hasAsync, isTrue);
-        expect(() => form.validate(), throwsA(isA<VAsyncRequiredException>()));
+        expect(form.validate, throwsA(isA<VAsyncRequiredException>()));
         expect(() => form.rootErrors, throwsA(isA<VAsyncRequiredException>()));
 
         // ─── Initial async state ─────────────────────────────────────
@@ -4642,9 +4717,9 @@ void main() {
 }
 
 class _SubmitThenResetHarness extends StatefulWidget {
-  final VForm<Map<String, dynamic>> form;
-
   const _SubmitThenResetHarness({required this.form});
+
+  final VForm<Map<String, dynamic>> form;
 
   @override
   State<_SubmitThenResetHarness> createState() =>
@@ -4691,9 +4766,9 @@ class _SubmitThenResetHarnessState extends State<_SubmitThenResetHarness> {
 }
 
 class _StaticHarness extends StatelessWidget {
-  final VForm<Map<String, dynamic>> form;
-
   const _StaticHarness({required this.form});
+
+  final VForm<Map<String, dynamic>> form;
 
   @override
   Widget build(BuildContext context) {
@@ -4726,9 +4801,9 @@ class _StaticHarness extends StatelessWidget {
 }
 
 class _RebuildOnChangeHarness extends StatefulWidget {
-  final VForm<Map<String, dynamic>> form;
-
   const _RebuildOnChangeHarness({required this.form});
+
+  final VForm<Map<String, dynamic>> form;
 
   @override
   State<_RebuildOnChangeHarness> createState() =>
@@ -4774,50 +4849,41 @@ enum _Status { active, inactive }
 enum _Role { admin, user, guest }
 
 class _User {
+  const _User({required this.name, required this.email});
+
   final String name;
   final String email;
-
-  const _User({required this.name, required this.email});
 }
 
 class _TaxPayer {
+  const _TaxPayer({required this.country, this.taxId});
+
   final String country;
   final String? taxId;
-
-  const _TaxPayer({required this.country, this.taxId});
 }
 
 class _Booking {
+  const _Booking({required this.startDate, required this.endDate});
+
   final DateTime startDate;
   final DateTime endDate;
-
-  const _Booking({required this.startDate, required this.endDate});
 }
 
 class _AuditedUser {
+  const _AuditedUser({required this.name, required this.createdAt});
+
   final String name;
   final DateTime createdAt;
-
-  const _AuditedUser({required this.name, required this.createdAt});
 }
 
 class _AsyncDto {
+  const _AsyncDto({required this.a, required this.b});
+
   final String a;
   final String b;
-
-  const _AsyncDto({required this.a, required this.b});
 }
 
 class _ChaosUser {
-  final String country;
-  final String state;
-  final String name;
-  final String email;
-  final String password;
-  final String confirmPassword;
-  final String? taxId;
-  final int age;
-
   const _ChaosUser({
     required this.country,
     required this.state,
@@ -4828,20 +4894,29 @@ class _ChaosUser {
     required this.taxId,
     required this.age,
   });
+
+  final String country;
+  final String state;
+  final String name;
+  final String email;
+  final String password;
+  final String confirmPassword;
+  final String? taxId;
+  final int age;
 }
 
 class _PasswordPair {
+  const _PasswordPair({required this.password, required this.confirmPassword});
+
   final String password;
   final String confirmPassword;
-
-  const _PasswordPair({required this.password, required this.confirmPassword});
 }
 
 class _SignInDto {
+  const _SignInDto({required this.email, required this.password});
+
   final String email;
   final String password;
-
-  const _SignInDto({required this.email, required this.password});
 }
 
 class _SignInDtoSchema {
@@ -4852,16 +4927,6 @@ class _SignInDtoSchema {
 }
 
 class _Profile {
-  final String name;
-  final int age;
-  final double height;
-  final bool active;
-  final DateTime joined;
-  final List<String> tags;
-  final _Role role;
-  final Object id; // String (uuid) OR int
-  final String email;
-
   const _Profile({
     required this.name,
     required this.age,
@@ -4873,4 +4938,14 @@ class _Profile {
     required this.id,
     required this.email,
   });
+
+  final String name;
+  final int age;
+  final double height;
+  final bool active;
+  final DateTime joined;
+  final List<String> tags;
+  final _Role role;
+  final Object id; // String (uuid) OR int
+  final String email;
 }

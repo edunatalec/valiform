@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
-import 'package:valiform/src/field.dart';
 import 'package:validart/validart.dart';
+
+import 'field.dart';
 
 /// A form manager that integrates validation, state management, and input handling.
 ///
@@ -8,59 +9,6 @@ import 'package:validart/validart.dart';
 /// - `VForm<Map<String, dynamic>>` when created from a `VMap`
 /// - `VForm<YourClass>` when created from a `VObject<YourClass>`
 class VForm<T> {
-  final GlobalKey<FormState> _formKey;
-  final Map<String, VField> _fields = {};
-  final (bool, List<String>, Map<String, String>) Function(
-    Map<String, dynamic>,
-  ) _silentValidatorSync;
-  final Future<(bool, List<String>, Map<String, String>)> Function(
-    Map<String, dynamic>,
-  ) _silentValidatorAsync;
-  final T Function(Map<String, dynamic>) _valueBuilder;
-
-  /// Per-field schema types kept around so [_predicateSnapshot] can run
-  /// each field's `runPreprocessors(value)` before feeding the result to
-  /// `when` / `whenMatches` predicates. Without this, a cleared
-  /// `TextFormField` (raw `""`) would reach the predicate as `""` even
-  /// when the schema declares `treatEmptyAsNull` — predicates that ask
-  /// `data['x'] == null` would silently fail.
-  final Map<String, VType> _schema;
-
-  /// Decomposes a typed `T` instance back into a `Map<String, dynamic>`
-  /// keyed by field name. Set by `VForm.object` (delegates to
-  /// `VObject.extract`); `null` for `VForm.map` because `T` is already
-  /// `Map<String, dynamic>` there.
-  ///
-  /// Used by [set] to accept a typed `T` argument on `VObject` forms.
-  final Map<String, dynamic> Function(T)? _extract;
-  final List<void Function(Map<String, dynamic> rawValue)>
-      _valueChangedListeners = [];
-  final bool _schemaHasAsync;
-  late final bool _hasAsync;
-
-  /// Snapshot of the schema-level errors that have a non-empty path,
-  /// keyed by the top-level field name. Refreshed by every call to
-  /// [validate] / [silentValidate] (and async equivalents). Read by
-  /// each [VField] via its `schemaErrorLookup` closure so the error
-  /// emitted by `refineField` / `refineFieldRaw` / nested-path `refine`
-  /// reaches `field.error`, `field.validator`, `form.errors()`, and
-  /// the `FormField.validator` chain.
-  ///
-  /// The sync per-field path actually re-runs the schema validator
-  /// on demand (so the lookup never goes stale between the user typing
-  /// and the next validate); this snapshot is the channel for the
-  /// async path, where the sync `field.validator` cannot await.
-  Map<String, String> _schemaFieldErrors = const {};
-
-  /// Whether any field in this form depends on async validation — either
-  /// its type contains `refineAsync`/`preprocessAsync`/`transformAsync`,
-  /// or a `.when()` rule targets an async conditional type.
-  ///
-  /// When `true`, synchronous inspection methods ([validate], [value],
-  /// [silentValidate], [errors], [vErrors]) throw [VAsyncRequiredException] —
-  /// use the `*Async` variants.
-  bool get hasAsync => _hasAsync;
-
   VForm._({
     required Map<String, VType> schema,
     required bool schemaHasAsync,
@@ -488,6 +436,58 @@ class VForm<T> {
       onValueChanged: onValueChanged,
     );
   }
+  final GlobalKey<FormState> _formKey;
+  final Map<String, VField> _fields = {};
+  final (bool, List<String>, Map<String, String>) Function(
+    Map<String, dynamic>,
+  ) _silentValidatorSync;
+  final Future<(bool, List<String>, Map<String, String>)> Function(
+    Map<String, dynamic>,
+  ) _silentValidatorAsync;
+  final T Function(Map<String, dynamic>) _valueBuilder;
+
+  /// Per-field schema types kept around so [_predicateSnapshot] can run
+  /// each field's `runPreprocessors(value)` before feeding the result to
+  /// `when` / `whenMatches` predicates. Without this, a cleared
+  /// `TextFormField` (raw `""`) would reach the predicate as `""` even
+  /// when the schema declares `treatEmptyAsNull` — predicates that ask
+  /// `data['x'] == null` would silently fail.
+  final Map<String, VType> _schema;
+
+  /// Decomposes a typed `T` instance back into a `Map<String, dynamic>`
+  /// keyed by field name. Set by `VForm.object` (delegates to
+  /// `VObject.extract`); `null` for `VForm.map` because `T` is already
+  /// `Map<String, dynamic>` there.
+  ///
+  /// Used by [set] to accept a typed `T` argument on `VObject` forms.
+  final Map<String, dynamic> Function(T)? _extract;
+  final List<void Function(Map<String, dynamic> rawValue)>
+      _valueChangedListeners = [];
+  final bool _schemaHasAsync;
+  late final bool _hasAsync;
+
+  /// Snapshot of the schema-level errors that have a non-empty path,
+  /// keyed by the top-level field name. Refreshed by every call to
+  /// [validate] / [silentValidate] (and async equivalents). Read by
+  /// each [VField] via its `schemaErrorLookup` closure so the error
+  /// emitted by `refineField` / `refineFieldRaw` / nested-path `refine`
+  /// reaches `field.error`, `field.validator`, `form.errors()`, and
+  /// the `FormField.validator` chain.
+  ///
+  /// The sync per-field path actually re-runs the schema validator
+  /// on demand (so the lookup never goes stale between the user typing
+  /// and the next validate); this snapshot is the channel for the
+  /// async path, where the sync `field.validator` cannot await.
+  Map<String, String> _schemaFieldErrors = const {};
+
+  /// Whether any field in this form depends on async validation — either
+  /// its type contains `refineAsync`/`preprocessAsync`/`transformAsync`,
+  /// or a `.when()` rule targets an async conditional type.
+  ///
+  /// When `true`, synchronous inspection methods ([validate], [value],
+  /// [silentValidate], [errors], [vErrors]) throw [VAsyncRequiredException] —
+  /// use the `*Async` variants.
+  bool get hasAsync => _hasAsync;
 
   /// Snapshot of the raw field values fed to the silent validator and to
   /// `refineFieldRaw` callbacks. Container preprocess and per-field

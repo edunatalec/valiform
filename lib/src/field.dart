@@ -14,31 +14,6 @@ import 'package:validart/validart.dart';
 /// - [onValueChanged] takes a callback and invokes it on every value change —
 ///   useful for bridging to external state that isn't a `ValueNotifier<T?>`.
 class VField<T> {
-  final VType<T> _type;
-  final ValueNotifier<T?> _value;
-  final T? _initialValue;
-  final List<String? Function()> _validators;
-  final List<Future<String?> Function()> _asyncValidators;
-  final Object? Function(T?)? _preprocessor;
-  final Future<Object?> Function(T?)? _preprocessorAsync;
-  final String? Function()? _schemaErrorLookup;
-
-  /// Attach this key to the corresponding `TextFormField` (or any
-  /// `FormField`) to enable single-field revalidation via [setError].
-  /// Without it, errors set imperatively only surface on the next full
-  /// `VForm.validate()` call.
-  final GlobalKey<FormFieldState<T>> key = GlobalKey<FormFieldState<T>>();
-
-  ValueNotifier<T?>? _attachedController;
-  TextEditingController? _attachedTextController;
-  bool _ownsAttachedController = false;
-  bool _syncing = false;
-  final List<VoidCallback> _onValueChangedListeners = [];
-
-  String? _manualError;
-  bool _persistManualError = false;
-  bool _forceManualError = false;
-
   /// Creates a new [VField] with the given [type], [validators], and optional [initialValue].
   ///
   /// [preprocessor] / [preprocessorAsync] are typically wired by [VForm] when
@@ -71,6 +46,30 @@ class VField<T> {
         _preprocessor = preprocessor,
         _preprocessorAsync = preprocessorAsync,
         _schemaErrorLookup = schemaErrorLookup;
+  final VType<T> _type;
+  final ValueNotifier<T?> _value;
+  final T? _initialValue;
+  final List<String? Function()> _validators;
+  final List<Future<String?> Function()> _asyncValidators;
+  final Object? Function(T?)? _preprocessor;
+  final Future<Object?> Function(T?)? _preprocessorAsync;
+  final String? Function()? _schemaErrorLookup;
+
+  /// Attach this key to the corresponding `TextFormField` (or any
+  /// `FormField`) to enable single-field revalidation via [setError].
+  /// Without it, errors set imperatively only surface on the next full
+  /// `VForm.validate()` call.
+  final GlobalKey<FormFieldState<T>> key = GlobalKey<FormFieldState<T>>();
+
+  ValueNotifier<T?>? _attachedController;
+  TextEditingController? _attachedTextController;
+  bool _ownsAttachedController = false;
+  bool _syncing = false;
+  final List<VoidCallback> _onValueChangedListeners = [];
+
+  String? _manualError;
+  bool _persistManualError = false;
+  bool _forceManualError = false;
 
   /// Static sibling of [_normalizeEmptyToNull] usable in constructor
   /// initializer lists (cannot call instance methods there).

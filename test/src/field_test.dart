@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
+import 'package:valiform/valiform.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -202,6 +202,7 @@ void main() {
         type: V.string(),
         validators: [],
       );
+
       final controller = ValueNotifier<String?>('hi');
       ownedField.attachController(controller); // owns: true default
 
@@ -218,6 +219,7 @@ void main() {
         type: V.string(),
         validators: [],
       );
+
       final controller = TextEditingController(text: 'hi');
       ownedField.attachTextController(controller);
 
@@ -234,6 +236,7 @@ void main() {
         type: V.string(),
         validators: [],
       );
+
       final controller = TextEditingController(text: 'hi');
       ownedField.attachTextController(controller, owns: false);
 
@@ -325,6 +328,7 @@ void main() {
         validators: [],
         initialValue: 'Initial',
       );
+
       final controller = TextEditingController();
       stringField.attachTextController(controller, owns: false);
 
@@ -345,6 +349,7 @@ void main() {
         validators: [],
         initialValue: 42,
       );
+
       final controller = ValueNotifier<int?>(null);
       intField.attachController(controller, owns: false);
 
@@ -365,6 +370,7 @@ void main() {
         validators: [],
         initialValue: 'Initial',
       );
+
       final controller = TextEditingController();
       stringField.attachTextController(controller, owns: false);
 
@@ -388,6 +394,7 @@ void main() {
         type: V.string().nullable(),
         validators: [],
       );
+
       final received = <String?>[];
       final dispose = ownedField.onValueChanged(received.add);
 
@@ -760,7 +767,7 @@ void main() {
         validators: [],
         initialValue: 'short',
       );
-      expect(() => f.validate(), throwsA(isA<VAsyncRequiredException>()));
+      expect(f.validate, throwsA(isA<VAsyncRequiredException>()));
       expect(() => f.error, throwsA(isA<VAsyncRequiredException>()));
       expect(() => f.vError, throwsA(isA<VAsyncRequiredException>()));
       expect(() => f.parsedValue, throwsA(isA<VAsyncRequiredException>()));
