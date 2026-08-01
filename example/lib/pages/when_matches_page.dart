@@ -37,24 +37,27 @@ class _WhenMatchesPageState extends State<WhenMatchesPage> {
   void initState() {
     super.initState();
 
-    _formA = V.map({
-      'age': V.int(),
-      'license': V.string().nullable(),
-    }).whenMatches(
-      (m) => (m['age'] as int? ?? 0) >= 18,
-      dependsOn: const {'age'},
-      then: {'license': V.string().min(5)},
-    ).form(initialValues: {'age': 16});
+    _formA = V
+        .map({'age': V.int(), 'license': V.string().nullable()})
+        .whenMatches(
+          (m) => (m['age'] as int? ?? 0) >= 18,
+          dependsOn: const {'age'},
+          then: {'license': V.string().min(5)},
+        )
+        .form(initialValues: {'age': 16});
 
-    _formB = V.map({
-      'role': V.string(),
-      'level': V.int(),
-      'auditToken': V.string().nullable(),
-    }).whenMatches(
-      (m) => m['role'] == 'admin' && (m['level'] as int? ?? 0) > 5,
-      dependsOn: const {'role', 'level'},
-      then: {'auditToken': V.string().min(8)},
-    ).form(initialValues: {'role': 'user', 'level': 1});
+    _formB = V
+        .map({
+          'role': V.string(),
+          'level': V.int(),
+          'auditToken': V.string().nullable(),
+        })
+        .whenMatches(
+          (m) => m['role'] == 'admin' && (m['level'] as int? ?? 0) > 5,
+          dependsOn: const {'role', 'level'},
+          then: {'auditToken': V.string().min(8)},
+        )
+        .form(initialValues: {'role': 'user', 'level': 1});
   }
 
   @override

@@ -25,21 +25,24 @@ class _RootErrorsPageState extends State<RootErrorsPage> {
     // even when sibling fields fail individually, which is exactly when
     // the rootErrors banner shines: name is too short AND the date range
     // is wrong → both errors aggregate (field-keyed + root-level).
-    _form = V.map({
-      'name': V.string().min(3),
-      'startDate': V.date(),
-      'endDate': V.date(),
-    }).refine(
-      (m) => (m['endDate'] as DateTime).isAfter(m['startDate'] as DateTime),
-      message: 'endDate must be after startDate',
-      dependsOn: const {'startDate', 'endDate'},
-    ).form(
-      initialValues: {
-        'name': '',
-        'startDate': DateTime(2026, 5, 1),
-        'endDate': DateTime(2026, 4, 1),
-      },
-    );
+    _form = V
+        .map({
+          'name': V.string().min(3),
+          'startDate': V.date(),
+          'endDate': V.date(),
+        })
+        .refine(
+          (m) => (m['endDate'] as DateTime).isAfter(m['startDate'] as DateTime),
+          message: 'endDate must be after startDate',
+          dependsOn: const {'startDate', 'endDate'},
+        )
+        .form(
+          initialValues: {
+            'name': '',
+            'startDate': DateTime(2026, 5, 1),
+            'endDate': DateTime(2026, 4, 1),
+          },
+        );
   }
 
   @override
@@ -96,10 +99,7 @@ class _RootErrorsPageState extends State<RootErrorsPage> {
                   );
                 },
               ),
-              VTextField(
-                field: _form.field<String>('name'),
-                label: 'Name',
-              ),
+              VTextField(field: _form.field<String>('name'), label: 'Name'),
               const SizedBox(height: 8),
               _DateField(
                 label: 'Start date',
@@ -111,10 +111,7 @@ class _RootErrorsPageState extends State<RootErrorsPage> {
                 field: _form.field<DateTime>('endDate'),
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _submit,
-                child: const Text('Submit'),
-              ),
+              ElevatedButton(onPressed: _submit, child: const Text('Submit')),
               ResultFeedback(data: _result, errors: _errors),
             ],
           ),
@@ -137,10 +134,7 @@ class _DateField extends StatelessWidget {
     return TextFormField(
       key: field.key,
       initialValue: field.initialValue?.toIso8601String().substring(0, 10),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: 'YYYY-MM-DD',
-      ),
+      decoration: InputDecoration(labelText: label, hintText: 'YYYY-MM-DD'),
       keyboardType: TextInputType.datetime,
       validator: (_) => field.validator(field.value),
       onChanged: (value) {

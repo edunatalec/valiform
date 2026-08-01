@@ -127,29 +127,29 @@ class _PipelineTrace extends StatelessWidget {
     final currentError = field.error;
 
     Widget step(String label, String value, {bool monospace = true}) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 170,
-                child: Text(
-                  label,
-                  style: TextStyle(fontWeight: FontWeight.w600, color: variant),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  '"$value"',
-                  style: TextStyle(
-                    fontFamily: monospace ? 'monospace' : null,
-                    color: variant,
-                  ),
-                ),
-              ),
-            ],
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 170,
+            child: Text(
+              label,
+              style: TextStyle(fontWeight: FontWeight.w600, color: variant),
+            ),
           ),
-        );
+          Expanded(
+            child: Text(
+              '"$value"',
+              style: TextStyle(
+                fontFamily: monospace ? 'monospace' : null,
+                color: variant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
 
     return Container(
       padding: const EdgeInsets.all(12),

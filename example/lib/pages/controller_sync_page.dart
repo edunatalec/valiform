@@ -27,20 +27,20 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
 
     _noSyncForm = V.map({'name': V.string().min(2)}).form();
 
-    _syncInitForm = V.map({'name': V.string().min(2)}).form(
-      initialValues: {'name': 'John'},
-    );
+    _syncInitForm = V
+        .map({'name': V.string().min(2)})
+        .form(initialValues: {'name': 'John'});
     _syncInitField.attachTextController(
       TextEditingController(text: _syncInitField.value),
     );
 
-    _noSyncInitForm = V.map({'name': V.string().min(2)}).form(
-      initialValues: {'name': 'Jane'},
-    );
+    _noSyncInitForm = V
+        .map({'name': V.string().min(2)})
+        .form(initialValues: {'name': 'Jane'});
 
-    _counterForm = V.map({'count': V.int().min(0).max(10)}).form(
-      initialValues: {'count': 0},
-    );
+    _counterForm = V
+        .map({'count': V.int().min(0).max(10)})
+        .form(initialValues: {'count': 0});
     _counterField.attachController(ValueNotifier<int?>(_counterField.value));
   }
 
@@ -79,7 +79,8 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
             const SizedBox(height: 16),
             _SyncSection(
               title: 'With Controller',
-              description: 'attachTextController creates bidirectional sync. '
+              description:
+                  'attachTextController creates bidirectional sync. '
                   'Calling set() or reset() updates the text field. '
                   'Typing updates the VField value. The controller is owned '
                   'by the field and disposed when form.dispose() runs.',
@@ -89,7 +90,8 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
             const Divider(height: 48),
             _SyncSection(
               title: 'Without Controller',
-              description: 'Without a controller, set()/reset() update the '
+              description:
+                  'Without a controller, set()/reset() update the '
                   'VField value but NOT the widget text. The ListenableBuilder '
                   'below shows the real VField value.',
               form: _noSyncForm,
@@ -98,7 +100,8 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
             const Divider(height: 48),
             _SyncSection(
               title: 'With Controller + Initial Value',
-              description: 'initialValues sets the initial VField value. The '
+              description:
+                  'initialValues sets the initial VField value. The '
                   'TextEditingController is created with the same text. '
                   'Reset restores to the initial value in both.',
               form: _syncInitForm,
@@ -107,7 +110,8 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
             const Divider(height: 48),
             _SyncSection(
               title: 'Without Controller + Initial Value',
-              description: 'initialValues sets the VField value to "Jane". '
+              description:
+                  'initialValues sets the VField value to "Jane". '
                   'VTextField uses field.value as the widget\'s initialValue, '
                   'so "Jane" appears on screen. But without a controller, '
                   'set()/reset() only update the VField — the widget text '
@@ -116,10 +120,7 @@ class _ControllerSyncPageState extends State<ControllerSyncPage> {
               field: _noSyncInitField,
             ),
             const Divider(height: 48),
-            _CounterSection(
-              form: _counterForm,
-              field: _counterField,
-            ),
+            _CounterSection(form: _counterForm, field: _counterField),
           ],
         ),
       ),
@@ -204,9 +205,9 @@ class _CounterSection extends StatelessWidget {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(errs == null
-                        ? 'Valid: ${field.value}'
-                        : 'Errors: $errs'),
+                    content: Text(
+                      errs == null ? 'Valid: ${field.value}' : 'Errors: $errs',
+                    ),
                   ),
                 );
               },
@@ -255,10 +256,9 @@ class _SyncSection extends StatelessWidget {
         children: [
           Text(
             title,
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           InfoCard(description),

@@ -68,10 +68,7 @@ const _ptBr = VLocale({
     'integer': 'Deve ser um número inteiro',
   },
 
-  'bool': {
-    'is_true': 'Deve ser verdadeiro',
-    'is_false': 'Deve ser falso',
-  },
+  'bool': {'is_true': 'Deve ser verdadeiro', 'is_false': 'Deve ser falso'},
 
   'date': {
     'too_small': 'Deve ser após {date}',
@@ -94,15 +91,9 @@ const _ptBr = VLocale({
     'fields_not_equal': '{field} deve ser igual a {other}',
   },
 
-  'enum': {
-    'invalid': 'Valor inválido. Esperado um de: {values}',
-  },
-  'literal': {
-    'invalid': 'Esperado "{expected}", recebido "{received}"',
-  },
-  'union': {
-    'invalid': 'Valor não corresponde a nenhum dos tipos',
-  },
+  'enum': {'invalid': 'Valor inválido. Esperado um de: {values}'},
+  'literal': {'invalid': 'Esperado "{expected}", recebido "{received}"'},
+  'union': {'invalid': 'Valor não corresponde a nenhum dos tipos'},
 });
 
 const _en = VLocale();
@@ -169,20 +160,14 @@ class _LocalePageState extends State<LocalePage> {
                 initialValue: _lang,
                 items: const [
                   DropdownMenuItem(value: _Lang.en, child: Text('English')),
-                  DropdownMenuItem(
-                    value: _Lang.pt,
-                    child: Text('Português'),
-                  ),
+                  DropdownMenuItem(value: _Lang.pt, child: Text('Português')),
                 ],
                 onChanged: (val) {
                   if (val != null) _switchLocale(val);
                 },
               ),
               const SizedBox(height: 24),
-              VTextField(
-                field: _name,
-                label: 'Name',
-              ),
+              VTextField(field: _name, label: 'Name'),
               const SizedBox(height: 16),
               VTextField(
                 field: _email,

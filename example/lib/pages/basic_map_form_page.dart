@@ -30,12 +30,11 @@ class _BasicMapFormPageState extends State<BasicMapFormPage> {
       'password': V.string().password(),
     }).form();
 
-    _defaultForm = V.map({
-      'email': V.string().email(),
-      'password': V.string().password(),
-    }).form(
-      initialValues: {'email': 'user@example.com', 'password': 'Aa1@aaaa'},
-    );
+    _defaultForm = V
+        .map({'email': V.string().email(), 'password': V.string().password()})
+        .form(
+          initialValues: {'email': 'user@example.com', 'password': 'Aa1@aaaa'},
+        );
   }
 
   @override

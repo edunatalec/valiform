@@ -12,11 +12,7 @@ class User {
   const User({required this.name, required this.email, required this.age});
 
   factory User.fromMap(Map<String, dynamic> data) {
-    return User(
-      name: data['name'],
-      email: data['email'],
-      age: data['age'],
-    );
+    return User(name: data['name'], email: data['email'], age: data['age']);
   }
 
   static final VObject<User> schema = V
@@ -127,10 +123,7 @@ class _ObjectFormPageState extends State<ObjectFormPage> {
                     'for extracting the value from the User class.',
                   ),
                   const SizedBox(height: 16),
-                  VTextField(
-                    field: name,
-                    label: 'Name',
-                  ),
+                  VTextField(field: name, label: 'Name'),
                   const SizedBox(height: 16),
                   VTextField(
                     field: email,
@@ -168,10 +161,7 @@ class _ObjectFormPageState extends State<ObjectFormPage> {
                     'values.',
                   ),
                   const SizedBox(height: 16),
-                  VTextField(
-                    field: defName,
-                    label: 'Name',
-                  ),
+                  VTextField(field: defName, label: 'Name'),
                   const SizedBox(height: 16),
                   VTextField(
                     field: defEmail,

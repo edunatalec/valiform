@@ -95,10 +95,7 @@ class _CustomClassFieldPageState extends State<CustomClassFieldPage> {
                 'FormField, integrating with Flutter\'s form validation system.',
               ),
               const SizedBox(height: 24),
-              VTextField(
-                field: _title,
-                label: 'Title',
-              ),
+              VTextField(field: _title, label: 'Title'),
               const SizedBox(height: 16),
               VTextField(
                 field: _description,
@@ -113,10 +110,7 @@ class _CustomClassFieldPageState extends State<CustomClassFieldPage> {
                 field: _category,
               ),
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _submit,
-                child: const Text('Submit'),
-              ),
+              ElevatedButton(onPressed: _submit, child: const Text('Submit')),
               ResultFeedback(data: _result, errors: _errors),
               if (_result != null) ...[
                 const SizedBox(height: 12),
@@ -145,52 +139,52 @@ class ChipFormField<T> extends FormField<T> {
     required String Function(T) labelBuilder,
     required VField<T> field,
   }) : super(
-          initialValue: field.value,
-          validator: (_) => field.validator(field.value),
-          builder: (state) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ListenableBuilder(
-                  listenable: field.listenable,
-                  builder: (context, _) {
-                    return Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: items.map((item) {
-                        return ChoiceChip(
-                          label: Text(labelBuilder(item)),
-                          selected: field.value == item,
-                          onSelected: (selected) {
-                            field.set(selected ? item : null);
-                            state.didChange(selected ? item : null);
-                          },
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
-                if (state.hasError)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 16, top: 4),
-                    child: Text(
-                      state.errorText!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(state.context).colorScheme.error,
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        );
+         initialValue: field.value,
+         validator: (_) => field.validator(field.value),
+         builder: (state) {
+           return Column(
+             crossAxisAlignment: CrossAxisAlignment.start,
+             children: [
+               Text(
+                 label,
+                 style: const TextStyle(
+                   fontSize: 16,
+                   fontWeight: FontWeight.w500,
+                 ),
+               ),
+               const SizedBox(height: 8),
+               ListenableBuilder(
+                 listenable: field.listenable,
+                 builder: (context, _) {
+                   return Wrap(
+                     spacing: 8,
+                     runSpacing: 8,
+                     children: items.map((item) {
+                       return ChoiceChip(
+                         label: Text(labelBuilder(item)),
+                         selected: field.value == item,
+                         onSelected: (selected) {
+                           field.set(selected ? item : null);
+                           state.didChange(selected ? item : null);
+                         },
+                       );
+                     }).toList(),
+                   );
+                 },
+               ),
+               if (state.hasError)
+                 Padding(
+                   padding: const EdgeInsets.only(left: 16, top: 4),
+                   child: Text(
+                     state.errorText!,
+                     style: TextStyle(
+                       fontSize: 12,
+                       color: Theme.of(state.context).colorScheme.error,
+                     ),
+                   ),
+                 ),
+             ],
+           );
+         },
+       );
 }

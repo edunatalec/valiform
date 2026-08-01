@@ -233,27 +233,26 @@ class HomePage extends StatelessWidget {
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Valiform Examples'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Valiform Examples'), centerTitle: true),
       body: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: examples.length,
-        separatorBuilder: (_, __) =>
+        separatorBuilder: (_, _) =>
             const Divider(height: 1, indent: 16, endIndent: 16),
         itemBuilder: (context, index) {
           final example = examples[index];
           return ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 4,
+            ),
             title: Text(example.title),
             subtitle: Text(example.subtitle),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => example.page),
-              );
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => example.page));
             },
           );
         },

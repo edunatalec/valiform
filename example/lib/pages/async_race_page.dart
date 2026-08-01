@@ -51,17 +51,17 @@ class _AsyncRacePageState extends State<AsyncRacePage> {
     super.initState();
 
     final naiveSchema = V.map({
-      'username': V.string().min(1).refineAsync(
-            _checkAvailability,
-            message: 'Username already taken',
-          ),
+      'username': V
+          .string()
+          .min(1)
+          .refineAsync(_checkAvailability, message: 'Username already taken'),
     });
 
     final guardedSchema = V.map({
-      'username': V.string().min(1).refineAsync(
-            _checkAvailability,
-            message: 'Username already taken',
-          ),
+      'username': V
+          .string()
+          .min(1)
+          .refineAsync(_checkAvailability, message: 'Username already taken'),
     });
 
     _naiveForm = naiveSchema.form();
@@ -86,8 +86,8 @@ class _AsyncRacePageState extends State<AsyncRacePage> {
     final latencyMs = input.length <= 1
         ? 2000
         : input.length <= 2
-            ? 1200
-            : 200;
+        ? 1200
+        : 200;
 
     _addLog(
       _LogEntry(
@@ -207,7 +207,8 @@ class _AsyncRacePageState extends State<AsyncRacePage> {
             key: _guardedForm.key,
             child: _FieldCard(
               title: 'Guarded (request token)',
-              subtitle: 'Late responses are dropped if a newer keystroke '
+              subtitle:
+                  'Late responses are dropped if a newer keystroke '
                   'has overtaken them',
               child: TextFormField(
                 key: _guardedForm.field<String>('username').key,
@@ -271,9 +272,10 @@ class _FieldCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style:
-                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+          ),
           const SizedBox(height: 4),
           Text(subtitle, style: TextStyle(color: variant, fontSize: 12)),
           const SizedBox(height: 12),
@@ -316,8 +318,9 @@ class _LogTile extends StatelessWidget {
         break;
     }
 
-    final elapsed =
-        entry.finishedAt?.difference(entry.startedAt).inMilliseconds;
+    final elapsed = entry.finishedAt
+        ?.difference(entry.startedAt)
+        .inMilliseconds;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),

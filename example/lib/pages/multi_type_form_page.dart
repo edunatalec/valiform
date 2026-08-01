@@ -78,10 +78,7 @@ class _MultiTypeFormPageState extends State<MultiTypeFormPage> {
                 'directly with TextFormField.',
               ),
               const SizedBox(height: 24),
-              VTextField(
-                field: _title,
-                label: 'Title',
-              ),
+              VTextField(field: _title, label: 'Title'),
               const SizedBox(height: 16),
               VTextField(
                 field: _description,
@@ -90,8 +87,9 @@ class _MultiTypeFormPageState extends State<MultiTypeFormPage> {
               ),
               const SizedBox(height: 16),
               TextFormField(
-                decoration:
-                    const InputDecoration(labelText: 'Max Participants'),
+                decoration: const InputDecoration(
+                  labelText: 'Max Participants',
+                ),
                 keyboardType: TextInputType.number,
                 onChanged: (value) =>
                     _maxParticipants.onChanged(int.tryParse(value)),
@@ -100,10 +98,12 @@ class _MultiTypeFormPageState extends State<MultiTypeFormPage> {
               ),
               const SizedBox(height: 16),
               TextFormField(
-                decoration:
-                    const InputDecoration(labelText: 'Rating (0.0 - 5.0)'),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Rating (0.0 - 5.0)',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 onChanged: (value) => _rating.onChanged(double.tryParse(value)),
                 validator: (_) => _rating.validator(_rating.value),
               ),

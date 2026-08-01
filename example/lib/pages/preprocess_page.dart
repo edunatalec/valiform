@@ -18,11 +18,11 @@ class Profile {
   });
 
   Map<String, dynamic> toJson() => {
-        'country': country,
-        'state': state,
-        'name': name,
-        'email': email,
-      };
+    'country': country,
+    'state': state,
+    'name': name,
+    'email': email,
+  };
 }
 
 class PreprocessPage extends StatefulWidget {
@@ -49,28 +49,25 @@ class _PreprocessPageState extends State<PreprocessPage> {
     // Per-field 'name' uses field-level preprocess to trim. Both reach the
     // per-field validator and parsedValue, mirroring validart's
     // safeParse pipeline.
-    _mapForm = V.map({
-      'country': V.string(),
-      'state': V.string().min(2),
-      'name': V
-          .string()
-          .preprocess(
-            (v) => v is String ? v.trim() : v,
-          )
-          .min(2),
-    }).preprocess((raw) {
-      final m = Map<String, dynamic>.from(raw as Map);
-      if (m['country'] == 'US' && m['state'] is String) {
-        m['state'] = (m['state'] as String).toUpperCase();
-      }
-      return m;
-    }).form(
-      initialValues: {
-        'country': 'US',
-        'state': 'tx',
-        'name': '  Alice  ',
-      },
-    );
+    _mapForm = V
+        .map({
+          'country': V.string(),
+          'state': V.string().min(2),
+          'name': V
+              .string()
+              .preprocess((v) => v is String ? v.trim() : v)
+              .min(2),
+        })
+        .preprocess((raw) {
+          final m = Map<String, dynamic>.from(raw as Map);
+          if (m['country'] == 'US' && m['state'] is String) {
+            m['state'] = (m['state'] as String).toUpperCase();
+          }
+          return m;
+        })
+        .form(
+          initialValues: {'country': 'US', 'state': 'tx', 'name': '  Alice  '},
+        );
 
     // Section 2 — VObject container preprocess.
     //
@@ -85,28 +82,31 @@ class _PreprocessPageState extends State<PreprocessPage> {
         .field('name', (p) => p.name, V.string().min(2))
         .field('email', (p) => p.email, V.string().email())
         .preprocess((raw) {
-      if (raw is! Profile) return raw;
-      final state = raw.country == 'US' ? raw.state.toUpperCase() : raw.state;
-      return Profile(
-        country: raw.country,
-        state: state,
-        name: raw.name.trim(),
-        email: raw.email.toLowerCase(),
-      );
-    }).form(
-      builder: (data) => Profile(
-        country: data['country'] as String? ?? '',
-        state: data['state'] as String? ?? '',
-        name: data['name'] as String? ?? '',
-        email: data['email'] as String? ?? '',
-      ),
-      initialValue: const Profile(
-        country: 'US',
-        state: 'tx',
-        name: '  Alice  ',
-        email: 'ALICE@Example.COM',
-      ),
-    );
+          if (raw is! Profile) return raw;
+          final state = raw.country == 'US'
+              ? raw.state.toUpperCase()
+              : raw.state;
+          return Profile(
+            country: raw.country,
+            state: state,
+            name: raw.name.trim(),
+            email: raw.email.toLowerCase(),
+          );
+        })
+        .form(
+          builder: (data) => Profile(
+            country: data['country'] as String? ?? '',
+            state: data['state'] as String? ?? '',
+            name: data['name'] as String? ?? '',
+            email: data['email'] as String? ?? '',
+          ),
+          initialValue: const Profile(
+            country: 'US',
+            state: 'tx',
+            name: '  Alice  ',
+            email: 'ALICE@Example.COM',
+          ),
+        );
   }
 
   @override
@@ -161,9 +161,7 @@ class _PreprocessPageState extends State<PreprocessPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _CountryDropdown(
-                    field: _mapForm.field<String>('country'),
-                  ),
+                  _CountryDropdown(field: _mapForm.field<String>('country')),
                   const SizedBox(height: 8),
                   VTextField(
                     field: _mapForm.field<String>('state'),
@@ -211,9 +209,7 @@ class _PreprocessPageState extends State<PreprocessPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _CountryDropdown(
-                    field: _objectForm.field<String>('country'),
-                  ),
+                  _CountryDropdown(field: _objectForm.field<String>('country')),
                   const SizedBox(height: 8),
                   VTextField(
                     field: _objectForm.field<String>('state'),
@@ -350,16 +346,16 @@ class _RawVsParsedTable extends StatelessWidget {
   }
 
   Widget _headerCell(String text) => Padding(
-        padding: const EdgeInsets.all(4),
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
-            fontFamily: 'monospace',
-          ),
-        ),
-      );
+    padding: const EdgeInsets.all(4),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontWeight: FontWeight.w600,
+        fontSize: 12,
+        fontFamily: 'monospace',
+      ),
+    ),
+  );
 
   Widget _cell(
     String text, {

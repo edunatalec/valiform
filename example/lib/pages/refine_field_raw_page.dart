@@ -36,24 +36,30 @@ class _RefineFieldRawPageState extends State<RefineFieldRawPage> {
   void initState() {
     super.initState();
 
-    _parsedForm = V.map({'code': V.string().trim().toUpperCase()}).refineField(
-      (data) {
-        final code = data['code'] as String?;
-        return code != null && code.length == 8;
-      },
-      path: 'code',
-      message: 'code must be exactly 8 chars (parsed)',
-    ).form(initialValues: {'code': '  abcdefgh  '});
+    _parsedForm = V
+        .map({'code': V.string().trim().toUpperCase()})
+        .refineField(
+          (data) {
+            final code = data['code'] as String?;
+            return code != null && code.length == 8;
+          },
+          path: 'code',
+          message: 'code must be exactly 8 chars (parsed)',
+        )
+        .form(initialValues: {'code': '  abcdefgh  '});
 
-    _rawForm = V.map({'code': V.string().trim().toUpperCase()}).refineField(
-      (data) {
-        final code = data['code'] as String?;
-        return code != null && code.length == 8;
-      },
-      path: 'code',
-      message: 'code must be exactly 8 chars (raw)',
-      stage: RefineStage.pre,
-    ).form(initialValues: {'code': '  abcdefgh  '});
+    _rawForm = V
+        .map({'code': V.string().trim().toUpperCase()})
+        .refineField(
+          (data) {
+            final code = data['code'] as String?;
+            return code != null && code.length == 8;
+          },
+          path: 'code',
+          message: 'code must be exactly 8 chars (raw)',
+          stage: RefineStage.pre,
+        )
+        .form(initialValues: {'code': '  abcdefgh  '});
   }
 
   @override
@@ -104,7 +110,8 @@ class _RefineFieldRawPageState extends State<RefineFieldRawPage> {
             ),
             const SizedBox(height: 24),
             const SectionTitle(
-                '1. refineField (parsed) — passes for 8 chars after trim'),
+              '1. refineField (parsed) — passes for 8 chars after trim',
+            ),
             const SizedBox(height: 8),
             const InfoCard(
               'refineField sees the post-pipeline value: the trim shaves the '
@@ -126,16 +133,14 @@ class _RefineFieldRawPageState extends State<RefineFieldRawPage> {
                     onPressed: _submitParsed,
                     child: const Text('Submit (parsed)'),
                   ),
-                  ResultFeedback(
-                    data: _parsedResult,
-                    errors: _parsedErrors,
-                  ),
+                  ResultFeedback(data: _parsedResult, errors: _parsedErrors),
                 ],
               ),
             ),
             const Divider(height: 48),
             const SectionTitle(
-                '2. refineFieldRaw (raw) — fails because 10 chars > 8'),
+              '2. refineFieldRaw (raw) — fails because 10 chars > 8',
+            ),
             const SizedBox(height: 8),
             const InfoCard(
               'refineFieldRaw sees the input as the user typed it: '

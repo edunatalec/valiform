@@ -19,17 +19,19 @@ class _VErrorsPageState extends State<VErrorsPage> {
   void initState() {
     super.initState();
 
-    _form = V.map({
-      'title': V.string().min(5),
-      'email': V.string().email(),
-      'tags': V.array<String>(V.string().min(3)).min(2),
-    }).form(
-      initialValues: {
-        'title': 'Hi',
-        'email': 'not-an-email',
-        'tags': ['ok', 'a', 'go', 'b'],
-      },
-    );
+    _form = V
+        .map({
+          'title': V.string().min(5),
+          'email': V.string().email(),
+          'tags': V.array<String>(V.string().min(3)).min(2),
+        })
+        .form(
+          initialValues: {
+            'title': 'Hi',
+            'email': 'not-an-email',
+            'tags': ['ok', 'a', 'go', 'b'],
+          },
+        );
 
     // Attach TextEditingControllers so programmatic field.set() (e.g. from
     // the "Fix all" button) also updates the widget text — otherwise the
@@ -194,11 +196,9 @@ class _VErrorPanel extends StatelessWidget {
         (key, errors) => MapEntry(
           key,
           errors
-              .map((e) => {
-                    'code': e.code,
-                    'path': e.path,
-                    'message': e.message,
-                  })
+              .map(
+                (e) => {'code': e.code, 'path': e.path, 'message': e.message},
+              )
               .toList(),
         ),
       );
@@ -219,10 +219,7 @@ class _VErrorPanel extends StatelessWidget {
         children: [
           Text(
             'form.vErrors():',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: foreground,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w600, color: foreground),
           ),
           const SizedBox(height: 6),
           Text(

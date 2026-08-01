@@ -11,9 +11,9 @@ class SignUpDto {
   const SignUpDto({required this.password, required this.confirmPassword});
 
   Map<String, dynamic> toJson() => {
-        'password': password,
-        'confirmPassword': confirmPassword,
-      };
+    'password': password,
+    'confirmPassword': confirmPassword,
+  };
 }
 
 class TaxPayer {
@@ -32,9 +32,9 @@ class Booking {
   const Booking({required this.startDate, required this.endDate});
 
   Map<String, dynamic> toJson() => {
-        'startDate': startDate.toIso8601String(),
-        'endDate': endDate.toIso8601String(),
-      };
+    'startDate': startDate.toIso8601String(),
+    'endDate': endDate.toIso8601String(),
+  };
 }
 
 class ObjectValidationPage extends StatefulWidget {
@@ -83,18 +83,22 @@ class _ObjectValidationPageState extends State<ObjectValidationPage> {
         .field('country', (t) => t.country, V.string())
         .field('taxId', (t) => t.taxId, V.string().nullable())
         .when(
-      'country',
-      equals: 'US',
-      then: {
-        'taxId': V.string().min(9, message: (_) => 'US SSN must be 9 chars'),
-      },
-    ).form(
-      builder: (data) => TaxPayer(
-        country: data['country'] ?? '',
-        taxId: data['taxId'] as String?,
-      ),
-      initialValue: const TaxPayer(country: 'BR'),
-    );
+          'country',
+          equals: 'US',
+          then: {
+            'taxId': V.string().min(
+              9,
+              message: (_) => 'US SSN must be 9 chars',
+            ),
+          },
+        )
+        .form(
+          builder: (data) => TaxPayer(
+            country: data['country'] ?? '',
+            taxId: data['taxId'] as String?,
+          ),
+          initialValue: const TaxPayer(country: 'BR'),
+        );
 
     _refineFieldForm = V
         .object<Booking>()
@@ -328,10 +332,7 @@ class _DateField extends StatelessWidget {
     return TextFormField(
       key: field.key,
       initialValue: field.initialValue?.toIso8601String().substring(0, 10),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: 'YYYY-MM-DD',
-      ),
+      decoration: InputDecoration(labelText: label, hintText: 'YYYY-MM-DD'),
       keyboardType: TextInputType.datetime,
       validator: (_) => field.validator(field.value),
       onChanged: (value) {

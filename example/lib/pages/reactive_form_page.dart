@@ -23,16 +23,15 @@ class _ReactiveFormPageState extends State<ReactiveFormPage> {
   void initState() {
     super.initState();
 
-    _form = V.map({
-      'name': V.string().min(2),
-      'email': V.string().email(),
-    }).form(
-      onValueChanged: (value) {
-        setState(() {
-          _jsonPreview = prettyJson(value);
-        });
-      },
-    );
+    _form = V
+        .map({'name': V.string().min(2), 'email': V.string().email()})
+        .form(
+          onValueChanged: (value) {
+            setState(() {
+              _jsonPreview = prettyJson(value);
+            });
+          },
+        );
   }
 
   @override
@@ -86,10 +85,7 @@ class _ReactiveFormPageState extends State<ReactiveFormPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  VTextField(
-                    field: _name,
-                    hint: 'Name',
-                  ),
+                  VTextField(field: _name, hint: 'Name'),
                   const SizedBox(height: 4),
                   ListenableBuilder(
                     listenable: _name.listenable,
@@ -108,10 +104,7 @@ class _ReactiveFormPageState extends State<ReactiveFormPage> {
                     },
                   ),
                   const SizedBox(height: 8),
-                  VTextField(
-                    field: _email,
-                    hint: 'Email',
-                  ),
+                  VTextField(field: _email, hint: 'Email'),
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 8,

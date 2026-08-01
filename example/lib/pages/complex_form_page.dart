@@ -60,24 +60,17 @@ class _ComplexFormPageState extends State<ComplexFormPage> {
         .when(
           'type',
           equals: 'person',
-          then: {
-            'age': V.int().min(18, message: (_) => 'person must be 18+'),
-          },
+          then: {'age': V.int().min(18, message: (_) => 'person must be 18+')},
         )
         // Conditional ASYNC: member username must not be taken.
         .when(
           'type',
           equals: 'member',
           then: {
-            'username': V.string().min(3).refineAsync(
-              (v) async {
-                await Future<void>.delayed(
-                  const Duration(milliseconds: 400),
-                );
-                return !_takenUsernames.contains(v.toLowerCase());
-              },
-              message: 'username taken',
-            ),
+            'username': V.string().min(3).refineAsync((v) async {
+              await Future<void>.delayed(const Duration(milliseconds: 400));
+              return !_takenUsernames.contains(v.toLowerCase());
+            }, message: 'username taken'),
           },
         )
         .form(
@@ -197,9 +190,7 @@ class _ComplexFormPageState extends State<ComplexFormPage> {
               ),
               const SizedBox(height: 24),
               const SectionTitle('Cross-field'),
-              const InfoCard(
-                'Confirmation must equal Name (refineField).',
-              ),
+              const InfoCard('Confirmation must equal Name (refineField).'),
               const SizedBox(height: 12),
               VTextField(field: _confirmation, label: 'Confirm name'),
               const SizedBox(height: 24),
@@ -269,7 +260,7 @@ class _BoolField extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: field.listenable,
-      builder: (_, __) => SwitchListTile(
+      builder: (_, _) => SwitchListTile(
         contentPadding: EdgeInsets.zero,
         title: Text(label),
         value: field.value ?? false,
@@ -288,7 +279,7 @@ class _DateField extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: field.listenable,
-      builder: (context, __) => InkWell(
+      builder: (context, _) => InkWell(
         onTap: () async {
           final picked = await showDatePicker(
             context: context,
@@ -323,7 +314,7 @@ class _TagsField extends StatelessWidget {
 
     return ListenableBuilder(
       listenable: field.listenable,
-      builder: (_, __) {
+      builder: (_, _) {
         final tags = field.value ?? const <String>[];
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -374,7 +365,7 @@ class _RoleField extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: field.listenable,
-      builder: (_, __) => DropdownButtonFormField<Role>(
+      builder: (_, _) => DropdownButtonFormField<Role>(
         initialValue: field.value,
         decoration: const InputDecoration(labelText: 'Role'),
         items: [
@@ -418,7 +409,7 @@ class _AddressFields extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: field.listenable,
-      builder: (_, __) {
+      builder: (_, _) {
         final current = field.value ?? const {};
         final zip = current['zip']?.toString() ?? '';
         final country = current['country']?.toString() ?? 'US';
@@ -454,7 +445,7 @@ class _TypeField extends StatelessWidget {
     const options = ['person', 'member', 'other'];
     return ListenableBuilder(
       listenable: field.listenable,
-      builder: (_, __) => DropdownButtonFormField<String>(
+      builder: (_, _) => DropdownButtonFormField<String>(
         initialValue: field.value,
         decoration: const InputDecoration(labelText: 'Type'),
         items: [

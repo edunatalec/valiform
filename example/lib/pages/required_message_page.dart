@@ -34,8 +34,9 @@ class _RequiredMessagePageState extends State<RequiredMessagePage> {
     // `_resolveNull`, so null inputs surface this text instead of the
     // default translation.
     _requiredMessageForm = V.map({
-      'acceptTerms': V.bool(message: 'You must accept the terms to continue')
-          .isTrue(message: 'You must accept the terms to continue'),
+      'acceptTerms': V.bool(
+        message: 'You must accept the terms to continue',
+      ).isTrue(message: 'You must accept the terms to continue'),
     }).form();
 
     // Approach 2: preprocess null → false so `isTrue` always runs and
@@ -163,10 +164,7 @@ class _DemoState extends State<_Demo> {
             title: 'I accept the terms and conditions',
           ),
           const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: _submit,
-            child: const Text('Submit'),
-          ),
+          ElevatedButton(onPressed: _submit, child: const Text('Submit')),
           ResultFeedback(data: _result, errors: _errors, spacing: 12),
         ],
       ),

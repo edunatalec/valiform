@@ -165,28 +165,24 @@ void main() {
       controller.dispose();
     });
 
-    test('controller returns the attached ValueNotifier, textController null',
-        () {
-      final ownedField = VField<String>(
-        type: V.string(),
-        validators: [],
-      );
-      expect(ownedField.controller, isNull);
-      expect(ownedField.textController, isNull);
+    test(
+      'controller returns the attached ValueNotifier, textController null',
+      () {
+        final ownedField = VField<String>(type: V.string(), validators: []);
+        expect(ownedField.controller, isNull);
+        expect(ownedField.textController, isNull);
 
-      final vn = ValueNotifier<String?>(null);
-      ownedField.attachController(vn);
-      expect(ownedField.controller, same(vn));
-      expect(ownedField.textController, isNull);
+        final vn = ValueNotifier<String?>(null);
+        ownedField.attachController(vn);
+        expect(ownedField.controller, same(vn));
+        expect(ownedField.textController, isNull);
 
-      ownedField.dispose();
-    });
+        ownedField.dispose();
+      },
+    );
 
     test('textController returns the attached TextEditingController', () {
-      final ownedField = VField<String>(
-        type: V.string(),
-        validators: [],
-      );
+      final ownedField = VField<String>(type: V.string(), validators: []);
       expect(ownedField.textController, isNull);
 
       final controller = TextEditingController();
@@ -198,44 +194,29 @@ void main() {
     });
 
     test('dispose disposes owned ValueNotifier', () {
-      final ownedField = VField<String>(
-        type: V.string(),
-        validators: [],
-      );
+      final ownedField = VField<String>(type: V.string(), validators: []);
 
       final controller = ValueNotifier<String?>('hi');
       ownedField.attachController(controller); // owns: true default
 
       ownedField.dispose();
 
-      expect(
-        () => controller.addListener(() {}),
-        throwsFlutterError,
-      );
+      expect(() => controller.addListener(() {}), throwsFlutterError);
     });
 
     test('dispose disposes owned TextEditingController', () {
-      final ownedField = VField<String>(
-        type: V.string(),
-        validators: [],
-      );
+      final ownedField = VField<String>(type: V.string(), validators: []);
 
       final controller = TextEditingController(text: 'hi');
       ownedField.attachTextController(controller);
 
       ownedField.dispose();
 
-      expect(
-        () => controller.addListener(() {}),
-        throwsFlutterError,
-      );
+      expect(() => controller.addListener(() {}), throwsFlutterError);
     });
 
     test('dispose does NOT dispose controller when owns: false', () {
-      final ownedField = VField<String>(
-        type: V.string(),
-        validators: [],
-      );
+      final ownedField = VField<String>(type: V.string(), validators: []);
 
       final controller = TextEditingController(text: 'hi');
       ownedField.attachTextController(controller, owns: false);
@@ -276,51 +257,56 @@ void main() {
     });
 
     test(
-        're-attaching the same owned TextEditingController does not dispose it',
-        () {
-      final ownedField = VField<String>(type: V.string(), validators: []);
-      final ctrl = TextEditingController(text: 'a');
-      ownedField.attachTextController(ctrl);
-      ownedField.attachTextController(ctrl);
+      're-attaching the same owned TextEditingController does not dispose it',
+      () {
+        final ownedField = VField<String>(type: V.string(), validators: []);
+        final ctrl = TextEditingController(text: 'a');
+        ownedField.attachTextController(ctrl);
+        ownedField.attachTextController(ctrl);
 
-      expect(() => ctrl.addListener(() {}), returnsNormally);
+        expect(() => ctrl.addListener(() {}), returnsNormally);
 
-      ownedField.dispose();
-    });
+        ownedField.dispose();
+      },
+    );
 
     test(
-        're-attach does NOT dispose previous when it was not owned (owns: false)',
-        () {
-      final ownedField = VField<String>(type: V.string(), validators: []);
-      final first = ValueNotifier<String?>('a');
-      ownedField.attachController(first, owns: false); // user owns
+      're-attach does NOT dispose previous when it was not owned (owns: false)',
+      () {
+        final ownedField = VField<String>(type: V.string(), validators: []);
+        final first = ValueNotifier<String?>('a');
+        ownedField.attachController(first, owns: false); // user owns
 
-      final second = ValueNotifier<String?>('b');
-      ownedField.attachController(second);
+        final second = ValueNotifier<String?>('b');
+        ownedField.attachController(second);
 
-      // first must still be usable — user manages its lifecycle
-      expect(() => first.addListener(() {}), returnsNormally);
+        // first must still be usable — user manages its lifecycle
+        expect(() => first.addListener(() {}), returnsNormally);
 
-      first.dispose();
-      ownedField.dispose();
-    });
+        first.dispose();
+        ownedField.dispose();
+      },
+    );
 
-    test('swapping ValueNotifier for TextEditingController cleans up correctly',
-        () {
-      final stringField = VField<String>(type: V.string(), validators: []);
-      final valueNotifier = ValueNotifier<String?>('from-vn');
-      stringField.attachController(valueNotifier); // owned
+    test(
+      'swapping ValueNotifier for TextEditingController cleans up correctly',
+      () {
+        final stringField = VField<String>(type: V.string(), validators: []);
+        final valueNotifier = ValueNotifier<String?>('from-vn');
+        stringField.attachController(valueNotifier); // owned
 
-      final textController = TextEditingController(text: 'from-text');
-      stringField
-          .attachTextController(textController); // replaces + disposes vn
+        final textController = TextEditingController(text: 'from-text');
+        stringField.attachTextController(
+          textController,
+        ); // replaces + disposes vn
 
-      expect(stringField.controller, isNull);
-      expect(stringField.textController, same(textController));
-      expect(() => valueNotifier.addListener(() {}), throwsFlutterError);
+        expect(stringField.controller, isNull);
+        expect(stringField.textController, same(textController));
+        expect(() => valueNotifier.addListener(() {}), throwsFlutterError);
 
-      stringField.dispose();
-    });
+        stringField.dispose();
+      },
+    );
 
     test('reset propagates to attached TextEditingController', () {
       final stringField = VField<String>(
@@ -388,26 +374,28 @@ void main() {
       stringField.dispose();
     });
 
-    test('onValueChanged fires callback on value changes and returns dispose',
-        () {
-      final ownedField = VField<String>(
-        type: V.string().nullable(),
-        validators: [],
-      );
+    test(
+      'onValueChanged fires callback on value changes and returns dispose',
+      () {
+        final ownedField = VField<String>(
+          type: V.string().nullable(),
+          validators: [],
+        );
 
-      final received = <String?>[];
-      final dispose = ownedField.onValueChanged(received.add);
+        final received = <String?>[];
+        final dispose = ownedField.onValueChanged(received.add);
 
-      ownedField.set('a');
-      ownedField.set('b');
-      expect(received, ['a', 'b']);
+        ownedField.set('a');
+        ownedField.set('b');
+        expect(received, ['a', 'b']);
 
-      dispose();
-      ownedField.set('c');
-      expect(received, ['a', 'b']);
+        dispose();
+        ownedField.set('c');
+        expect(received, ['a', 'b']);
 
-      ownedField.dispose();
-    });
+        ownedField.dispose();
+      },
+    );
   });
 
   group('parsedValue', () {
@@ -443,27 +431,21 @@ void main() {
   });
 
   group('value edge cases', () {
-    test(
-      'Empty string returns null for nullable field when treatEmptyAsNull '
-      'is declared on the schema (delegated to validart in 3.0.0)',
-      () {
-        final optionalField = VField<String>(
-          type: V.string().treatEmptyAsNull().nullable(),
-          validators: [],
-        );
-
-        optionalField.set('');
-        expect(optionalField.parsedValue, isNull);
-
-        optionalField.dispose();
-      },
-    );
-
-    test('Empty string returns empty for required field', () {
-      final requiredField = VField<String>(
-        type: V.string(),
+    test('Empty string returns null for nullable field when treatEmptyAsNull '
+        'is declared on the schema (delegated to validart in 3.0.0)', () {
+      final optionalField = VField<String>(
+        type: V.string().treatEmptyAsNull().nullable(),
         validators: [],
       );
+
+      optionalField.set('');
+      expect(optionalField.parsedValue, isNull);
+
+      optionalField.dispose();
+    });
+
+    test('Empty string returns empty for required field', () {
+      final requiredField = VField<String>(type: V.string(), validators: []);
 
       requiredField.set('');
       expect(requiredField.value, '');
@@ -594,8 +576,7 @@ void main() {
       expect(result, isNot('Email already taken'));
     });
 
-    test(
-        'one-shot manual error is consumed even when a standard error wins '
+    test('one-shot manual error is consumed even when a standard error wins '
         '(prevents ghost errors on later valid input)', () {
       field.set('not-an-email');
       field.setError('Email already taken');
@@ -607,18 +588,20 @@ void main() {
     });
 
     test(
-        'persist: manual error survives when standard error wins and resurfaces'
-        ' once the field becomes valid', () {
-      field.set('not-an-email');
-      field.setError('Email already taken', persist: true);
-      final first = field.validator(field.value);
-      expect(first, isNotNull);
-      expect(first, isNot('Email already taken'));
-      expect(field.manualError, 'Email already taken');
+      'persist: manual error survives when standard error wins and resurfaces'
+      ' once the field becomes valid',
+      () {
+        field.set('not-an-email');
+        field.setError('Email already taken', persist: true);
+        final first = field.validator(field.value);
+        expect(first, isNotNull);
+        expect(first, isNot('Email already taken'));
+        expect(field.manualError, 'Email already taken');
 
-      field.set('valid@email.com');
-      expect(field.validator(field.value), 'Email already taken');
-    });
+        field.set('valid@email.com');
+        expect(field.validator(field.value), 'Email already taken');
+      },
+    );
 
     test('default mode is one-shot: consumed on next validator call', () {
       field.set('valid@email.com');
@@ -657,18 +640,20 @@ void main() {
       expect(second, isNot('Forced error'));
     });
 
-    test('force + persist: manual error wins on every call until clearError',
-        () {
-      field.set('not-an-email');
-      field.setError('Sticky forced', persist: true, force: true);
+    test(
+      'force + persist: manual error wins on every call until clearError',
+      () {
+        field.set('not-an-email');
+        field.setError('Sticky forced', persist: true, force: true);
 
-      expect(field.validator(field.value), 'Sticky forced');
-      expect(field.validator(field.value), 'Sticky forced');
+        expect(field.validator(field.value), 'Sticky forced');
+        expect(field.validator(field.value), 'Sticky forced');
 
-      field.clearError();
-      expect(field.validator(field.value), isNotNull);
-      expect(field.validator(field.value), isNot('Sticky forced'));
-    });
+        field.clearError();
+        expect(field.validator(field.value), isNotNull);
+        expect(field.validator(field.value), isNot('Sticky forced'));
+      },
+    );
 
     test('key is available for attachment', () {
       expect(field.key, isNotNull);
@@ -730,10 +715,10 @@ void main() {
   group('Async validation', () {
     test('validateAsync returns true for a valid value', () async {
       final f = VField<String>(
-        type: V.string().min(3).refineAsync(
-              (v) async => v != 'taken',
-              message: 'already taken',
-            ),
+        type: V
+            .string()
+            .min(3)
+            .refineAsync((v) async => v != 'taken', message: 'already taken'),
         validators: [],
         initialValue: 'eduardo',
       );
@@ -742,37 +727,41 @@ void main() {
       f.dispose();
     });
 
-    test('validateAsync returns false and errorAsync reports the message',
-        () async {
-      final f = VField<String>(
-        type: V.string().refineAsync(
-              (v) async => v != 'taken',
-              message: 'already taken',
-            ),
-        validators: [],
-        initialValue: 'taken',
-      );
-      expect(await f.validateAsync(), isFalse);
-      expect(await f.errorAsync, 'already taken');
-      final errs = await f.vErrorAsync;
-      expect(errs, isNotNull);
-      expect(errs!.first.message, 'already taken');
-      f.dispose();
-    });
+    test(
+      'validateAsync returns false and errorAsync reports the message',
+      () async {
+        final f = VField<String>(
+          type: V.string().refineAsync(
+            (v) async => v != 'taken',
+            message: 'already taken',
+          ),
+          validators: [],
+          initialValue: 'taken',
+        );
+        expect(await f.validateAsync(), isFalse);
+        expect(await f.errorAsync, 'already taken');
+        final errs = await f.vErrorAsync;
+        expect(errs, isNotNull);
+        expect(errs!.first.message, 'already taken');
+        f.dispose();
+      },
+    );
 
-    test('sync inspection methods throw VAsyncRequiredException when hasAsync',
-        () {
-      final f = VField<String>(
-        type: V.string().min(10).refineAsync((v) async => true),
-        validators: [],
-        initialValue: 'short',
-      );
-      expect(f.validate, throwsA(isA<VAsyncRequiredException>()));
-      expect(() => f.error, throwsA(isA<VAsyncRequiredException>()));
-      expect(() => f.vError, throwsA(isA<VAsyncRequiredException>()));
-      expect(() => f.parsedValue, throwsA(isA<VAsyncRequiredException>()));
-      f.dispose();
-    });
+    test(
+      'sync inspection methods throw VAsyncRequiredException when hasAsync',
+      () {
+        final f = VField<String>(
+          type: V.string().min(10).refineAsync((v) async => true),
+          validators: [],
+          initialValue: 'short',
+        );
+        expect(f.validate, throwsA(isA<VAsyncRequiredException>()));
+        expect(() => f.error, throwsA(isA<VAsyncRequiredException>()));
+        expect(() => f.vError, throwsA(isA<VAsyncRequiredException>()));
+        expect(() => f.parsedValue, throwsA(isA<VAsyncRequiredException>()));
+        f.dispose();
+      },
+    );
 
     test('validator(T?) stays tolerant on async schemas (Flutter adapter)', () {
       final f = VField<String>(
@@ -789,10 +778,7 @@ void main() {
     });
 
     test('hasAsync reflects _type.hasAsync or async extras', () {
-      final syncField = VField<String>(
-        type: V.string(),
-        validators: [],
-      );
+      final syncField = VField<String>(type: V.string(), validators: []);
       expect(syncField.hasAsync, isFalse);
       syncField.dispose();
 
@@ -812,18 +798,20 @@ void main() {
       asyncExtraField.dispose();
     });
 
-    test('parsedValueAsync runs transforms after async preprocessors',
-        () async {
-      final f = VField<String>(
-        type: V.string().trim().toLowerCase().refineAsync((v) async => true),
-        validators: [],
-        initialValue: '  Hello  ',
-      );
-      // parsedValue throws on async schemas (use parsedValueAsync).
-      expect(() => f.parsedValue, throwsA(isA<VAsyncRequiredException>()));
-      expect(await f.parsedValueAsync, 'hello');
-      f.dispose();
-    });
+    test(
+      'parsedValueAsync runs transforms after async preprocessors',
+      () async {
+        final f = VField<String>(
+          type: V.string().trim().toLowerCase().refineAsync((v) async => true),
+          validators: [],
+          initialValue: '  Hello  ',
+        );
+        // parsedValue throws on async schemas (use parsedValueAsync).
+        expect(() => f.parsedValue, throwsA(isA<VAsyncRequiredException>()));
+        expect(await f.parsedValueAsync, 'hello');
+        f.dispose();
+      },
+    );
 
     test('refineAsync timeout surfaces a timeout message', () async {
       final f = VField<String>(
@@ -842,23 +830,18 @@ void main() {
       f.dispose();
     });
 
-    test(
-      'empty string is treated as null for nullable async schemas when '
-      'treatEmptyAsNull is declared on the schema',
-      () async {
-        final f = VField<String>(
-          type: V
-              .string()
-              .treatEmptyAsNull()
-              .nullable()
-              .refineAsync((v) async => true),
-          validators: [],
-          initialValue: '',
-        );
-        expect(await f.parsedValueAsync, isNull);
-        expect(await f.validateAsync(), isTrue);
-        f.dispose();
-      },
-    );
+    test('empty string is treated as null for nullable async schemas when '
+        'treatEmptyAsNull is declared on the schema', () async {
+      final f = VField<String>(
+        type: V.string().treatEmptyAsNull().nullable().refineAsync(
+          (v) async => true,
+        ),
+        validators: [],
+        initialValue: '',
+      );
+      expect(await f.parsedValueAsync, isNull);
+      expect(await f.validateAsync(), isTrue);
+      f.dispose();
+    });
   });
 }

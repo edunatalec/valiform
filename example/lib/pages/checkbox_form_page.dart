@@ -74,10 +74,7 @@ class _CheckboxFormPageState extends State<CheckboxFormPage> {
                 'pattern with proper validation error display.',
               ),
               const SizedBox(height: 24),
-              VTextField(
-                field: _name,
-                label: 'Name',
-              ),
+              VTextField(field: _name, label: 'Name'),
               const SizedBox(height: 16),
               VTextField(
                 field: _email,
@@ -90,10 +87,7 @@ class _CheckboxFormPageState extends State<CheckboxFormPage> {
                 title: 'I accept the terms and conditions',
               ),
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _submit,
-                child: const Text('Submit'),
-              ),
+              ElevatedButton(onPressed: _submit, child: const Text('Submit')),
               ResultFeedback(data: _result, errors: _errors),
             ],
           ),

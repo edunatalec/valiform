@@ -31,13 +31,13 @@ class _AsyncValidationPageState extends State<AsyncValidationPage> {
           .min(3)
           // Async check runs only when the sync rules above pass.
           .refineAsync(
-        (value) async {
-          await Future<void>.delayed(const Duration(milliseconds: 600));
-          return !_takenUsernames.contains(value.toLowerCase());
-        },
-        message: 'Username already taken',
-        timeout: const Duration(seconds: 2),
-      ),
+            (value) async {
+              await Future<void>.delayed(const Duration(milliseconds: 600));
+              return !_takenUsernames.contains(value.toLowerCase());
+            },
+            message: 'Username already taken',
+            timeout: const Duration(seconds: 2),
+          ),
       'email': V.string().email(),
     }).form();
   }
@@ -77,9 +77,9 @@ class _AsyncValidationPageState extends State<AsyncValidationPage> {
     try {
       _form.validate();
     } on VAsyncRequiredException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Caught: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Caught: $e')));
     }
   }
 

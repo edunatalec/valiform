@@ -27,28 +27,32 @@ class _ConditionalValidationPageState extends State<ConditionalValidationPage> {
     super.initState();
 
     // Example A: Different fields based on condition
-    _formA = V.map({
-      'type': V.string(),
-      'name': V.string().min(3),
-      'cnpj': V.string().nullable(),
-      'cpf': V.string().nullable(),
-    }).when('type', equals: 'company', then: {
-      'cnpj': V.string().min(14),
-    }).when('type', equals: 'person', then: {
-      'cpf': V.string().min(11),
-    }).form(initialValues: {'type': 'person'});
+    _formA = V
+        .map({
+          'type': V.string(),
+          'name': V.string().min(3),
+          'cnpj': V.string().nullable(),
+          'cpf': V.string().nullable(),
+        })
+        .when('type', equals: 'company', then: {'cnpj': V.string().min(14)})
+        .when('type', equals: 'person', then: {'cpf': V.string().min(11)})
+        .form(initialValues: {'type': 'person'});
 
     // Example B: Same field, different validation
-    _formB = V.map({
-      'contactType': V.string(),
-      'contact': V.string(),
-    }).when('contactType', equals: 'email', then: {
-      'contact': V.string().email(),
-    }).when('contactType', equals: 'url', then: {
-      'contact': V.string().url(),
-    }).when('contactType', equals: 'phone', then: {
-      'contact': V.string().phone(),
-    }).form(initialValues: {'contactType': 'email'});
+    _formB = V
+        .map({'contactType': V.string(), 'contact': V.string()})
+        .when(
+          'contactType',
+          equals: 'email',
+          then: {'contact': V.string().email()},
+        )
+        .when('contactType', equals: 'url', then: {'contact': V.string().url()})
+        .when(
+          'contactType',
+          equals: 'phone',
+          then: {'contact': V.string().phone()},
+        )
+        .form(initialValues: {'contactType': 'email'});
   }
 
   @override
@@ -111,10 +115,7 @@ class _ConditionalValidationPageState extends State<ConditionalValidationPage> {
                     decoration: const InputDecoration(labelText: 'Type'),
                     initialValue: _type.value,
                     items: const [
-                      DropdownMenuItem(
-                        value: 'person',
-                        child: Text('Person'),
-                      ),
+                      DropdownMenuItem(value: 'person', child: Text('Person')),
                       DropdownMenuItem(
                         value: 'company',
                         child: Text('Company'),
@@ -195,19 +196,14 @@ class _ConditionalValidationPageState extends State<ConditionalValidationPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<String>(
-                    decoration:
-                        const InputDecoration(labelText: 'Contact Type'),
+                    decoration: const InputDecoration(
+                      labelText: 'Contact Type',
+                    ),
                     initialValue: _contactType.value,
                     items: const [
-                      DropdownMenuItem(
-                        value: 'email',
-                        child: Text('Email'),
-                      ),
+                      DropdownMenuItem(value: 'email', child: Text('Email')),
                       DropdownMenuItem(value: 'url', child: Text('URL')),
-                      DropdownMenuItem(
-                        value: 'phone',
-                        child: Text('Phone'),
-                      ),
+                      DropdownMenuItem(value: 'phone', child: Text('Phone')),
                     ],
                     onChanged: (val) {
                       if (val != null) _contactType.set(val);

@@ -46,12 +46,12 @@ class _ProgrammaticUpdatesPageState extends State<ProgrammaticUpdatesPage> {
         .field('email', (p) => p.email, V.string().email().nullable())
         .field('country', (p) => p.country, V.enm<_Country>(_Country.values))
         .form(
-      builder: _Profile.fromMap,
-      // Partial Map seed — only the fields we actually want pre-filled.
-      // `name` and `email` start as null (no placeholder needed even
-      // though `name` is required by the schema).
-      initialValues: {'country': _Country.br},
-    );
+          builder: _Profile.fromMap,
+          // Partial Map seed — only the fields we actually want pre-filled.
+          // `name` and `email` start as null (no placeholder needed even
+          // though `name` is required by the schema).
+          initialValues: {'country': _Country.br},
+        );
 
     // attachTextController so field.set / form.set are reflected on screen
     // for `name`. `email` intentionally has NO controller so you can see
@@ -116,7 +116,8 @@ class _ProgrammaticUpdatesPageState extends State<ProgrammaticUpdatesPage> {
                 initialValue: _email.initialValue,
                 decoration: const InputDecoration(
                   labelText: 'Email',
-                  helperText: 'Programmatic set updates the model, not this '
+                  helperText:
+                      'Programmatic set updates the model, not this '
                       'widget. Use attachTextController to reflect.',
                 ),
                 validator: _email.validator,
@@ -125,10 +126,7 @@ class _ProgrammaticUpdatesPageState extends State<ProgrammaticUpdatesPage> {
               const SizedBox(height: 12),
               _ButtonRow(
                 buttons: [
-                  (
-                    'field.set("a@b.com")',
-                    () => _email.set('a@b.com'),
-                  ),
+                  ('field.set("a@b.com")', () => _email.set('a@b.com')),
                   ('clear', () => _email.set(null)),
                 ],
               ),
@@ -144,10 +142,9 @@ class _ProgrammaticUpdatesPageState extends State<ProgrammaticUpdatesPage> {
                   initialValue: _country.value,
                   decoration: const InputDecoration(labelText: 'Country'),
                   items: _Country.values
-                      .map((c) => DropdownMenuItem(
-                            value: c,
-                            child: Text(c.label),
-                          ))
+                      .map(
+                        (c) => DropdownMenuItem(value: c, child: Text(c.label)),
+                      )
                       .toList(),
                   onChanged: (val) => _country.set(val),
                   validator: (_) => _country.validator(_country.value),
@@ -169,19 +166,21 @@ class _ProgrammaticUpdatesPageState extends State<ProgrammaticUpdatesPage> {
                   (
                     'form.set(Map) partial',
                     () => _form.set({
-                          'name': 'Carol',
-                          'country': _Country.us,
-                          // email omitted — stays whatever was last
-                          'unknown_key': 'ignored',
-                        }),
+                      'name': 'Carol',
+                      'country': _Country.us,
+                      // email omitted — stays whatever was last
+                      'unknown_key': 'ignored',
+                    }),
                   ),
                   (
                     'form.set(T) typed instance',
-                    () => _form.set(const _Profile(
-                          name: 'Diana',
-                          email: 'd@example.com',
-                          country: _Country.pt,
-                        )),
+                    () => _form.set(
+                      const _Profile(
+                        name: 'Diana',
+                        email: 'd@example.com',
+                        country: _Country.pt,
+                      ),
+                    ),
                   ),
                   ('form.reset()', () => _form.reset()),
                 ],
@@ -280,8 +279,8 @@ class _Profile {
   });
 
   factory _Profile.fromMap(Map<String, dynamic> data) => _Profile(
-        name: data['name'] ?? '',
-        email: data['email'] as String?,
-        country: data['country'] as _Country? ?? _Country.br,
-      );
+    name: data['name'] ?? '',
+    email: data['email'] as String?,
+    country: data['country'] as _Country? ?? _Country.br,
+  );
 }

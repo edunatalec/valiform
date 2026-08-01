@@ -71,10 +71,7 @@ class _ArrayFieldPageState extends State<ArrayFieldPage> {
                 'submit to see validation in action.',
               ),
               const SizedBox(height: 24),
-              VTextField(
-                field: _title,
-                label: 'Title',
-              ),
+              VTextField(field: _title, label: 'Title'),
               const SizedBox(height: 24),
               const Text(
                 'Tags',
@@ -115,9 +112,9 @@ class _ArrayFieldPageState extends State<ArrayFieldPage> {
                             return Text(
                               'No tags added yet',
                               style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                             );
                           }

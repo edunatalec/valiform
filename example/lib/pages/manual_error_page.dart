@@ -21,22 +21,19 @@ class _ManualErrorPageState extends State<ManualErrorPage> {
   void initState() {
     super.initState();
 
-    _form = V.map({
-      'email': V.string().email(),
-      'username': V.string().min(3),
-      'phone': V.string().min(8),
-    }).form(
-      initialValues: {
-        'email': 'user@example.com',
-        'username': 'johndoe',
-      },
-    );
+    _form = V
+        .map({
+          'email': V.string().email(),
+          'username': V.string().min(3),
+          'phone': V.string().min(8),
+        })
+        .form(
+          initialValues: {'email': 'user@example.com', 'username': 'johndoe'},
+        );
 
     // Inline controllers — VField takes ownership and disposes them when
     // _form.dispose() is called.
-    _email.attachTextController(
-      TextEditingController(text: _email.value),
-    );
+    _email.attachTextController(TextEditingController(text: _email.value));
     _username.attachTextController(
       TextEditingController(text: _username.value),
     );
@@ -104,9 +101,7 @@ class _ManualErrorPageState extends State<ManualErrorPage> {
               FilledButton.tonal(
                 onPressed: () =>
                     _username.setError('Username is reserved', persist: true),
-                child: const Text(
-                  'setError on username (persist: true)',
-                ),
+                child: const Text('setError on username (persist: true)'),
               ),
               const SizedBox(height: 8),
               FilledButton.tonal(
@@ -136,14 +131,11 @@ class _ManualErrorPageState extends State<ManualErrorPage> {
               ),
               const SizedBox(height: 8),
               FilledButton.tonal(
-                onPressed: () => _form.setErrors(
-                  {
-                    'email': 'Email conflict from API',
-                    'username': 'Username conflict from API',
-                    'phone': 'Phone conflict from API',
-                  },
-                  force: true,
-                ),
+                onPressed: () => _form.setErrors({
+                  'email': 'Email conflict from API',
+                  'username': 'Username conflict from API',
+                  'phone': 'Phone conflict from API',
+                }, force: true),
                 child: const Text(
                   'Batch setErrors with force: true (all 3 appear)',
                 ),
@@ -159,9 +151,11 @@ class _ManualErrorPageState extends State<ManualErrorPage> {
                   final ok = _form.silentValidate();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(ok
-                          ? 'silentValidate: true (valid, no manual errors)'
-                          : 'silentValidate: false (schema issue OR pending manual error — one-shot now consumed)'),
+                      content: Text(
+                        ok
+                            ? 'silentValidate: true (valid, no manual errors)'
+                            : 'silentValidate: false (schema issue OR pending manual error — one-shot now consumed)',
+                      ),
                     ),
                   );
                 },

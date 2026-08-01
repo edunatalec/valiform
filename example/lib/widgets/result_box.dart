@@ -73,12 +73,7 @@ class ResultFeedback extends StatelessWidget {
   final Map<String, String>? errors;
   final double spacing;
 
-  const ResultFeedback({
-    super.key,
-    this.data,
-    this.errors,
-    this.spacing = 16,
-  });
+  const ResultFeedback({super.key, this.data, this.errors, this.spacing = 16});
 
   @override
   Widget build(BuildContext context) {

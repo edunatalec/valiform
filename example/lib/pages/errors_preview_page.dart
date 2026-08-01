@@ -29,9 +29,7 @@ class _ErrorsPreviewPageState extends State<ErrorsPreviewPage> {
       'password': V.string().password(),
     }).form();
 
-    _singleForm = V.map({
-      'username': V.string().min(4).max(20),
-    }).form();
+    _singleForm = V.map({'username': V.string().min(4).max(20)}).form();
 
     _largeForm = V.map({
       'firstName': V.string().min(2),

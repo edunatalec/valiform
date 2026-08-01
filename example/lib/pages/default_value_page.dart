@@ -41,15 +41,15 @@ class _DefaultValuePageState extends State<DefaultValuePage> {
     }).form();
 
     // 2. initialValues only — pre-fills UI, still required.
-    _initialOnlyForm = V.map({
-      'name': V.string().min(2),
-    }).form(initialValues: {'name': 'Alice'});
+    _initialOnlyForm = V
+        .map({'name': V.string().min(2)})
+        .form(initialValues: {'name': 'Alice'});
 
     // 3. Both — initialValues wins for UI/reset(); defaultValue still
     //    covers the "user cleared the field" scenario.
-    _bothForm = V.map({
-      'name': V.string().min(2).defaultValue('Guest'),
-    }).form(initialValues: {'name': 'Alice'});
+    _bothForm = V
+        .map({'name': V.string().min(2).defaultValue('Guest')})
+        .form(initialValues: {'name': 'Alice'});
   }
 
   @override

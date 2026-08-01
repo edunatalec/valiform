@@ -160,8 +160,9 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
                   labelText: 'Score',
                   hintText: '0.0-10.0 if provided',
                 ),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 onChanged: (value) => _score.onChanged(double.tryParse(value)),
                 validator: (_) => _score.validator(_score.value),
               ),
@@ -177,8 +178,8 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
                       _newsletter.value == null
                           ? 'Not selected (null)'
                           : _newsletter.value!
-                              ? 'Yes'
-                              : 'No',
+                          ? 'Yes'
+                          : 'No',
                     ),
                     value: _newsletter.value,
                     tristate: true,
@@ -227,19 +228,18 @@ class _OptionalFieldsPageState extends State<OptionalFieldsPage> {
                 listenable: _favoriteColor.listenable,
                 builder: (context, _) {
                   return DropdownButtonFormField<Color?>(
-                    decoration:
-                        const InputDecoration(labelText: 'Favorite Color'),
+                    decoration: const InputDecoration(
+                      labelText: 'Favorite Color',
+                    ),
                     initialValue: _favoriteColor.value,
                     items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('None'),
-                      ),
+                      const DropdownMenuItem(value: null, child: Text('None')),
                       ...Color.values.map(
                         (c) => DropdownMenuItem(
                           value: c,
                           child: Text(
-                              c.name[0].toUpperCase() + c.name.substring(1)),
+                            c.name[0].toUpperCase() + c.name.substring(1),
+                          ),
                         ),
                       ),
                     ],

@@ -30,45 +30,45 @@ class VCheckboxField extends FormField<bool> {
     Widget? subtitle,
     bool enabled = true,
   }) : super(
-          // Always use field.key — no external key: setError(...) relies on
-          // this GlobalKey to revalidate just this field.
-          key: field.key,
-          initialValue: field.value ?? false,
-          validator: (_) => field.validator(field.value),
-          builder: (state) {
-            return ListenableBuilder(
-              listenable: field.listenable,
-              builder: (context, _) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CheckboxListTile(
-                      title: Text(title),
-                      subtitle: subtitle,
-                      value: field.value ?? false,
-                      onChanged: enabled
-                          ? (val) {
-                              field.set(val);
-                              state.didChange(val);
-                            }
-                          : null,
-                      controlAffinity: ListTileControlAffinity.leading,
-                    ),
-                    if (state.hasError)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 16),
-                        child: Text(
-                          state.errorText!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(state.context).colorScheme.error,
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            );
-          },
-        );
+         // Always use field.key — no external key: setError(...) relies on
+         // this GlobalKey to revalidate just this field.
+         key: field.key,
+         initialValue: field.value ?? false,
+         validator: (_) => field.validator(field.value),
+         builder: (state) {
+           return ListenableBuilder(
+             listenable: field.listenable,
+             builder: (context, _) {
+               return Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+                   CheckboxListTile(
+                     title: Text(title),
+                     subtitle: subtitle,
+                     value: field.value ?? false,
+                     onChanged: enabled
+                         ? (val) {
+                             field.set(val);
+                             state.didChange(val);
+                           }
+                         : null,
+                     controlAffinity: ListTileControlAffinity.leading,
+                   ),
+                   if (state.hasError)
+                     Padding(
+                       padding: const EdgeInsets.only(left: 16),
+                       child: Text(
+                         state.errorText!,
+                         style: TextStyle(
+                           fontSize: 12,
+                           color: Theme.of(state.context).colorScheme.error,
+                         ),
+                       ),
+                     ),
+                 ],
+               );
+             },
+           );
+         },
+       );
 }

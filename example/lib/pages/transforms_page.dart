@@ -90,10 +90,7 @@ class _TransformsPageState extends State<TransformsPage> {
                 builder: (context, _) => _buildPreview(),
               ),
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _submit,
-                child: const Text('Submit'),
-              ),
+              ElevatedButton(onPressed: _submit, child: const Text('Submit')),
               ResultFeedback(data: _result, errors: _errors),
             ],
           ),
@@ -107,29 +104,26 @@ class _TransformsPageState extends State<TransformsPage> {
     final variant = Theme.of(context).colorScheme.onSurfaceVariant;
 
     Widget row(String label, Object? value) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 90,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    color: variant,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  '"$value"',
-                  style: TextStyle(fontFamily: 'monospace', color: variant),
-                ),
-              ),
-            ],
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: TextStyle(fontWeight: FontWeight.w500, color: variant),
+            ),
           ),
-        );
+          Expanded(
+            child: Text(
+              '"$value"',
+              style: TextStyle(fontFamily: 'monospace', color: variant),
+            ),
+          ),
+        ],
+      ),
+    );
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -142,13 +136,17 @@ class _TransformsPageState extends State<TransformsPage> {
         children: [
           const SectionTitle('rawValue vs value'),
           const SizedBox(height: 8),
-          Text('form.rawValue:',
-              style: TextStyle(fontWeight: FontWeight.w600, color: variant)),
+          Text(
+            'form.rawValue:',
+            style: TextStyle(fontWeight: FontWeight.w600, color: variant),
+          ),
           row('email', _form.rawValue['email']),
           row('name', _form.rawValue['name']),
           const SizedBox(height: 8),
-          Text('form.value (transformed):',
-              style: TextStyle(fontWeight: FontWeight.w600, color: variant)),
+          Text(
+            'form.value (transformed):',
+            style: TextStyle(fontWeight: FontWeight.w600, color: variant),
+          ),
           row('email', _form.value['email']),
           row('name', _form.value['name']),
         ],
