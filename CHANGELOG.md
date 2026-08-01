@@ -2,11 +2,16 @@
 
 ## [3.1.0] - 2026-08-01
 
+### Added
+
+- `CONTRIBUTING.md` now ships in the published archive, which is what makes pub.dev show the "Contributing" link in the package sidebar.
+
 ### Changed
 
 - **Raised the SDK floor to Dart `^3.9.0` / Flutter `>=3.35.0`.** The previous `>=3.0.0 <4.0.0` / `>=3.10.0` pair was a generic default nothing ever verified — the repository does not resolve, analyze or run on a Flutter that old. The new floor is the lowest the package verifiably works on, and CI now analyzes and tests there on every pull request.
 - API reference: every symbol cited in prose is now a link, each public type ends with a `See also:` block, and the library page introduces the terminology (field, raw value, parsed value, root errors) the rest of the docs rely on.
 - README follows the skeleton shared by the published packages: `## Contents` sits right after the Quick start and lists only what comes after it, the feature list moved into `## Why valiform`, and Requirements states the command that checks the SDK.
+- README gained a `## Contributing` section, and links to repository files are now absolute. A relative link is rewritten to GitHub on the package page but left untouched in the generated API reference, where it resolved to a 404.
 
 ## [3.0.1] - 2026-07-28
 

@@ -130,6 +130,7 @@ class _LoginPageState extends State<LoginPage> {
 - [More from Validart](#more-from-validart)
 - [API reference](#api-reference)
 - [Example app](#example-app)
+- [Contributing](#contributing)
 - [License](#license)
 
 ## Why valiform
@@ -1228,6 +1229,10 @@ flutter run
 | [`reactive_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/reactive_form_page.dart)                   | Live JSON preview via `onValueChanged`                                                                                                                                    |
 | [`locale_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/locale_page.dart)                                 | `VLocale` switching at runtime                                                                                                                                            |
 
+## Contributing
+
+[CONTRIBUTING.md](https://github.com/edunatalec/valiform/blob/master/CONTRIBUTING.md) is the contract for whoever writes code here: the one command that has to be green before a pull request, what the two CI jobs check, the conventions, and the deliberate gaps a PR should not try to fix.
+
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](https://github.com/edunatalec/valiform/blob/master/LICENSE).
