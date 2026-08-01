@@ -48,7 +48,6 @@ CLAUDE.md
 .superpowers/
 scripts/
 analysis_options.yaml
-CONTRIBUTING.md
 .github/
 
 .fvm/
