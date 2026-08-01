@@ -1,64 +1,17 @@
-# Valiform
-
 [![pub package](https://img.shields.io/pub/v/valiform.svg)](https://pub.dev/packages/valiform)
 [![package publisher](https://img.shields.io/pub/publisher/valiform.svg)](https://pub.dev/packages/valiform/publisher)
 
-A Flutter form validation library built on top of [Validart](https://pub.dev/packages/validart). It provides reactive form state management, typed field validation, and seamless integration with Flutter's `Form` widget.
+A Flutter form validation library built on top of [Validart](https://pub.dev/packages/validart). It provides reactive form state management, typed field validation, and seamless integration with Flutter's `Form` widget. It ships no widgets of its own.
 
-- **Schema-first** — define every field once with `V.map()` or `V.object<T>()`.
-- **Fully typed** — `VField<T>` for each field; with `VObject<T>`, `form.value` returns a typed `T` instance instead of a `Map`.
-- **Imperative errors** — push errors into fields programmatically with `setError()` (backend rejections, async checks, business rules).
-- **Reactive** — `ValueNotifier`-based state, wire to any widget.
-- **UI-agnostic** — works with `TextFormField` or any custom `FormField`.
+## Requirements
 
-## Table of Contents
+Flutter 3.35 or newer, which ships Dart 3.9:
 
-- [Installation](#installation)
-- [Recommended setup](#recommended-setup)
-- [Quick Start](#quick-start)
-- [Initial Values](#initial-values)
-  - [`defaultValue` vs `initialValues` — pick the right one](#defaultvalue-vs-initialvalues--pick-the-right-one)
-  - [Binding widgets' `initialValue`](#binding-widgets-initialvalue)
-- [Typed Forms (VObject)](#typed-forms-vobject)
-- [Field Types](#field-types)
-- [Transforms](#transforms)
-  - [Pipeline order — container preprocess vs field preprocess](#pipeline-order--container-preprocess-vs-field-preprocess)
-- [Optional Fields](#optional-fields)
-- [Conditional Validation](#conditional-validation)
-  - [Predicate-based: `whenMatches`](#predicate-based-whenmatches)
-- [Cross-Field Validation](#cross-field-validation)
-  - [Prefer `*Raw` rules in `VForm.object` to keep the builder simple](#prefer-raw-rules-in-vformobject-to-keep-the-builder-simple)
-- [Controller Sync](#controller-sync)
-  - [`attachController(ValueNotifier<T?>)`](#attachcontrollervaluenotifiert)
-  - [`attachTextController(TextEditingController)`](#attachtextcontrollertexteditingcontroller-extension-on-vfieldstring)
-  - [Ownership](#ownership)
-  - [Cursor behavior](#cursor-behavior)
-  - [`onValueChanged` — bridge for non-ValueNotifier state](#onvaluechanged--bridge-for-non-valuenotifier-state)
-- [Programmatic updates (`field.set` / `form.set`)](#programmatic-updates-fieldset--formset)
-  - [How updates propagate to the UI](#-how-updates-propagate-to-the-ui)
-  - [Examples — three widgets, three patterns](#examples--three-widgets-three-patterns)
-- [Imperative Errors](#imperative-errors)
-  - [Via VForm](#via-vform)
-  - [Via VField](#via-vfield)
-  - [Options](#options)
-  - [Single-field refresh](#single-field-refresh)
-- [Inspecting Errors](#inspecting-errors)
-  - [Detailed errors with path — `vError` / `vErrors()`](#detailed-errors-with-path--verror--verrors)
-- [Form-level (root) errors](#form-level-root-errors)
-- [Async Validation](#async-validation)
-- [Validation Modes](#validation-modes)
-- [Reactive Features](#reactive-features)
-  - [Form-level value changes](#form-level-value-changes)
-  - [Per-field reactive UI](#per-field-reactive-ui)
-- [Disposing Resources](#disposing-resources)
-- [More from Validart](#more-from-validart)
-  - [Validation Rules](#validation-rules)
-  - [Internationalization (i18n)](#internationalization-i18n)
-- [API Reference](#api-reference)
-  - [`VField<T>`](#vfieldt)
-  - [`VForm<T>`](#vformt)
-- [Example App](#example-app)
-- [License](#license)
+```sh
+flutter --version
+```
+
+- [validart](https://pub.dev/packages/validart) `^3.0.1`.
 
 ## Installation
 
@@ -76,36 +29,12 @@ dependencies:
   validart: ^3.0.1
 ```
 
-## Recommended setup
-
-Before `runApp`, enable validart's empty-string-as-null normalization. `TextFormField` emits `""` when the user clears the input, and by default validart treats `""` as a regular string — so `nullable()` / `defaultValue(...)` won't engage. Flipping this once at boot makes form UX behave the way you almost always want:
-
 ```dart
+import 'package:valiform/valiform.dart';
 import 'package:validart/validart.dart';
-
-void main() {
-  V.treatEmptyAsNull(true);   // strongly recommended for form apps
-  runApp(const MyApp());
-}
 ```
 
-What you get:
-
-- A cleared `TextFormField` falls back to its `defaultValue(...)` instead of failing `required` / `min(1)`.
-- `.nullable()` fields stay valid when emptied.
-- `refineFieldRaw` / cross-field rules / `when` / `whenMatches` predicates see `null` for empty inputs instead of `""`.
-- **Every getter on `VField<String>` (and every consumer that derives from it) returns `null` for `""`** — `field.value`, `form.rawValue`, `form.value`, `parsedValue`'s fallback path. Normalization happens on **write**, not on read: when the schema reports `treatsEmptyAsNull == true`, every entry point that stores a value (`set`, `onChanged`, `onSaved`, controller listeners) rewrites `""` → `null` before assigning to the internal `ValueNotifier`. So the notifier itself, the getter, attached `ValueNotifier<String?>` controllers, and `field.listenable` listeners all observe the same `null` — no divergence between internal state and what the consumer sees. The attached `TextEditingController` keeps the displayed text `""` (handled by valiform's controller-sync code, which renders `null` as `""`), so the user's cleared input stays visible in the widget while the model holds `null`.
-- The effective flag resolves via validart's `VString.treatsEmptyAsNull` (per-field override > global), so the rule is the same everywhere:
-  - `V.treatEmptyAsNull(true)` globally → every `VField<String>` writes `null` for `""`.
-  - `V.string().treatEmptyAsNull().nullable()` per-field → only that field writes `null` for `""`.
-  - `V.string().treatEmptyAsNull(enabled: false)` on a specific field → opts out of a globally-enabled flag.
-- Non-string fields are unaffected — `VField<int>` / `VField<bool>` / `VField<DateTime>` etc. don't have an "empty" concept that could be mistaken for `null`.
-
-Full semantics of the validart side (precedence, whitespace handling, pipeline order) are in the [`Empty as null` section of the validart README](https://pub.dev/packages/validart#empty-as-null).
-
-> **Migrating from valiform 2.x?** Earlier versions normalized `""` → `null` implicitly. 3.0.0 removed that and delegated the choice to the validart switch above — keep the same UX by calling `V.treatEmptyAsNull(true)` at boot.
-
-## Quick Start
+## Quick start
 
 Full working page: [`example/lib/pages/basic_map_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/basic_map_form_page.dart).
 
@@ -178,7 +107,69 @@ class _LoginPageState extends State<LoginPage> {
 }
 ```
 
-## Initial Values
+## Contents
+
+- [Why valiform](#why-valiform)
+- [Recommended setup](#recommended-setup)
+- [Initial values](#initial-values)
+- [Typed forms (VObject)](#typed-forms-vobject)
+- [Field types](#field-types)
+- [Transforms](#transforms)
+- [Optional fields](#optional-fields)
+- [Conditional validation](#conditional-validation)
+- [Cross-field validation](#cross-field-validation)
+- [Controller sync](#controller-sync)
+- [Programmatic updates](#programmatic-updates-fieldset--formset)
+- [Imperative errors](#imperative-errors)
+- [Inspecting errors](#inspecting-errors)
+- [Form-level (root) errors](#form-level-root-errors)
+- [Async validation](#async-validation)
+- [Validation modes](#validation-modes)
+- [Reactive features](#reactive-features)
+- [Disposing resources](#disposing-resources)
+- [More from Validart](#more-from-validart)
+- [API reference](#api-reference)
+- [Example app](#example-app)
+- [License](#license)
+
+## Why valiform
+
+- **Schema-first** — define every field once with `V.map()` or `V.object<T>()`.
+- **Fully typed** — `VField<T>` for each field; with `VObject<T>`, `form.value` returns a typed `T` instance instead of a `Map`.
+- **Imperative errors** — push errors into fields programmatically with `setError()` (backend rejections, async checks, business rules).
+- **Reactive** — `ValueNotifier`-based state, wire to any widget.
+- **UI-agnostic** — it ships no widgets: bind it to `TextFormField` or to any custom `FormField`.
+
+## Recommended setup
+
+Before `runApp`, enable validart's empty-string-as-null normalization. `TextFormField` emits `""` when the user clears the input, and by default validart treats `""` as a regular string — so `nullable()` / `defaultValue(...)` won't engage. Flipping this once at boot makes form UX behave the way you almost always want:
+
+```dart
+import 'package:validart/validart.dart';
+
+void main() {
+  V.treatEmptyAsNull(true);   // strongly recommended for form apps
+  runApp(const MyApp());
+}
+```
+
+What you get:
+
+- A cleared `TextFormField` falls back to its `defaultValue(...)` instead of failing `required` / `min(1)`.
+- `.nullable()` fields stay valid when emptied.
+- `refineFieldRaw` / cross-field rules / `when` / `whenMatches` predicates see `null` for empty inputs instead of `""`.
+- **Every getter on `VField<String>` (and every consumer that derives from it) returns `null` for `""`** — `field.value`, `form.rawValue`, `form.value`, `parsedValue`'s fallback path. Normalization happens on **write**, not on read: when the schema reports `treatsEmptyAsNull == true`, every entry point that stores a value (`set`, `onChanged`, `onSaved`, controller listeners) rewrites `""` → `null` before assigning to the internal `ValueNotifier`. So the notifier itself, the getter, attached `ValueNotifier<String?>` controllers, and `field.listenable` listeners all observe the same `null` — no divergence between internal state and what the consumer sees. The attached `TextEditingController` keeps the displayed text `""` (handled by valiform's controller-sync code, which renders `null` as `""`), so the user's cleared input stays visible in the widget while the model holds `null`.
+- The effective flag resolves via validart's `VString.treatsEmptyAsNull` (per-field override > global), so the rule is the same everywhere:
+  - `V.treatEmptyAsNull(true)` globally → every `VField<String>` writes `null` for `""`.
+  - `V.string().treatEmptyAsNull().nullable()` per-field → only that field writes `null` for `""`.
+  - `V.string().treatEmptyAsNull(enabled: false)` on a specific field → opts out of a globally-enabled flag.
+- Non-string fields are unaffected — `VField<int>` / `VField<bool>` / `VField<DateTime>` etc. don't have an "empty" concept that could be mistaken for `null`.
+
+Full semantics of the validart side (precedence, whitespace handling, pipeline order) are in the [`Empty as null` section of the validart README](https://pub.dev/packages/validart#empty-as-null).
+
+> **Migrating from valiform 2.x?** Earlier versions normalized `""` → `null` implicitly. 3.0.0 removed that and delegated the choice to the validart switch above — keep the same UX by calling `V.treatEmptyAsNull(true)` at boot.
+
+## Initial values
 
 Each field's starting value resolves in this order:
 
@@ -271,7 +262,7 @@ TextFormField(
 );
 ```
 
-## Typed Forms (VObject)
+## Typed forms (VObject)
 
 Return a typed object instead of a `Map`. Full example: [`object_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/object_form_page.dart).
 
@@ -317,7 +308,7 @@ final user = form.value; // User instance
 >
 > Related: cross-field rules also call your builder when you use the entity-typed variants (`refineField`, `whenMatches`). To keep your builder simple, prefer the **`*Raw`** variants for cross-field rules on `VForm.object<T>` — they take the raw map directly and never go through your builder. See [Prefer `*Raw` rules in `VForm.object` to keep the builder simple](#prefer-raw-rules-in-vformobject-to-keep-the-builder-simple).
 
-## Field Types
+## Field types
 
 Every validart type maps to a correctly-typed `VField<T>`. Demos: [`multi_type_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/multi_type_form_page.dart), [`checkbox_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/checkbox_form_page.dart), [`dropdown_enum_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/dropdown_enum_page.dart), [`custom_class_field_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/custom_class_field_page.dart).
 
@@ -377,7 +368,7 @@ Live demo of cross-field rewrites: [`preprocess_page.dart`](https://github.com/e
 
 > **Generic-inference pitfall — same as `V.enm`.** Always write the explicit type argument on `.transform<O>(...)` inside a `V.map({...})` literal, e.g. `.transform<String>((v) => 'user:$v')`. Without it, Dart degrades the output type to `dynamic` inside the raw `Map` context, and `form.field<String>('key')` then throws at runtime: `The field "key" is of type VField<dynamic>, not VField<String>`. Same rule that already applies to `V.enm<MyEnum>(MyEnum.values)`.
 
-## Optional Fields
+## Optional fields
 
 Use `.nullable()` for fields that can be empty. All types supported: [`optional_fields_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/optional_fields_page.dart).
 
@@ -391,7 +382,7 @@ final form = V.map({
 
 For an empty `TextFormField` (`""`) to count as `null` so `.nullable()` accepts it without firing `required` / `min(1)`, enable `V.treatEmptyAsNull(true)` at boot — see [Recommended setup](#recommended-setup).
 
-## Conditional Validation
+## Conditional validation
 
 Apply different validation rules based on another field's value. Live demo with CPF/CNPJ and email/url/phone: [`conditional_validation_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/conditional_validation_page.dart).
 
@@ -451,9 +442,9 @@ final form = V.map({
 
 `dependsOn` is required by validart so subsequent `refine(dependsOn: {...})` rules can reference the same fields without tripping the schema's known-keys assertion. The predicate itself is always synchronous; the validators inside `then` may be sync or async (an async target opts the form into async mode, same as `when`). Errors surface inline on the target field through the same channel as `when`.
 
-For `VForm.object<T>` specifically, the **entity-shaped** predicate (`bool Function(T)`) requires building `T` from the current snapshot — same fragility documented in [Typed Forms (VObject)](#typed-forms-vobject). For typed forms whose builder isn't provably null-safe, **prefer the `*Raw` variants** for cross-field rules. Full rationale and side-by-side examples below: [Prefer `*Raw` rules in `VForm.object`](#prefer-raw-rules-in-vformobject-to-keep-the-builder-simple).
+For `VForm.object<T>` specifically, the **entity-shaped** predicate (`bool Function(T)`) requires building `T` from the current snapshot — same fragility documented in [Typed forms (VObject)](#typed-forms-vobject). For typed forms whose builder isn't provably null-safe, **prefer the `*Raw` variants** for cross-field rules. Full rationale and side-by-side examples below: [Prefer `*Raw` rules in `VForm.object`](#prefer-raw-rules-in-vformobject-to-keep-the-builder-simple).
 
-## Cross-Field Validation
+## Cross-field validation
 
 Every cross-field primitive lives in validart — `refineField`, `refineFieldRaw`, `equalFields`, and `refine(..., dependsOn:)`. `VForm` passes them through unchanged; the only thing the form layer adds is **error demuxing**: path-keyed errors surface inline under the target field, path-empty errors land in [`form.rootErrors`](#form-level-root-errors).
 
@@ -577,7 +568,7 @@ Outside those, the `*Raw` variants are the safer default.
 
 Live demos: [`password_match_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/password_match_page.dart), [`refine_field_raw_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/refine_field_raw_page.dart), [`object_validation_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/object_validation_page.dart), [`root_errors_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/root_errors_page.dart).
 
-## Controller Sync
+## Controller sync
 
 Two bidirectional-sync paths, both with typed getters — no casts. Full walkthrough of ownership and `ValueNotifier<int?>` counter: [`controller_sync_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/controller_sync_page.dart).
 
@@ -759,7 +750,7 @@ The example app has a custom `ChipFormField<T>` extending `FormField<T>` in [`cu
 
 Forms in Flutter are widget-driven by default — widgets own their state via `FormFieldState`, and valiform stays out of the way (no opinionated wrapper widget). The price is that two-way sync isn't free: you opt into it via a controller (`attachTextController` / `attachController`) or a `ListenableBuilder`. The benefit is that you keep full control of the widget tree, can mix custom design-system inputs, and pay nothing for fields you don't programmatically mutate.
 
-## Imperative Errors
+## Imperative errors
 
 Force validation errors programmatically — backend rejections, async checks, external business rules. Full demo with 3 fields, 6 buttons: [`manual_error_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/manual_error_page.dart).
 
@@ -816,7 +807,7 @@ TextFormField(
 email.setError('Email already taken'); // only the email field refreshes
 ```
 
-## Inspecting Errors
+## Inspecting errors
 
 Read-only access to the current validation state — useful for live error summaries, debug panels, or custom error displays. Live panels in [`errors_preview_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/errors_preview_page.dart).
 
@@ -937,7 +928,7 @@ Live demo: [`root_errors_page.dart`](https://github.com/edunatalec/valiform/tree
 
 For async schemas the sync getter throws `VAsyncRequiredException`; use `form.rootErrorsAsync` (also self-contained — awaits each field's async pipeline before re-running `safeParseAsync`). `form.validateAsync()` already incorporates root errors into its return value too.
 
-## Async Validation
+## Async validation
 
 When a schema contains async steps (`refineAsync`, `preprocessAsync`, `transformAsync`), use the `*Async` methods. Sync inspection methods throw `VAsyncRequiredException` — this mirrors validart's own contract and prevents a form from silently submitting before the async check ran. The only sync method that stays tolerant is `VField.validator(T?)` (the required adapter for Flutter's sync `FormField.validator`; it is also the channel `validateAsync` uses to paint errors through `setError`). Full demo: [`async_validation_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/async_validation_page.dart).
 
@@ -1047,7 +1038,7 @@ Valiform doesn't impose a strategy here — the right answer depends on your lat
 
 The minimum viable guard is the token — without it the demo intentionally toggles the wrong answer on screen. Full demo (naïve vs token-guarded side by side, inverted-latency reproducer): [`async_race_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/async_race_page.dart).
 
-## Validation Modes
+## Validation modes
 
 Valiform exposes several ways to validate — pick based on whether you want UI side-effects and whether you want state mutation.
 
@@ -1069,7 +1060,7 @@ Valiform exposes several ways to validate — pick based on whether you want UI 
 - Business logic / debouncing / analytics → `form.silentValidate()` or `form.errors()`.
 - Custom error UIs → `form.errors()` (field-keyed) + `form.rootErrors` (form-level banner) + `field.error`.
 
-## Reactive Features
+## Reactive features
 
 Live JSON preview of a form as you type: [`reactive_form_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/reactive_form_page.dart).
 
@@ -1101,7 +1092,7 @@ ListenableBuilder(
 );
 ```
 
-## Disposing Resources
+## Disposing resources
 
 Both `VForm` and `VField` hold listeners and (optionally) own controllers — always dispose them.
 
@@ -1127,7 +1118,7 @@ If you attached a controller with `owns: false`, you are responsible for its `di
 
 Valiform handles form state and UI wiring; the validation rules and localized messages come from [Validart](https://pub.dev/packages/validart). Anything valid in a Validart schema works inside `V.map({...}).form()` or `V.object<T>(...).form()`.
 
-### Validation Rules
+### Validation rules
 
 For the full catalog of built-in validators — `email()`, `password()`, `regex()`, `cpf()`, `cnpj()`, type coercions, `refine` / `refineAsync`, `preprocess` / `transform`, custom messages — read the [Validart documentation](https://pub.dev/packages/validart). Valiform forwards every rule unchanged; this README focuses on the Flutter/form layer on top.
 
@@ -1135,7 +1126,7 @@ For the full catalog of built-in validators — `email()`, `password()`, `regex(
 
 Error messages are localized through Validart's locale system — switch locale globally or customize individual messages at the schema level. See [Validart's i18n guide](https://pub.dev/packages/validart#i18n-internationalization) for the full locale catalog and override patterns, and [`locale_page.dart`](https://github.com/edunatalec/valiform/tree/master/example/lib/pages/locale_page.dart) for a live runtime-switch demo.
 
-## API Reference
+## API reference
 
 ### `VField<T>`
 
@@ -1195,7 +1186,7 @@ Error messages are localized through Validart's locale system — switch locale 
 | `addValueChangedListener(fn)` / `removeValueChangedListener(fn)` | Dynamic form-level listeners                                                                                                                                                                                                                                                                              |
 | `dispose()`                                                      | Release all resources (each field + owned controllers)                                                                                                                                                                                                                                                    |
 
-## Example App
+## Example app
 
 Every feature in this README has a page in the [example app](https://github.com/edunatalec/valiform/tree/master/example). Run it to interact with each pattern live:
 
@@ -1239,4 +1230,4 @@ flutter run
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE).
