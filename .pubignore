@@ -19,6 +19,7 @@ coverage/
 lcov.info
 
 doc/api/
+doc_examples_tmp/
 
 out/
 bin/cache/
@@ -44,8 +45,14 @@ windows/.dart_tool/
 
 CLAUDE.md
 .claude/
+.superpowers/
 scripts/
 analysis_options.yaml
+CONTRIBUTING.md
+.github/
+
+.fvm/
+.fvmrc
 
 example/android/
 example/ios/
