@@ -1,23 +1,35 @@
+/// @docImport 'package:valiform/valiform.dart';
+library;
+
 import 'package:flutter/widgets.dart';
 import 'package:validart/validart.dart';
 
 import 'field.dart';
 
-/// A form manager that integrates validation, state management, and input handling.
+/// A form manager that integrates validation, state management, and input
+/// handling.
 ///
 /// `VForm<T>` is generic over the value type:
 /// - `VForm<Map<String, dynamic>>` when created from a `VMap`
 /// - `VForm<YourClass>` when created from a `VObject<YourClass>`
+///
+/// See also:
+///
+///  * [VField], one field of this form, reachable through [field].
+///  * [VMapExtension.form] and [VObjectExtension.form], the two doors that
+///    build a form from a schema.
 class VForm<T> {
   VForm._({
     required Map<String, VType> schema,
     required bool schemaHasAsync,
     required (bool, List<String>, Map<String, String>) Function(
       Map<String, dynamic>,
-    ) silentValidatorSync,
+    )
+    silentValidatorSync,
     required Future<(bool, List<String>, Map<String, String>)> Function(
       Map<String, dynamic>,
-    ) silentValidatorAsync,
+    )
+    silentValidatorAsync,
     required T Function(Map<String, dynamic>) valueBuilder,
     Map<String, dynamic> Function(T)? extract,
     GlobalKey<FormState>? formKey,
@@ -25,23 +37,25 @@ class VForm<T> {
     List<({String field, Object? equals, Map<String, VType> then})> whenRules =
         const [],
     List<
-            ({
-              bool Function(Map<String, dynamic> rawValue) condition,
-              Map<String, VType> then,
-            })>
-        whenMatchesRules = const [],
+          ({
+            bool Function(Map<String, dynamic> rawValue) condition,
+            Map<String, VType> then,
+          })
+        >
+        whenMatchesRules =
+        const [],
     Map<String, dynamic> Function(Map<String, dynamic>)?
-        containerPreprocessSync,
+    containerPreprocessSync,
     Future<Map<String, dynamic>> Function(Map<String, dynamic>)?
-        containerPreprocessAsync,
+    containerPreprocessAsync,
     void Function(Map<String, dynamic> rawValue)? onValueChanged,
-  })  : _formKey = formKey ?? GlobalKey<FormState>(),
-        _silentValidatorSync = silentValidatorSync,
-        _silentValidatorAsync = silentValidatorAsync,
-        _valueBuilder = valueBuilder,
-        _extract = extract,
-        _schema = schema,
-        _schemaHasAsync = schemaHasAsync {
+  }) : _formKey = formKey ?? GlobalKey<FormState>(),
+       _silentValidatorSync = silentValidatorSync,
+       _silentValidatorAsync = silentValidatorAsync,
+       _valueBuilder = valueBuilder,
+       _extract = extract,
+       _schema = schema,
+       _schemaHasAsync = schemaHasAsync {
     for (final entry in schema.entries) {
       final key = entry.key;
       final type = entry.value;
@@ -65,9 +79,9 @@ class VForm<T> {
             if (snap[rule.field] != rule.equals) return null;
 
             final fieldValue = _fields[key]?.value;
-            return (await conditionalType.errorsAsync(fieldValue))
-                ?.firstOrNull
-                ?.message;
+            return (await conditionalType.errorsAsync(
+              fieldValue,
+            ))?.firstOrNull?.message;
           });
         } else {
           validators.add(() {
@@ -100,9 +114,9 @@ class VForm<T> {
             if (!rule.condition(await _predicateSnapshotAsync())) return null;
 
             final fieldValue = _fields[key]?.value;
-            return (await conditionalType.errorsAsync(fieldValue))
-                ?.firstOrNull
-                ?.message;
+            return (await conditionalType.errorsAsync(
+              fieldValue,
+            ))?.firstOrNull?.message;
           });
         } else {
           validators.add(() {
@@ -126,8 +140,8 @@ class VForm<T> {
       // pipeline and makes `reset()` restore it.
       final Object? resolvedInitial =
           initialValues != null && initialValues.containsKey(key)
-              ? initialValues[key]
-              : type.defaultValueOrNull;
+          ? initialValues[key]
+          : type.defaultValueOrNull;
 
       // Container preprocess closures, scoped to this field.
       //
@@ -215,7 +229,7 @@ class VForm<T> {
     listenable.addListener(_notifyValueChanged);
   }
 
-  /// Creates a `VForm` from a `VMap` schema.
+  /// Creates a [VForm] from a `VMap` schema.
   ///
   /// The resulting form's [value] returns `Map<String, dynamic>`.
   factory VForm.map(
@@ -260,7 +274,7 @@ class VForm<T> {
     );
   }
 
-  /// Creates a `VForm` from a `VObject<T>` schema.
+  /// Creates a [VForm] from a `VObject<T>` schema.
   ///
   /// Requires a [builder] function to construct `T` from the field values.
   /// The resulting form's [value] returns an instance of `T`.
@@ -291,7 +305,8 @@ class VForm<T> {
       '(Map<String, dynamic>), not both — they target the same per-field slot.',
     );
 
-    final Map<String, dynamic>? resolvedInitial = initialValues ??
+    final Map<String, dynamic>? resolvedInitial =
+        initialValues ??
         (initialValue != null ? object.extract(initialValue) : null);
 
     // Gate the snapshot/preprocess plumbing on actually-needed work.
@@ -383,8 +398,10 @@ class VForm<T> {
         try {
           return _runWithRoot(await object.safeParseAsync(builder(raw)));
         } on TypeError {
-          final List<VError> perFieldErrors =
-              await _objectPerFieldErrorsAsync(object.schema, raw);
+          final List<VError> perFieldErrors = await _objectPerFieldErrorsAsync(
+            object.schema,
+            raw,
+          );
 
           if (perFieldErrors.isEmpty) rethrow;
 
@@ -438,12 +455,12 @@ class VForm<T> {
   }
   final GlobalKey<FormState> _formKey;
   final Map<String, VField> _fields = {};
-  final (bool, List<String>, Map<String, String>) Function(
-    Map<String, dynamic>,
-  ) _silentValidatorSync;
+  final (bool, List<String>, Map<String, String>) Function(Map<String, dynamic>)
+  _silentValidatorSync;
   final Future<(bool, List<String>, Map<String, String>)> Function(
     Map<String, dynamic>,
-  ) _silentValidatorAsync;
+  )
+  _silentValidatorAsync;
   final T Function(Map<String, dynamic>) _valueBuilder;
 
   /// Per-field schema types kept around so [_predicateSnapshot] can run
@@ -455,14 +472,14 @@ class VForm<T> {
   final Map<String, VType> _schema;
 
   /// Decomposes a typed `T` instance back into a `Map<String, dynamic>`
-  /// keyed by field name. Set by `VForm.object` (delegates to
-  /// `VObject.extract`); `null` for `VForm.map` because `T` is already
+  /// keyed by field name. Set by [VForm.object] (delegates to
+  /// `VObject.extract`); `null` for [VForm.map] because `T` is already
   /// `Map<String, dynamic>` there.
   ///
   /// Used by [set] to accept a typed `T` argument on `VObject` forms.
   final Map<String, dynamic> Function(T)? _extract;
   final List<void Function(Map<String, dynamic> rawValue)>
-      _valueChangedListeners = [];
+  _valueChangedListeners = [];
   final bool _schemaHasAsync;
   late final bool _hasAsync;
 
@@ -624,9 +641,7 @@ class VForm<T> {
 
   /// A combined `Listenable` for detecting changes across all fields.
   Listenable get listenable {
-    return Listenable.merge(
-      _fields.values.map((field) => field.listenable),
-    );
+    return Listenable.merge(_fields.values.map((field) => field.listenable));
   }
 
   /// The raw field values as a `Map<String, dynamic>` (without transforms).
@@ -696,10 +711,12 @@ class VForm<T> {
   /// the typed value, validate first and read [value]:
   ///
   /// ```dart
+  /// final form = V.map({'name': V.string()}).form();
+  ///
   /// form.addValueChangedListener((raw) {
   ///   if (form.silentValidate()) {
-  ///     final user = form.value; // safe: schema validated.
-  ///     // ...
+  ///     final validated = form.value; // safe: schema validated.
+  ///     debugPrint('$validated');
   ///   }
   /// });
   /// ```
@@ -728,9 +745,9 @@ class VForm<T> {
   /// `field.reset()` overrides any `''` that `TextFormField.reset()`
   /// writes back via its `widget.onChanged(text)` side effect.
   ///
-  /// Requires widgets to bind `initialValue` to `VField.initialValue`
-  /// (not `VField.value`) so the reset target stays stable across
-  /// rebuilds — see `VField.initialValue`'s dartdoc.
+  /// Requires widgets to bind `initialValue` to [VField.initialValue]
+  /// (not [VField.value]) so the reset target stays stable across
+  /// rebuilds — see [VField.initialValue]'s dartdoc.
   void reset() {
     _formKey.currentState?.reset();
 
@@ -743,10 +760,10 @@ class VForm<T> {
   ///
   /// **Accepted shapes depend on the form factory used:**
   ///
-  /// - On `VForm.map` (every form created from `V.map({...}).form()`):
+  /// - On [VForm.map] (every form created from `V.map({...}).form()`):
   ///   **only** a `Map<String, dynamic>` is accepted. There is no `T`
   ///   instance to pass — the form's value type already IS `Map<String, dynamic>`.
-  /// - On `VForm.object<T>` (every form created from `V.object<T>().form()`):
+  /// - On [VForm.object] (every form created from `V.object<T>().form()`):
   ///   **both** shapes are accepted — pass a `Map<String, dynamic>` for a
   ///   partial update keyed by field name, or pass a typed `T` instance and
   ///   valiform decomposes it back into a map via the schema's
@@ -758,13 +775,18 @@ class VForm<T> {
   /// this doubles as a "partial update" call.
   ///
   /// ```dart
-  /// // VForm.map — only the Map shape is accepted
-  /// form.set({'email': 'new@example.com'});
+  /// final form = V.map({
+  ///   'name': V.string(),
+  ///   'email': V.string().email(),
+  /// }).form();
   ///
-  /// // VForm.object<User> — both shapes are accepted
-  /// form.set(User(name: 'Alice', email: 'a@b.com')); // typed
-  /// form.set({'name': 'Alice', 'email': 'a@b.com'}); // partial map
+  /// form.set({'email': 'new@example.com'});          // partial update
+  /// form.set({'name': 'Alice', 'email': 'a@b.com'}); // every field
   /// ```
+  ///
+  /// On a `VForm<User>` built from `V.object<User>()`, the same call also
+  /// accepts the instance itself — `form.set(user)` — decomposed through
+  /// the schema's `VObject.extract`.
   ///
   /// [data] is typed as `Object` because the accepted shape depends on
   /// the factory used. Passing anything other than a `Map<String, dynamic>`
@@ -814,8 +836,9 @@ class VForm<T> {
       'setErrors called with an empty map — probably a mistake.',
     );
 
-    final List<String> unknown =
-        errors.keys.where((k) => !_fields.containsKey(k)).toList();
+    final List<String> unknown = errors.keys
+        .where((k) => !_fields.containsKey(k))
+        .toList();
 
     if (unknown.isNotEmpty) {
       throw ArgumentError(
@@ -947,9 +970,7 @@ class VForm<T> {
       );
     }
 
-    final (_, root, _) = _silentValidatorSync(
-      _rawSnapshot(),
-    );
+    final (_, root, _) = _silentValidatorSync(_rawSnapshot());
 
     return root;
   }
@@ -987,7 +1008,7 @@ class VForm<T> {
 
   /// Validates all form fields and returns `true` if all are valid.
   ///
-  /// Safe on partial / empty `VForm.object` forms: the user-supplied
+  /// Safe on partial / empty [VForm.object] forms: the user-supplied
   /// `builder` is not invoked when any field is missing or has the wrong
   /// type, so a builder that dereferences `data['x']` into a non-nullable
   /// parameter (without `?? fallback`) won't throw `TypeError`. Per-field
@@ -1010,9 +1031,7 @@ class VForm<T> {
     // before FormState.validate() walks each FormField. That way the
     // per-field validators see up-to-date schema errors via the
     // schemaErrorLookup closure and surface them inline.
-    final (schemaValid, _, fieldErrors) = _silentValidatorSync(
-      _rawSnapshot(),
-    );
+    final (schemaValid, _, fieldErrors) = _silentValidatorSync(_rawSnapshot());
     _schemaFieldErrors = fieldErrors;
 
     final fieldsValid = _formKey.currentState?.validate() ?? false;
@@ -1052,8 +1071,9 @@ class VForm<T> {
     // path-keyed schema errors surface inline. Pass raw values: the
     // underlying safeParseAsync applies container preprocess + per-field
     // pipeline on its own (and refineFieldRaw observes the raw input).
-    final (schemaValid, _, fieldErrors) =
-        await _silentValidatorAsync(_rawSnapshot());
+    final (schemaValid, _, fieldErrors) = await _silentValidatorAsync(
+      _rawSnapshot(),
+    );
     _schemaFieldErrors = fieldErrors;
 
     // Repaint the UI so persisted errors AND schema-level field errors
@@ -1074,7 +1094,7 @@ class VForm<T> {
   /// consuming state.
   ///
   /// Same partial-form safety as [validate]: never invokes the
-  /// `VForm.object` builder when fields are missing — see [validate].
+  /// [VForm.object] builder when fields are missing — see [validate].
   ///
   /// Throws [VAsyncRequiredException] when [hasAsync] is `true` — use
   /// [silentValidateAsync].
@@ -1088,9 +1108,7 @@ class VForm<T> {
 
     // Schema validator first so per-field validators below pick up the
     // refreshed schema field errors via schemaErrorLookup.
-    final (schemaValid, _, fieldErrors) = _silentValidatorSync(
-      _rawSnapshot(),
-    );
+    final (schemaValid, _, fieldErrors) = _silentValidatorSync(_rawSnapshot());
     _schemaFieldErrors = fieldErrors;
 
     bool allValid = true;
@@ -1107,8 +1125,9 @@ class VForm<T> {
   /// Async variant of [silentValidate]: runs full pipeline without
   /// touching the UI. Does NOT consume one-shot manual errors.
   Future<bool> silentValidateAsync() async {
-    final (schemaValid, _, fieldErrors) =
-        await _silentValidatorAsync(_rawSnapshot());
+    final (schemaValid, _, fieldErrors) = await _silentValidatorAsync(
+      _rawSnapshot(),
+    );
     _schemaFieldErrors = fieldErrors;
 
     bool allValid = true;
@@ -1133,7 +1152,7 @@ class VForm<T> {
   /// Validates each field in [schema] against the corresponding raw value
   /// in [raw], without ever constructing the typed `T` instance.
   ///
-  /// Used by the `VForm.object` silent validators to avoid invoking the
+  /// Used by the [VForm.object] silent validators to avoid invoking the
   /// user-supplied `builder` on partial forms (which would crash on
   /// non-nullable parameters). Mirrors the field-iteration loop inside
   /// `VObject.safeParse` so the resulting [VError]s look identical:
@@ -1201,8 +1220,9 @@ class VForm<T> {
         validators: validators,
         asyncValidators: asyncValidators,
         preprocessor: preprocessor == null ? null : (raw) => preprocessor(raw),
-        preprocessorAsync:
-            preprocessorAsync == null ? null : (raw) => preprocessorAsync(raw),
+        preprocessorAsync: preprocessorAsync == null
+            ? null
+            : (raw) => preprocessorAsync(raw),
         schemaErrorLookup: schemaErrorLookup,
       );
     });

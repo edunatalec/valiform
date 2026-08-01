@@ -1,18 +1,28 @@
+/// @docImport 'package:valiform/valiform.dart';
+library;
+
 import 'package:flutter/widgets.dart';
 import 'package:validart/validart.dart';
 
 /// A form field abstraction for managing validation and state.
 ///
-/// The `VField<T>` class represents a single form field inside a validation schema.
-/// It provides **automatic validation** and **state management** via `ValueNotifier`.
+/// A `VField<T>` represents a single field inside a validation schema. It
+/// provides **automatic validation** and **state management** via
+/// `ValueNotifier`.
 ///
 /// A controller can be attached optionally for bidirectional synchronization:
-/// - [attachController] accepts a `ValueNotifier<T?>` (or any subclass, like
-///   `LuneSelectFieldController<T>`).
-/// - `attachTextController` (via extension on `VField<String>`) accepts a
-///   `TextEditingController`.
+/// - [attachController] accepts a `ValueNotifier<T?>` — including any subclass,
+///   such as a design-system select controller.
+/// - [VFieldStringController.attachTextController] (an extension on
+///   `VField<String>`) accepts a `TextEditingController`.
 /// - [onValueChanged] takes a callback and invokes it on every value change —
 ///   useful for bridging to external state that isn't a `ValueNotifier<T?>`.
+///
+/// See also:
+///
+///  * [VForm], which creates and owns every field of a schema.
+///  * [VFieldStringController], which adds `TextEditingController` support to
+///    string fields.
 class VField<T> {
   /// Creates a new [VField] with the given [type], [validators], and optional [initialValue].
   ///
@@ -31,21 +41,20 @@ class VField<T> {
     Object? Function(T?)? preprocessor,
     Future<Object?> Function(T?)? preprocessorAsync,
     String? Function()? schemaErrorLookup,
-  })  : _type = type,
-        // Apply the same write-path normalization to the initial value so the
-        // "empty everywhere is null" contract holds from construction. Without
-        // this, callers that hydrate the form with `''` (e.g. a seed DTO that
-        // defaults string fields to empty) would land `''` in the notifier and
-        // see `field.value == ''` until the user types — inconsistent with
-        // every other write path.
-        _initialValue = _normalizeEmptyToNullFor(type, initialValue),
-        _value =
-            ValueNotifier<T?>(_normalizeEmptyToNullFor(type, initialValue)),
-        _validators = validators,
-        _asyncValidators = asyncValidators,
-        _preprocessor = preprocessor,
-        _preprocessorAsync = preprocessorAsync,
-        _schemaErrorLookup = schemaErrorLookup;
+  }) : _type = type,
+       // Apply the same write-path normalization to the initial value so the
+       // "empty everywhere is null" contract holds from construction. Without
+       // this, callers that hydrate the form with `''` (e.g. a seed DTO that
+       // defaults string fields to empty) would land `''` in the notifier and
+       // see `field.value == ''` until the user types — inconsistent with
+       // every other write path.
+       _initialValue = _normalizeEmptyToNullFor(type, initialValue),
+       _value = ValueNotifier<T?>(_normalizeEmptyToNullFor(type, initialValue)),
+       _validators = validators,
+       _asyncValidators = asyncValidators,
+       _preprocessor = preprocessor,
+       _preprocessorAsync = preprocessorAsync,
+       _schemaErrorLookup = schemaErrorLookup;
   final VType<T> _type;
   final ValueNotifier<T?> _value;
   final T? _initialValue;
@@ -58,7 +67,7 @@ class VField<T> {
   /// Attach this key to the corresponding `TextFormField` (or any
   /// `FormField`) to enable single-field revalidation via [setError].
   /// Without it, errors set imperatively only surface on the next full
-  /// `VForm.validate()` call.
+  /// [VForm.validate] call.
   final GlobalKey<FormFieldState<T>> key = GlobalKey<FormFieldState<T>>();
 
   ValueNotifier<T?>? _attachedController;
@@ -194,15 +203,20 @@ class VField<T> {
   /// controller when [dispose] is called — enabling the inline pattern:
   ///
   /// ```dart
+  /// final form = V.map({'age': V.int()}).form();
+  /// final field = form.field<int>('age');
+  ///
   /// field.attachController(ValueNotifier<int?>(null));
-  /// // or for custom controllers that extend ValueNotifier<T?>:
-  /// field.attachController(LuneSelectFieldController<Country>());
   /// ```
+  ///
+  /// Any controller extending `ValueNotifier<T?>` works — a design-system
+  /// select controller is attached the same way.
   ///
   /// Pass `owns: false` when the controller's lifecycle is managed externally.
   ///
-  /// For `TextEditingController`, use `attachTextController` (extension on
-  /// `VField<String>`) since its value type is `TextEditingValue`, not `T?`.
+  /// For `TextEditingController`, use
+  /// [VFieldStringController.attachTextController] since its value type is
+  /// `TextEditingValue`, not `T?`.
   void attachController(ValueNotifier<T?> controller, {bool owns = true}) {
     final previouslyOwned = _ownsAttachedController
         ? (_attachedTextController ?? _attachedController)
@@ -223,7 +237,7 @@ class VField<T> {
 
   /// The `ValueNotifier<T?>` currently attached via [attachController], or
   /// `null` if none. For `TextEditingController` on `VField<String>`, use
-  /// `textController` (from the string extension).
+  /// [VFieldStringController.textController].
   ValueNotifier<T?>? get controller => _attachedController;
 
   /// Registers a callback invoked whenever the field value changes, receiving
@@ -235,8 +249,12 @@ class VField<T> {
   /// changes. Returns a dispose function that removes the listener.
   ///
   /// ```dart
+  /// final form = V.map({'name': V.string()}).form();
+  /// final field = form.field<String>('name');
+  /// final controller = TextEditingController();
+  ///
   /// final dispose = field.onValueChanged((value) {
-  ///   myController.text = value ?? '';
+  ///   controller.text = value ?? '';
   /// });
   /// // later: dispose();
   /// ```
@@ -297,8 +315,9 @@ class VField<T> {
   void _onTextControllerChanged() {
     if (_syncing) return;
 
-    final T? newValue =
-        _normalizeEmptyToNull(_attachedTextController!.text as T);
+    final T? newValue = _normalizeEmptyToNull(
+      _attachedTextController!.text as T,
+    );
     if (_value.value == newValue) return;
 
     _syncing = true;
@@ -423,18 +442,24 @@ class VField<T> {
   /// `field.validator` cannot await, so the typical wiring is:
   ///
   /// ```dart
+  /// final form = V.map({'email': V.string().email()}).form();
+  /// final field = form.field<String>('email');
+  ///
   /// TextFormField(
   ///   key: field.key,
   ///   validator: field.validator,           // covers sync rules
   ///   onChanged: (value) async {
   ///     field.onChanged(value);
   ///     final err = await field.computeAsyncError();
-  ///     if (!mounted) return;
   ///     if (err == null) field.clearError();
   ///     else field.setError(err, persist: true);
   ///   },
   /// );
   /// ```
+  ///
+  /// Inside a `State`, guard the write that follows the `await` with
+  /// `if (!mounted) return;` — the widget may be gone by the time the
+  /// async pipeline resolves.
   ///
   /// `errorAsync` would loop in that pattern (it reads back the same
   /// `_manualError` that [setError] just wrote). Used internally by
@@ -572,8 +597,9 @@ class VField<T> {
 
   String? _runValidators(T? value, {required bool consume}) {
     final processed = _preprocess(value);
-    final stdError =
-        _type.hasAsync ? null : _type.errors(processed)?.firstOrNull?.message;
+    final stdError = _type.hasAsync
+        ? null
+        : _type.errors(processed)?.firstOrNull?.message;
 
     String? extraError;
 
@@ -641,7 +667,8 @@ class VField<T> {
   /// Disposes of the field, freeing resources.
   ///
   /// Detaches any attached controller. If the field owns the controller
-  /// (default when attached via [attachController] or `attachTextController`),
+  /// (default when attached via [attachController] or
+  /// [VFieldStringController.attachTextController]),
   /// it's disposed too. Removes any [onValueChanged] listeners still active
   /// and always disposes the internal `ValueNotifier`.
   void dispose() {
@@ -662,9 +689,16 @@ class VField<T> {
   }
 }
 
-/// `TextEditingController` integration for `VField<String>`. Adds a
-/// specialized attach method and a typed getter, since `TextEditingController`
-/// exposes its value as `TextEditingValue` rather than `String`.
+/// `TextEditingController` integration for a `VField<String>`.
+///
+/// Adds a specialized attach method and a typed getter, since
+/// `TextEditingController` exposes its value as `TextEditingValue` rather than
+/// `String`.
+///
+/// See also:
+///
+///  * [VField.attachController], the generic `ValueNotifier<T?>` equivalent.
+///  * [VField.onValueChanged], for state that is not a controller at all.
 extension VFieldStringController on VField<String> {
   /// Attaches a `TextEditingController` for bidirectional sync with this
   /// `VField<String>`. Same ownership semantics as [attachController] —
