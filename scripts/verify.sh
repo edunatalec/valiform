@@ -66,6 +66,13 @@ if [ "$README_VALIDART_VERSION" != "$VALIDART_VERSION" ]; then
   exit 1
 fi
 
+STALE_VALIDART=$(grep -E 'validart([^_]|$)' README.md | grep -oE '\^[0-9]+\.[0-9]+\.[0-9]+' | sort -u | grep -vx "\^${VALIDART_VERSION}" || true)
+if [ -n "$STALE_VALIDART" ]; then
+  echo
+  echo "❌ Aborting: README mentions validart at $(echo "$STALE_VALIDART" | tr '\n' ' '), but pubspec.yaml requires ^${VALIDART_VERSION}."
+  echo "   Every mention of the version has to agree — Requirements included, not just the Installation block."
+  exit 1
+fi
 echo "README pinned at valiform ^${README_VALIFORM_VERSION}, validart ^${README_VALIDART_VERSION} ✓"
 
 step "Verifying CHANGELOG documents the pubspec version"
