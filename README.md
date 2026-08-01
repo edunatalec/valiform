@@ -11,7 +11,7 @@ Flutter 3.35 or newer, which ships Dart 3.9:
 flutter --version
 ```
 
-- [validart](https://pub.dev/packages/validart) `^3.0.1`.
+- [validart](https://pub.dev/packages/validart) `^3.0.2`.
 
 ## Installation
 
@@ -26,7 +26,7 @@ Or in `pubspec.yaml`:
 ```yaml
 dependencies:
   valiform: ^3.1.0
-  validart: ^3.0.1
+  validart: ^3.0.2
 ```
 
 ```dart
