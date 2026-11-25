@@ -8,6 +8,8 @@ analyzer:
     sort_constructors_first: warning
     prefer_initializing_formals: warning
     use_build_context_synchronously: warning
+  exclude:
+    - build/**
 
 linter:
   rules:
